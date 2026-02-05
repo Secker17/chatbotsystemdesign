@@ -255,12 +255,13 @@ export async function GET() {
     }
     .vintra-pre-chat {
       padding: 20px;
-      display: none;
+      display: flex;
       flex-direction: column;
       gap: 16px;
+      flex: 1;
     }
-    .vintra-pre-chat.show {
-      display: flex;
+    .vintra-pre-chat.hidden {
+      display: none;
     }
     .vintra-pre-chat h3 {
       margin: 0;
@@ -351,7 +352,7 @@ export async function GET() {
           <input type="email" class="vintra-email-input" placeholder="Your email (optional)">
           <button class="vintra-start-btn">Start Chat</button>
         </div>
-        <div class="vintra-messages"></div>
+        <div class="vintra-messages" style="display: none;"></div>
         <div class="vintra-typing">
           <div class="vintra-typing-dots">
             <span></span><span></span><span></span>
@@ -418,7 +419,7 @@ export async function GET() {
         sessionId = data.session_id;
         hasStartedChat = true;
         
-        preChat.style.display = 'none';
+        preChat.classList.add('hidden');
         messagesContainer.style.display = 'flex';
         inputArea.style.display = 'flex';
         if (config?.show_branding) {
