@@ -12,10 +12,10 @@ import {
   Code2, 
   ArrowRight,
   CheckCircle2,
-  Bot,
-  Users,
+  Check,
   Globe
 } from 'lucide-react'
+import { PRODUCTS, formatPrice } from '@/lib/products'
 
 const VINTRA_LOGO = "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/vintratext-skOk2ureyF4j9EWL7jotcLG1aD5kpr.png"
 
@@ -31,7 +31,7 @@ export default function LandingPage() {
               alt="Vintra" 
               width={120} 
               height={40} 
-              className="h-8 w-auto invert dark:invert-0"
+              className="h-8 w-auto"
             />
           </Link>
           <nav className="hidden items-center gap-6 md:flex">
@@ -61,7 +61,7 @@ export default function LandingPage() {
         <div className="absolute inset-0 -z-10 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-accent via-background to-background" />
         <div className="mx-auto max-w-4xl text-center">
           <Badge variant="secondary" className="mb-6">
-            Now with AI-powered responses
+            Live Chat Platform by Vintra
           </Badge>
           <h1 className="text-balance text-4xl font-bold tracking-tight text-foreground sm:text-5xl lg:text-6xl">
             Build intelligent chatbots that 
@@ -87,12 +87,12 @@ export default function LandingPage() {
           </div>
         </div>
 
-        {/* Stats */}
+        {/* Key Benefits */}
         <div className="mx-auto mt-20 grid max-w-4xl grid-cols-1 gap-8 sm:grid-cols-3">
           {[
-            { label: 'Active Chatbots', value: '50K+', icon: Bot },
-            { label: 'Messages Processed', value: '10M+', icon: MessageSquare },
-            { label: 'Happy Customers', value: '5K+', icon: Users },
+            { label: 'Setup Time', value: '2 min', icon: Zap },
+            { label: 'Code Required', value: '1 line', icon: Code2 },
+            { label: 'Uptime', value: '99.9%', icon: Shield },
           ].map((stat) => (
             <div key={stat.label} className="flex flex-col items-center gap-2 text-center">
               <stat.icon className="h-8 w-8 text-primary" />
@@ -202,18 +202,85 @@ export default function LandingPage() {
               </div>
               <pre className="overflow-x-auto rounded-lg bg-muted p-4">
                 <code className="font-mono text-sm text-foreground">
-{`<!-- VintraStudio Chatbot -->
+{`<!-- Vintra Chatbot Widget -->
 <script 
-  src="https://cdn.vintrastudio.com/widget.js"
+  src="YOUR_DOMAIN/api/widget.js"
   data-chatbot-id="YOUR_CHATBOT_ID"
   async
 ></script>`}
                 </code>
               </pre>
               <p className="mt-4 text-xs text-muted-foreground">
-                Replace YOUR_CHATBOT_ID with your unique identifier from the admin panel.
+                Replace YOUR_DOMAIN and YOUR_CHATBOT_ID with values from your admin panel.
               </p>
             </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Pricing Section */}
+      <section id="pricing" className="border-t px-4 py-20 sm:px-6 lg:px-8">
+        <div className="mx-auto max-w-7xl">
+          <div className="text-center">
+            <h2 className="text-balance text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
+              Simple, transparent pricing
+            </h2>
+            <p className="mx-auto mt-4 max-w-2xl text-muted-foreground">
+              Start free and scale as you grow. No hidden fees.
+            </p>
+          </div>
+
+          <div className="mt-16 grid gap-8 lg:grid-cols-3">
+            {PRODUCTS.map((product) => (
+              <Card 
+                key={product.id} 
+                className={`relative flex flex-col ${product.popular ? 'border-primary ring-2 ring-primary' : 'border-border/50'}`}
+              >
+                {product.popular && (
+                  <Badge className="absolute -top-3 left-1/2 -translate-x-1/2">
+                    Most Popular
+                  </Badge>
+                )}
+                <CardHeader>
+                  <CardTitle className="text-xl">{product.name}</CardTitle>
+                  <CardDescription>{product.description}</CardDescription>
+                </CardHeader>
+                <CardContent className="flex-1">
+                  <div className="mb-6">
+                    <span className="text-4xl font-bold text-foreground">
+                      {formatPrice(product.priceInCents)}
+                    </span>
+                    {product.priceInCents > 0 && product.interval && (
+                      <span className="text-muted-foreground">/{product.interval}</span>
+                    )}
+                  </div>
+                  <ul className="space-y-3">
+                    {product.features.slice(0, 5).map((feature) => (
+                      <li key={feature} className="flex items-start gap-3">
+                        <Check className="h-5 w-5 shrink-0 text-primary" />
+                        <span className="text-sm text-muted-foreground">{feature}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </CardContent>
+                <div className="p-6 pt-0">
+                  <Link href={product.priceInCents === 0 ? '/auth/sign-up' : `/checkout/${product.id}`} className="block">
+                    <Button 
+                      className="w-full" 
+                      variant={product.popular ? 'default' : 'outline'}
+                    >
+                      {product.priceInCents === 0 ? 'Get Started Free' : 'Subscribe'}
+                    </Button>
+                  </Link>
+                </div>
+              </Card>
+            ))}
+          </div>
+
+          <div className="mt-12 text-center">
+            <Link href="/pricing" className="text-sm text-primary hover:underline">
+              View full plan comparison
+            </Link>
           </div>
         </div>
       </section>
@@ -225,7 +292,7 @@ export default function LandingPage() {
             Ready to transform your customer engagement?
           </h2>
           <p className="mx-auto mt-4 max-w-xl text-primary-foreground/80">
-            Join thousands of businesses using VintraStudio to connect with their customers.
+            Start building your chatbot today. Free to get started, no credit card required.
           </p>
           <div className="mt-8 flex flex-col items-center justify-center gap-4 sm:flex-row">
             <Link href="/auth/sign-up">
@@ -248,7 +315,7 @@ export default function LandingPage() {
                 alt="Vintra" 
                 width={100} 
                 height={32} 
-                className="h-6 w-auto invert dark:invert-0"
+                className="h-6 w-auto"
               />
             </Link>
             <p className="text-sm text-muted-foreground">
