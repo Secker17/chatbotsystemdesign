@@ -14,9 +14,12 @@ import {
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import Link from 'next/link'
+import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
-import { Bot, Loader2 } from 'lucide-react'
+import { Loader2 } from 'lucide-react'
+
+const VINTRA_LOGO = "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/vintratext-skOk2ureyF4j9EWL7jotcLG1aD5kpr.png"
 
 export default function SignUpPage() {
   const [email, setEmail] = useState('')
@@ -70,10 +73,14 @@ export default function SignUpPage() {
   return (
     <div className="flex min-h-svh w-full flex-col items-center justify-center bg-muted/30 p-4 sm:p-6 md:p-10">
       <Link href="/" className="mb-8 flex items-center gap-2">
-        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary">
-          <Bot className="h-5 w-5 text-primary-foreground" />
-        </div>
-        <span className="text-xl font-bold text-foreground">VintraStudio</span>
+        <Image 
+          src={VINTRA_LOGO} 
+          alt="Vintra" 
+          width={140} 
+          height={48} 
+          className="h-10 w-auto dark:invert"
+        />
+        <span className="text-lg font-medium text-muted-foreground">Studio</span>
       </Link>
       
       <div className="w-full max-w-sm">

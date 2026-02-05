@@ -2,8 +2,11 @@
 
 import { User } from '@supabase/supabase-js'
 import Link from 'next/link'
+import Image from 'next/image'
 import { usePathname, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+
+const VINTRA_LOGO = "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/vintratext-skOk2ureyF4j9EWL7jotcLG1aD5kpr.png"
 import {
   Sidebar,
   SidebarContent,
@@ -107,11 +110,15 @@ export function AdminSidebar({ user, profile }: AdminSidebarProps) {
         <SidebarMenu>
           <SidebarMenuItem>
             <Link href="/admin" className="flex items-center gap-2 px-2 py-3">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-sidebar-primary">
-                <Bot className="h-4 w-4 text-sidebar-primary-foreground" />
-              </div>
-              <span className="text-lg font-semibold text-sidebar-foreground">
-                VintraStudio
+              <Image 
+                src={VINTRA_LOGO} 
+                alt="Vintra" 
+                width={100} 
+                height={32} 
+                className="h-7 w-auto invert"
+              />
+              <span className="text-sm font-medium text-sidebar-foreground/70">
+                Studio
               </span>
             </Link>
           </SidebarMenuItem>
