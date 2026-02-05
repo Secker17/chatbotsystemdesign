@@ -12,10 +12,10 @@ import {
   Code2, 
   ArrowRight,
   CheckCircle2,
-  Bot,
-  Users,
+  Check,
   Globe
 } from 'lucide-react'
+import { PRODUCTS, formatPrice } from '@/lib/products'
 
 const VINTRA_LOGO = "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/vintratext-skOk2ureyF4j9EWL7jotcLG1aD5kpr.png"
 
@@ -214,6 +214,73 @@ export default function LandingPage() {
                 Replace YOUR_DOMAIN and YOUR_CHATBOT_ID with values from your admin panel.
               </p>
             </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Pricing Section */}
+      <section id="pricing" className="border-t px-4 py-20 sm:px-6 lg:px-8">
+        <div className="mx-auto max-w-7xl">
+          <div className="text-center">
+            <h2 className="text-balance text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
+              Simple, transparent pricing
+            </h2>
+            <p className="mx-auto mt-4 max-w-2xl text-muted-foreground">
+              Start free and scale as you grow. No hidden fees.
+            </p>
+          </div>
+
+          <div className="mt-16 grid gap-8 lg:grid-cols-3">
+            {PRODUCTS.map((product) => (
+              <Card 
+                key={product.id} 
+                className={`relative flex flex-col ${product.popular ? 'border-primary ring-2 ring-primary' : 'border-border/50'}`}
+              >
+                {product.popular && (
+                  <Badge className="absolute -top-3 left-1/2 -translate-x-1/2">
+                    Most Popular
+                  </Badge>
+                )}
+                <CardHeader>
+                  <CardTitle className="text-xl">{product.name}</CardTitle>
+                  <CardDescription>{product.description}</CardDescription>
+                </CardHeader>
+                <CardContent className="flex-1">
+                  <div className="mb-6">
+                    <span className="text-4xl font-bold text-foreground">
+                      {formatPrice(product.priceInCents)}
+                    </span>
+                    {product.priceInCents > 0 && product.interval && (
+                      <span className="text-muted-foreground">/{product.interval}</span>
+                    )}
+                  </div>
+                  <ul className="space-y-3">
+                    {product.features.slice(0, 5).map((feature) => (
+                      <li key={feature} className="flex items-start gap-3">
+                        <Check className="h-5 w-5 shrink-0 text-primary" />
+                        <span className="text-sm text-muted-foreground">{feature}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </CardContent>
+                <div className="p-6 pt-0">
+                  <Link href={product.priceInCents === 0 ? '/auth/sign-up' : `/checkout/${product.id}`} className="block">
+                    <Button 
+                      className="w-full" 
+                      variant={product.popular ? 'default' : 'outline'}
+                    >
+                      {product.priceInCents === 0 ? 'Get Started Free' : 'Subscribe'}
+                    </Button>
+                  </Link>
+                </div>
+              </Card>
+            ))}
+          </div>
+
+          <div className="mt-12 text-center">
+            <Link href="/pricing" className="text-sm text-primary hover:underline">
+              View full plan comparison
+            </Link>
           </div>
         </div>
       </section>
