@@ -14,15 +14,14 @@ const VINTRA_LOGO = "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/vin
 export default function SignUpSuccessPage() {
   return (
     <div className="flex min-h-svh w-full flex-col items-center justify-center bg-muted/30 p-4 sm:p-6 md:p-10">
-      <Link href="/" className="mb-8 flex items-center gap-2">
+      <Link href="/" className="mb-8 flex items-center">
         <Image 
           src={VINTRA_LOGO} 
           alt="Vintra" 
           width={140} 
           height={48} 
-          className="h-10 w-auto dark:invert"
+          className="h-10 w-auto invert dark:invert-0"
         />
-        <span className="text-lg font-medium text-muted-foreground">Studio</span>
       </Link>
       
       <div className="w-full max-w-sm">

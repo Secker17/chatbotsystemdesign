@@ -25,15 +25,14 @@ export default function LandingPage() {
       {/* Navigation */}
       <header className="sticky top-0 z-50 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
-          <Link href="/" className="flex items-center gap-2">
+          <Link href="/" className="flex items-center">
             <Image 
               src={VINTRA_LOGO} 
               alt="Vintra" 
               width={120} 
               height={40} 
-              className="h-8 w-auto dark:invert"
+              className="h-8 w-auto invert dark:invert-0"
             />
-            <span className="text-lg font-medium text-muted-foreground">Studio</span>
           </Link>
           <nav className="hidden items-center gap-6 md:flex">
             <Link href="#features" className="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground">
@@ -243,15 +242,14 @@ export default function LandingPage() {
       <footer className="border-t bg-background px-4 py-12 sm:px-6 lg:px-8">
         <div className="mx-auto max-w-7xl">
           <div className="flex flex-col items-center justify-between gap-6 sm:flex-row">
-            <Link href="/" className="flex items-center gap-2">
+            <Link href="/" className="flex items-center">
               <Image 
                 src={VINTRA_LOGO} 
                 alt="Vintra" 
                 width={100} 
                 height={32} 
-                className="h-6 w-auto dark:invert"
+                className="h-6 w-auto invert dark:invert-0"
               />
-              <span className="text-sm font-medium text-muted-foreground">Studio</span>
             </Link>
             <p className="text-sm text-muted-foreground">
               &copy; {new Date().getFullYear()} VintraStudio. All rights reserved.
