@@ -15,9 +15,9 @@ const jetbrainsMono = JetBrains_Mono({
 })
 
 export const metadata: Metadata = {
-  title: 'VintraStudio - AI-Powered Chatbot Platform',
+  title: 'Vintra - Chat Platform',
   description: 'Build, customize, and deploy intelligent chatbots for your website. Easy integration, powerful admin tools, and seamless customer engagement.',
-  keywords: 'chatbot, AI, customer support, live chat, website widget',
+  keywords: 'chatbot, customer support, live chat, website widget, Vintra',
 }
 
 export const viewport: Viewport = {
