@@ -3,7 +3,7 @@
 import { stripe } from '@/lib/stripe'
 import { PRODUCTS } from '@/lib/products'
 
-export async function startCheckoutSession(productId: string) {
+export async function startCheckoutSession(productId: string): Promise<string> {
   const product = PRODUCTS.find((p) => p.id === productId)
   if (!product) {
     throw new Error(`Product with id "${productId}" not found`)
@@ -11,7 +11,7 @@ export async function startCheckoutSession(productId: string) {
 
   // Free plan - no checkout needed
   if (product.priceInCents === 0) {
-    return null
+    throw new Error('Free plan does not require checkout')
   }
 
   // Create Checkout Session for subscription
@@ -34,6 +34,10 @@ export async function startCheckoutSession(productId: string) {
     ],
     mode: product.interval ? 'subscription' : 'payment',
   })
+
+  if (!session.client_secret) {
+    throw new Error('Failed to create checkout session')
+  }
 
   return session.client_secret
 }
