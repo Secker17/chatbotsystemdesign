@@ -99,7 +99,7 @@ importers:
         specifier: ^8.7.0
         version: 8.7.0
       '@supabase/ssr':
-        specifier: 0.5.2
+        specifier: ^0.5.2
         version: 0.5.2(@supabase/supabase-js@2.94.1)
       '@supabase/supabase-js':
         specifier: ^2.94.1

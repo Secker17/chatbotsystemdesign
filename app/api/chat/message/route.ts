@@ -1,18 +1,5 @@
 import { createPublicClient } from '@/lib/supabase/public'
-import { createClient } from '@supabase/supabase-js'
 import { NextRequest, NextResponse } from 'next/server'
-
-// Create a public Supabase client for widget APIs (no auth required)
-function getPublicSupabaseClient() {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-  
-  if (!supabaseUrl || !supabaseAnonKey) {
-    throw new Error('Missing Supabase environment variables')
-  }
-  
-  return createClient(supabaseUrl, supabaseAnonKey)
-}
 
 export async function POST(request: NextRequest) {
   try {
@@ -23,7 +10,6 @@ export async function POST(request: NextRequest) {
     }
 
     const supabase = createPublicClient()
-    const supabase = getPublicSupabaseClient()
 
     // Get session details
     const { data: session, error: sessionError } = await supabase
@@ -33,7 +19,6 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (sessionError || !session) {
-      console.error('[v0] Session not found:', sessionError)
       console.error('Session fetch error:', sessionError)
       return NextResponse.json({ error: 'Session not found' }, { status: 404 })
     }
@@ -51,7 +36,7 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (messageError) {
-      console.error('[v0] Message creation error:', messageError)
+      console.error('Message creation error:', messageError)
       return NextResponse.json({ error: 'Failed to send message' }, { status: 500 })
     }
 
@@ -82,7 +67,7 @@ export async function POST(request: NextRequest) {
       },
     })
   } catch (error) {
-    console.error('[v0] Message API error:', error)
+    console.error('Message API error:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
