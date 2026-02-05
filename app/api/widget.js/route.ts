@@ -24,9 +24,6 @@ export async function GET() {
     API_BASE = scriptTag.src.replace(/\\/api\\/widget\\.js.*$/, '');
   }
   console.log('[VintraStudio] API Base:', API_BASE);
-  const scriptSrc = scriptTag.src;
-  const url = new URL(scriptSrc);
-  const API_BASE = url.origin;
   
   // Styles
   const styles = \`
