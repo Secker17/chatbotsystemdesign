@@ -1,5 +1,18 @@
 import { createPublicClient } from '@/lib/supabase/public'
+import { createClient } from '@supabase/supabase-js'
 import { NextRequest, NextResponse } from 'next/server'
+
+// Create a public Supabase client for widget APIs (no auth required)
+function getPublicSupabaseClient() {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  
+  if (!supabaseUrl || !supabaseAnonKey) {
+    throw new Error('Missing Supabase environment variables')
+  }
+  
+  return createClient(supabaseUrl, supabaseAnonKey)
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -10,6 +23,7 @@ export async function POST(request: NextRequest) {
     }
 
     const supabase = createPublicClient()
+    const supabase = getPublicSupabaseClient()
 
     // Get the admin_id from the chatbot config
     const { data: config, error: configError } = await supabase
@@ -20,6 +34,7 @@ export async function POST(request: NextRequest) {
 
     if (configError || !config) {
       console.error('[v0] Config not found:', configError)
+      console.error('Config fetch error:', configError)
       return NextResponse.json({ error: 'Chatbot not found' }, { status: 404 })
     }
 
@@ -45,14 +60,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Failed to create session' }, { status: 500 })
     }
 
-    // Log analytics event
-    await supabase.from('analytics_events').insert({
+    // Log analytics event (non-blocking)
+    supabase.from('analytics_events').insert({
       admin_id: config.admin_id,
       chatbot_id,
       session_id: session.id,
       event_type: 'session_started',
       event_data: { visitor_name, visitor_email },
-    })
+    }).then(() => {}).catch(() => {})
 
     return NextResponse.json({ session_id: session.id }, {
       headers: {

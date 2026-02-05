@@ -1,5 +1,18 @@
 import { createPublicClient } from '@/lib/supabase/public'
+import { createClient } from '@supabase/supabase-js'
 import { NextRequest, NextResponse } from 'next/server'
+
+// Create a public Supabase client for widget APIs (no auth required)
+function getPublicSupabaseClient() {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  
+  if (!supabaseUrl || !supabaseAnonKey) {
+    throw new Error('Missing Supabase environment variables')
+  }
+  
+  return createClient(supabaseUrl, supabaseAnonKey)
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -10,6 +23,7 @@ export async function POST(request: NextRequest) {
     }
 
     const supabase = createPublicClient()
+    const supabase = getPublicSupabaseClient()
 
     // Get session details
     const { data: session, error: sessionError } = await supabase
@@ -20,6 +34,7 @@ export async function POST(request: NextRequest) {
 
     if (sessionError || !session) {
       console.error('[v0] Session not found:', sessionError)
+      console.error('Session fetch error:', sessionError)
       return NextResponse.json({ error: 'Session not found' }, { status: 404 })
     }
 
@@ -40,20 +55,21 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Failed to send message' }, { status: 500 })
     }
 
-    // Update session's updated_at
-    await supabase
+    // Update session's updated_at (non-blocking)
+    supabase
       .from('chat_sessions')
       .update({ updated_at: new Date().toISOString() })
       .eq('id', session_id)
+      .then(() => {}).catch(() => {})
 
-    // Log analytics event
-    await supabase.from('analytics_events').insert({
+    // Log analytics event (non-blocking)
+    supabase.from('analytics_events').insert({
       admin_id: session.admin_id,
       chatbot_id: session.chatbot_id,
       session_id,
       event_type: 'message_sent',
       event_data: { sender_type, message_length: content.length },
-    })
+    }).then(() => {}).catch(() => {})
 
     return NextResponse.json({ 
       message_id: message.id, 

@@ -1,5 +1,18 @@
 import { createPublicClient } from '@/lib/supabase/public'
+import { createClient } from '@supabase/supabase-js'
 import { NextRequest, NextResponse } from 'next/server'
+
+// Create a public Supabase client for widget APIs (no auth required)
+function getPublicSupabaseClient() {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  
+  if (!supabaseUrl || !supabaseAnonKey) {
+    throw new Error('Missing Supabase environment variables')
+  }
+  
+  return createClient(supabaseUrl, supabaseAnonKey)
+}
 
 export async function GET(request: NextRequest) {
   const sessionId = request.nextUrl.searchParams.get('session_id')
@@ -11,6 +24,7 @@ export async function GET(request: NextRequest) {
 
   try {
     const supabase = createPublicClient()
+    const supabase = getPublicSupabaseClient()
 
     let query = supabase
       .from('chat_messages')
@@ -35,6 +49,7 @@ export async function GET(request: NextRequest) {
 
     if (error) {
       console.error('[v0] Messages fetch error:', error)
+      console.error('Messages fetch error:', error)
       return NextResponse.json({ error: 'Failed to fetch messages' }, { status: 500 })
     }
 
@@ -47,6 +62,7 @@ export async function GET(request: NextRequest) {
     })
   } catch (error) {
     console.error('[v0] Messages API error:', error)
+    console.error('Messages API error:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
