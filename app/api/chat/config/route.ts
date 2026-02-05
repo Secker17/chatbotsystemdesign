@@ -1,18 +1,6 @@
 
-import { createClient } from '@supabase/supabase-js'
+import { createPublicClient } from '@/lib/supabase/public'
 import { NextRequest, NextResponse } from 'next/server'
-
-// Create a public Supabase client for widget APIs (no auth required)
-function getPublicSupabaseClient() {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-  
-  if (!supabaseUrl || !supabaseAnonKey) {
-    throw new Error('Missing Supabase environment variables')
-  }
-  
-  return createClient(supabaseUrl, supabaseAnonKey)
-}
 
 export async function GET(request: NextRequest) {
   const chatbotId = request.nextUrl.searchParams.get('chatbot_id')
@@ -23,7 +11,7 @@ export async function GET(request: NextRequest) {
 
   try {
 
-    const supabase = getPublicSupabaseClient()
+    const supabase = createPublicClient()
 
 
     const { data, error } = await supabase
