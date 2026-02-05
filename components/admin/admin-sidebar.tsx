@@ -109,17 +109,14 @@ export function AdminSidebar({ user, profile }: AdminSidebarProps) {
       <SidebarHeader className="border-b border-sidebar-border">
         <SidebarMenu>
           <SidebarMenuItem>
-            <Link href="/admin" className="flex items-center gap-2 px-2 py-3">
+            <Link href="/admin" className="flex items-center px-2 py-3">
               <Image 
                 src={VINTRA_LOGO} 
                 alt="Vintra" 
                 width={100} 
                 height={32} 
-                className="h-7 w-auto invert"
+                className="h-7 w-auto"
               />
-              <span className="text-sm font-medium text-sidebar-foreground/70">
-                Studio
-              </span>
             </Link>
           </SidebarMenuItem>
         </SidebarMenu>
