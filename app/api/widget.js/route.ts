@@ -1,5 +1,15 @@
 import { NextResponse } from 'next/server'
 
+export async function OPTIONS() {
+  return new NextResponse(null, {
+    headers: {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type',
+    },
+  })
+}
+
 export async function GET() {
   const widgetScript = `
 (function() {
@@ -17,11 +27,12 @@ export async function GET() {
   // Extract the base URL from the script src
   let API_BASE = '';
   try {
+    // scriptTag.src is always resolved to absolute URL by the browser
     const url = new URL(scriptTag.src);
     API_BASE = url.origin;
   } catch (e) {
-    // Fallback for relative URLs
-    API_BASE = scriptTag.src.replace(/\\/api\\/widget\\.js.*$/, '');
+    // Fallback to current page origin
+    API_BASE = window.location.origin;
   }
   console.log('[VintraStudio] API Base:', API_BASE);
   
@@ -255,12 +266,13 @@ export async function GET() {
     }
     .vintra-pre-chat {
       padding: 20px;
-      display: none;
+      display: flex;
       flex-direction: column;
       gap: 16px;
+      flex: 1;
     }
-    .vintra-pre-chat.show {
-      display: flex;
+    .vintra-pre-chat.hidden {
+      display: none;
     }
     .vintra-pre-chat h3 {
       margin: 0;
@@ -351,7 +363,7 @@ export async function GET() {
           <input type="email" class="vintra-email-input" placeholder="Your email (optional)">
           <button class="vintra-start-btn">Start Chat</button>
         </div>
-        <div class="vintra-messages"></div>
+        <div class="vintra-messages" style="display: none;"></div>
         <div class="vintra-typing">
           <div class="vintra-typing-dots">
             <span></span><span></span><span></span>
@@ -418,7 +430,7 @@ export async function GET() {
         sessionId = data.session_id;
         hasStartedChat = true;
         
-        preChat.style.display = 'none';
+        preChat.classList.add('hidden');
         messagesContainer.style.display = 'flex';
         inputArea.style.display = 'flex';
         if (config?.show_branding) {
@@ -550,7 +562,16 @@ export async function GET() {
       console.log('[VintraStudio] Config loaded:', config);
       
       if (config.error) {
-        console.error('[VintraStudio]:', config.error);
+        console.warn('[VintraStudio]:', config.error, '- using defaults');
+        const widget = createWidget();
+        widget.applyConfig({
+          primary_color: '#14b8a6',
+          widget_title: 'Chat with us',
+          welcome_message: 'Hi! How can we help you today?',
+          placeholder_text: 'Type your message...',
+          show_branding: true,
+          position: 'bottom-right'
+        });
         return;
       }
       
@@ -582,9 +603,11 @@ export async function GET() {
 
   return new NextResponse(widgetScript, {
     headers: {
-      'Content-Type': 'application/javascript',
-      'Cache-Control': 'public, max-age=3600',
+      'Content-Type': 'application/javascript; charset=utf-8',
+      'Cache-Control': 'public, max-age=300',
       'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type',
     },
   })
 }
