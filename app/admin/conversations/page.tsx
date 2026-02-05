@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -18,7 +18,9 @@ import {
   Bot,
   MoreVertical,
   Archive,
-  Trash2
+  Trash2,
+  RefreshCw,
+  Circle
 } from 'lucide-react'
 import {
   DropdownMenu,
@@ -26,6 +28,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import type { RealtimeChannel } from '@supabase/supabase-js'
 
 interface ChatSession {
   id: string
@@ -33,6 +36,7 @@ interface ChatSession {
   visitor_email: string | null
   status: string
   created_at: string
+  updated_at: string
   chat_messages: ChatMessage[]
 }
 
@@ -50,8 +54,15 @@ export default function ConversationsPage() {
   const [searchQuery, setSearchQuery] = useState('')
   const [newMessage, setNewMessage] = useState('')
   const [sending, setSending] = useState(false)
+  const [isConnected, setIsConnected] = useState(false)
+  const messagesEndRef = useRef<HTMLDivElement>(null)
+  const channelRef = useRef<RealtimeChannel | null>(null)
 
-  const loadSessions = useCallback(async () => {
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }
+
+  const loadSessions = useCallback(async (selectFirst = false) => {
     const supabase = createClient()
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
@@ -64,6 +75,7 @@ export default function ConversationsPage() {
         visitor_email,
         status,
         created_at,
+        updated_at,
         chat_messages (
           id,
           content,
@@ -72,20 +84,107 @@ export default function ConversationsPage() {
         )
       `)
       .eq('admin_id', user.id)
-      .order('created_at', { ascending: false })
+      .order('updated_at', { ascending: false })
 
     if (data) {
-      setSessions(data)
-      if (!selectedSession && data.length > 0) {
-        setSelectedSession(data[0])
+      // Sort messages within each session
+      const sortedData = data.map(session => ({
+        ...session,
+        chat_messages: [...session.chat_messages].sort(
+          (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+        )
+      }))
+      
+      setSessions(sortedData)
+      
+      // Update selected session if it exists in new data
+      if (selectedSession) {
+        const updated = sortedData.find(s => s.id === selectedSession.id)
+        if (updated) {
+          setSelectedSession(updated)
+        }
+      } else if (selectFirst && sortedData.length > 0) {
+        setSelectedSession(sortedData[0])
       }
     }
     setLoading(false)
   }, [selectedSession])
 
+  // Setup real-time subscription
   useEffect(() => {
-    loadSessions()
+    const supabase = createClient()
+    
+    const setupRealtime = async () => {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+
+      // Subscribe to new messages
+      const channel = supabase
+        .channel('admin-chat-updates')
+        .on(
+          'postgres_changes',
+          {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'chat_messages',
+          },
+          async (payload) => {
+            console.log('[v0] New message received:', payload)
+            // Reload sessions to get updated data
+            await loadSessions()
+            scrollToBottom()
+          }
+        )
+        .on(
+          'postgres_changes',
+          {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'chat_sessions',
+          },
+          async (payload) => {
+            console.log('[v0] New session received:', payload)
+            await loadSessions()
+          }
+        )
+        .on(
+          'postgres_changes',
+          {
+            event: 'UPDATE',
+            schema: 'public',
+            table: 'chat_sessions',
+          },
+          async (payload) => {
+            console.log('[v0] Session updated:', payload)
+            await loadSessions()
+          }
+        )
+        .subscribe((status) => {
+          console.log('[v0] Realtime subscription status:', status)
+          setIsConnected(status === 'SUBSCRIBED')
+        })
+
+      channelRef.current = channel
+    }
+
+    setupRealtime()
+
+    return () => {
+      if (channelRef.current) {
+        supabase.removeChannel(channelRef.current)
+      }
+    }
   }, [loadSessions])
+
+  // Initial load
+  useEffect(() => {
+    loadSessions(true)
+  }, [])
+
+  // Scroll to bottom when selected session changes or new messages arrive
+  useEffect(() => {
+    scrollToBottom()
+  }, [selectedSession?.chat_messages])
 
   const handleSendMessage = async () => {
     if (!newMessage.trim() || !selectedSession) return
@@ -95,16 +194,24 @@ export default function ConversationsPage() {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
 
-    await supabase.from('chat_messages').insert({
+    const { error } = await supabase.from('chat_messages').insert({
       session_id: selectedSession.id,
       admin_id: user.id,
       content: newMessage,
       sender_type: 'admin',
     })
 
+    if (!error) {
+      // Update session's updated_at timestamp
+      await supabase
+        .from('chat_sessions')
+        .update({ updated_at: new Date().toISOString() })
+        .eq('id', selectedSession.id)
+    }
+
     setNewMessage('')
-    await loadSessions()
     setSending(false)
+    // The realtime subscription will handle the update
   }
 
   const handleArchive = async (sessionId: string) => {
@@ -113,6 +220,27 @@ export default function ConversationsPage() {
       .from('chat_sessions')
       .update({ status: 'closed' })
       .eq('id', sessionId)
+  }
+
+  const handleDelete = async (sessionId: string) => {
+    const supabase = createClient()
+    
+    // First delete all messages
+    await supabase
+      .from('chat_messages')
+      .delete()
+      .eq('session_id', sessionId)
+    
+    // Then delete the session
+    await supabase
+      .from('chat_sessions')
+      .delete()
+      .eq('id', sessionId)
+    
+    if (selectedSession?.id === sessionId) {
+      setSelectedSession(null)
+    }
+    
     await loadSessions()
   }
 
@@ -135,11 +263,27 @@ export default function ConversationsPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-foreground">Conversations</h1>
-        <p className="text-muted-foreground">
-          Manage and respond to chat conversations
-        </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-foreground">Conversations</h1>
+          <p className="text-muted-foreground">
+            Manage and respond to chat conversations in real-time
+          </p>
+        </div>
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 text-sm">
+            <Circle 
+              className={`h-2 w-2 ${isConnected ? 'fill-green-500 text-green-500' : 'fill-yellow-500 text-yellow-500'}`} 
+            />
+            <span className="text-muted-foreground">
+              {isConnected ? 'Live' : 'Connecting...'}
+            </span>
+          </div>
+          <Button variant="outline" size="sm" onClick={() => loadSessions()}>
+            <RefreshCw className="mr-2 h-4 w-4" />
+            Refresh
+          </Button>
+        </div>
       </div>
 
       <div className="grid h-[calc(100vh-220px)] gap-6 lg:grid-cols-3">
@@ -170,6 +314,8 @@ export default function ConversationsPage() {
                   {filteredSessions.map((session) => {
                     const lastMessage = session.chat_messages[session.chat_messages.length - 1]
                     const isSelected = selectedSession?.id === session.id
+                    const hasNewMessages = lastMessage?.sender_type === 'visitor'
+                    
                     return (
                       <button
                         key={session.id}
@@ -180,11 +326,16 @@ export default function ConversationsPage() {
                       >
                         <div className="flex items-start justify-between gap-2">
                           <div className="flex items-center gap-3">
-                            <Avatar className="h-10 w-10">
-                              <AvatarFallback className="bg-primary/10 text-primary">
-                                {session.visitor_name?.[0]?.toUpperCase() || 'V'}
-                              </AvatarFallback>
-                            </Avatar>
+                            <div className="relative">
+                              <Avatar className="h-10 w-10">
+                                <AvatarFallback className="bg-primary/10 text-primary">
+                                  {session.visitor_name?.[0]?.toUpperCase() || 'V'}
+                                </AvatarFallback>
+                              </Avatar>
+                              {hasNewMessages && session.status === 'active' && (
+                                <span className="absolute -right-0.5 -top-0.5 h-3 w-3 rounded-full border-2 border-background bg-primary" />
+                              )}
+                            </div>
                             <div className="min-w-0">
                               <div className="flex items-center gap-2">
                                 <span className="truncate font-medium">
@@ -199,13 +350,17 @@ export default function ConversationsPage() {
                               </div>
                               {lastMessage && (
                                 <p className="mt-0.5 line-clamp-1 text-xs text-muted-foreground">
+                                  {lastMessage.sender_type === 'admin' && 'You: '}
                                   {lastMessage.content}
                                 </p>
                               )}
                             </div>
                           </div>
                           <span className="shrink-0 text-xs text-muted-foreground">
-                            {new Date(session.created_at).toLocaleDateString()}
+                            {new Date(session.updated_at || session.created_at).toLocaleTimeString([], { 
+                              hour: '2-digit', 
+                              minute: '2-digit' 
+                            })}
                           </span>
                         </div>
                       </button>
@@ -248,7 +403,10 @@ export default function ConversationsPage() {
                       <Archive className="mr-2 h-4 w-4" />
                       Archive
                     </DropdownMenuItem>
-                    <DropdownMenuItem className="text-destructive">
+                    <DropdownMenuItem 
+                      className="text-destructive"
+                      onClick={() => handleDelete(selectedSession.id)}
+                    >
                       <Trash2 className="mr-2 h-4 w-4" />
                       Delete
                     </DropdownMenuItem>
@@ -258,42 +416,55 @@ export default function ConversationsPage() {
               <CardContent className="flex-1 overflow-hidden p-0">
                 <ScrollArea className="h-full p-4">
                   <div className="space-y-4">
-                    {selectedSession.chat_messages.map((message) => {
-                      const isAdmin = message.sender_type === 'admin'
-                      const isBot = message.sender_type === 'bot'
-                      return (
-                        <div
-                          key={message.id}
-                          className={`flex gap-3 ${isAdmin ? 'flex-row-reverse' : ''}`}
-                        >
-                          <Avatar className="h-8 w-8 shrink-0">
-                            <AvatarFallback className={
-                              isAdmin 
-                                ? 'bg-primary text-primary-foreground' 
-                                : isBot 
-                                ? 'bg-secondary text-secondary-foreground'
-                                : 'bg-muted'
-                            }>
-                              {isAdmin ? 'A' : isBot ? <Bot className="h-4 w-4" /> : <User className="h-4 w-4" />}
-                            </AvatarFallback>
-                          </Avatar>
-                          <div className={`max-w-[70%] ${isAdmin ? 'text-right' : ''}`}>
-                            <div
-                              className={`inline-block rounded-lg px-4 py-2 text-sm ${
-                                isAdmin
-                                  ? 'bg-primary text-primary-foreground'
+                    {selectedSession.chat_messages.length === 0 ? (
+                      <div className="flex flex-col items-center justify-center py-12 text-center">
+                        <MessageSquare className="h-10 w-10 text-muted-foreground/30" />
+                        <p className="mt-3 text-sm text-muted-foreground">
+                          No messages yet. Send a message to start the conversation.
+                        </p>
+                      </div>
+                    ) : (
+                      selectedSession.chat_messages.map((message) => {
+                        const isAdmin = message.sender_type === 'admin'
+                        const isBot = message.sender_type === 'bot'
+                        return (
+                          <div
+                            key={message.id}
+                            className={`flex gap-3 ${isAdmin ? 'flex-row-reverse' : ''}`}
+                          >
+                            <Avatar className="h-8 w-8 shrink-0">
+                              <AvatarFallback className={
+                                isAdmin 
+                                  ? 'bg-primary text-primary-foreground' 
+                                  : isBot 
+                                  ? 'bg-secondary text-secondary-foreground'
                                   : 'bg-muted'
-                              }`}
-                            >
-                              {message.content}
+                              }>
+                                {isAdmin ? 'A' : isBot ? <Bot className="h-4 w-4" /> : <User className="h-4 w-4" />}
+                              </AvatarFallback>
+                            </Avatar>
+                            <div className={`max-w-[70%] ${isAdmin ? 'text-right' : ''}`}>
+                              <div
+                                className={`inline-block rounded-lg px-4 py-2 text-sm ${
+                                  isAdmin
+                                    ? 'bg-primary text-primary-foreground'
+                                    : 'bg-muted'
+                                }`}
+                              >
+                                {message.content}
+                              </div>
+                              <p className="mt-1 text-xs text-muted-foreground">
+                                {new Date(message.created_at).toLocaleTimeString([], {
+                                  hour: '2-digit',
+                                  minute: '2-digit'
+                                })}
+                              </p>
                             </div>
-                            <p className="mt-1 text-xs text-muted-foreground">
-                              {new Date(message.created_at).toLocaleTimeString()}
-                            </p>
                           </div>
-                        </div>
-                      )
-                    })}
+                        )
+                      })
+                    )}
+                    <div ref={messagesEndRef} />
                   </div>
                 </ScrollArea>
               </CardContent>
