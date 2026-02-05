@@ -10,26 +10,41 @@ export default async function AdminLayout({
 }: {
   children: React.ReactNode
 }) {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  let user = null
+  let profile = null
+  let chatbot = null
 
-  if (!user) {
+  try {
+    const supabase = await createClient()
+    const { data: { user: authUser }, error } = await supabase.auth.getUser()
+
+    if (!authUser || error) {
+      redirect('/auth/login')
+    }
+
+    user = authUser
+
+    // Fetch admin profile
+    const { data: profileData } = await supabase
+      .from('admin_profiles')
+      .select('*')
+      .eq('id', user.id)
+      .single()
+    profile = profileData
+
+    // Fetch chatbot config
+    const { data: chatbotData } = await supabase
+      .from('chatbot_configs')
+      .select('*')
+      .eq('admin_id', user.id)
+      .single()
+    chatbot = chatbotData
+  } catch (e) {
+    // If it's a redirect, rethrow it
+    if (e && typeof e === 'object' && 'digest' in e) throw e
+    // Otherwise redirect to login
     redirect('/auth/login')
   }
-
-  // Fetch admin profile
-  const { data: profile } = await supabase
-    .from('admin_profiles')
-    .select('*')
-    .eq('id', user.id)
-    .single()
-
-  // Fetch chatbot config
-  const { data: chatbot } = await supabase
-    .from('chatbot_configs')
-    .select('*')
-    .eq('admin_id', user.id)
-    .single()
 
   return (
     <SidebarProvider>
