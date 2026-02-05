@@ -20,7 +20,7 @@ export default function SignUpSuccessPage() {
           alt="Vintra" 
           width={140} 
           height={48} 
-          className="h-10 w-auto invert dark:invert-0"
+          className="h-10 w-auto"
         />
       </Link>
       

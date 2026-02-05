@@ -31,7 +31,7 @@ export default function LandingPage() {
               alt="Vintra" 
               width={120} 
               height={40} 
-              className="h-8 w-auto invert dark:invert-0"
+              className="h-8 w-auto"
             />
           </Link>
           <nav className="hidden items-center gap-6 md:flex">
@@ -248,7 +248,7 @@ export default function LandingPage() {
                 alt="Vintra" 
                 width={100} 
                 height={32} 
-                className="h-6 w-auto invert dark:invert-0"
+                className="h-6 w-auto"
               />
             </Link>
             <p className="text-sm text-muted-foreground">
