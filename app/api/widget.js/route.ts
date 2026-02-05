@@ -14,7 +14,10 @@ export async function GET() {
     return;
   }
   
-  const API_BASE = scriptTag.src.replace('/api/widget.js', '');
+  // Extract the base URL from the script src
+  const scriptSrc = scriptTag.src;
+  const url = new URL(scriptSrc);
+  const API_BASE = url.origin;
   
   // Styles
   const styles = \`
