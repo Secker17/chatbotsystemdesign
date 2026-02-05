@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import Image from 'next/image'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -16,18 +17,24 @@ import {
   Globe
 } from 'lucide-react'
 
+const VINTRA_LOGO = "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/vintratext-skOk2ureyF4j9EWL7jotcLG1aD5kpr.png"
+
 export default function LandingPage() {
   return (
     <div className="min-h-screen bg-background">
       {/* Navigation */}
       <header className="sticky top-0 z-50 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center gap-2">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary">
-              <Bot className="h-5 w-5 text-primary-foreground" />
-            </div>
-            <span className="text-xl font-bold text-foreground">VintraStudio</span>
-          </div>
+          <Link href="/" className="flex items-center gap-2">
+            <Image 
+              src={VINTRA_LOGO} 
+              alt="Vintra" 
+              width={120} 
+              height={40} 
+              className="h-8 w-auto dark:invert"
+            />
+            <span className="text-lg font-medium text-muted-foreground">Studio</span>
+          </Link>
           <nav className="hidden items-center gap-6 md:flex">
             <Link href="#features" className="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground">
               Features
@@ -236,12 +243,16 @@ export default function LandingPage() {
       <footer className="border-t bg-background px-4 py-12 sm:px-6 lg:px-8">
         <div className="mx-auto max-w-7xl">
           <div className="flex flex-col items-center justify-between gap-6 sm:flex-row">
-            <div className="flex items-center gap-2">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
-                <Bot className="h-4 w-4 text-primary-foreground" />
-              </div>
-              <span className="font-semibold text-foreground">VintraStudio</span>
-            </div>
+            <Link href="/" className="flex items-center gap-2">
+              <Image 
+                src={VINTRA_LOGO} 
+                alt="Vintra" 
+                width={100} 
+                height={32} 
+                className="h-6 w-auto dark:invert"
+              />
+              <span className="text-sm font-medium text-muted-foreground">Studio</span>
+            </Link>
             <p className="text-sm text-muted-foreground">
               &copy; {new Date().getFullYear()} VintraStudio. All rights reserved.
             </p>
