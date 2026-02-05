@@ -32,7 +32,6 @@ export default function SignUpPage() {
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault()
-    const supabase = createClient()
     setIsLoading(true)
     setError(null)
 
@@ -49,7 +48,8 @@ export default function SignUpPage() {
     }
 
     try {
-      const { error } = await supabase.auth.signUp({
+      const supabase = createClient()
+      const { data, error: signUpError } = await supabase.auth.signUp({
         email,
         password,
         options: {
@@ -61,7 +61,18 @@ export default function SignUpPage() {
           },
         },
       })
-      if (error) throw error
+      if (signUpError) throw signUpError
+      
+      // If session is returned (email confirmation disabled), set cookie
+      if (data.session) {
+        const maxAge = 60 * 60 * 24 * 365
+        document.cookie = `sb-auth-token=${data.session.access_token}; path=/; max-age=${maxAge}; SameSite=Lax`
+        document.cookie = `sb-refresh-token=${data.session.refresh_token}; path=/; max-age=${maxAge}; SameSite=Lax`
+        router.push('/admin')
+        router.refresh()
+        return
+      }
+      
       router.push('/auth/sign-up-success')
     } catch (error: unknown) {
       setError(error instanceof Error ? error.message : 'An error occurred')

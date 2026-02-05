@@ -94,7 +94,11 @@ export function AdminSidebar({ user, profile }: AdminSidebarProps) {
   const handleSignOut = async () => {
     const supabase = createClient()
     await supabase.auth.signOut()
+    // Clear auth cookies
+    document.cookie = 'sb-auth-token=; path=/; max-age=0'
+    document.cookie = 'sb-refresh-token=; path=/; max-age=0'
     router.push('/auth/login')
+    router.refresh()
   }
 
   const getInitials = () => {
