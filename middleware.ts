@@ -11,11 +11,13 @@ export async function middleware(request: NextRequest) {
 
   // For admin routes, check if the user has a session cookie
   if (request.nextUrl.pathname.startsWith('/admin')) {
+    // Check for our custom auth cookie or the default Supabase cookie
+    const customAuthCookie = request.cookies.get('sb-auth-token')
     const supabaseAuthCookie = request.cookies.getAll().find(
       (cookie) => cookie.name.startsWith('sb-') && cookie.name.endsWith('-auth-token')
     )
 
-    if (!supabaseAuthCookie) {
+    if (!customAuthCookie && !supabaseAuthCookie) {
       const url = request.nextUrl.clone()
       url.pathname = '/auth/login'
       return NextResponse.redirect(url)
