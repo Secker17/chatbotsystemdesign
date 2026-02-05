@@ -1,3 +1,4 @@
+
 import { createClient } from '@supabase/supabase-js'
 import { NextRequest, NextResponse } from 'next/server'
 
@@ -21,7 +22,9 @@ export async function GET(request: NextRequest) {
   }
 
   try {
+
     const supabase = getPublicSupabaseClient()
+
 
     const { data, error } = await supabase
       .from('chatbot_configs')

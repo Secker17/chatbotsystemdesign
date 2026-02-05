@@ -1,3 +1,4 @@
+import { createPublicClient } from '@/lib/supabase/public'
 import { createClient } from '@supabase/supabase-js'
 import { NextRequest, NextResponse } from 'next/server'
 
@@ -22,6 +23,7 @@ export async function GET(request: NextRequest) {
   }
 
   try {
+    const supabase = createPublicClient()
     const supabase = getPublicSupabaseClient()
 
     let query = supabase
@@ -46,6 +48,7 @@ export async function GET(request: NextRequest) {
     const { data: messages, error } = await query.limit(50)
 
     if (error) {
+      console.error('[v0] Messages fetch error:', error)
       console.error('Messages fetch error:', error)
       return NextResponse.json({ error: 'Failed to fetch messages' }, { status: 500 })
     }
@@ -58,6 +61,7 @@ export async function GET(request: NextRequest) {
       },
     })
   } catch (error) {
+    console.error('[v0] Messages API error:', error)
     console.error('Messages API error:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }

@@ -1,3 +1,4 @@
+import { createPublicClient } from '@/lib/supabase/public'
 import { createClient } from '@supabase/supabase-js'
 import { NextRequest, NextResponse } from 'next/server'
 
@@ -21,6 +22,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
     }
 
+    const supabase = createPublicClient()
     const supabase = getPublicSupabaseClient()
 
     // Get session details
@@ -31,6 +33,7 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (sessionError || !session) {
+      console.error('[v0] Session not found:', sessionError)
       console.error('Session fetch error:', sessionError)
       return NextResponse.json({ error: 'Session not found' }, { status: 404 })
     }
@@ -48,7 +51,7 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (messageError) {
-      console.error('Message creation error:', messageError)
+      console.error('[v0] Message creation error:', messageError)
       return NextResponse.json({ error: 'Failed to send message' }, { status: 500 })
     }
 
@@ -79,7 +82,7 @@ export async function POST(request: NextRequest) {
       },
     })
   } catch (error) {
-    console.error('Message API error:', error)
+    console.error('[v0] Message API error:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }

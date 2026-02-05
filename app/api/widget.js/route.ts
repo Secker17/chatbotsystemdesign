@@ -15,6 +15,15 @@ export async function GET() {
   }
   
   // Extract the base URL from the script src
+  let API_BASE = '';
+  try {
+    const url = new URL(scriptTag.src);
+    API_BASE = url.origin;
+  } catch (e) {
+    // Fallback for relative URLs
+    API_BASE = scriptTag.src.replace(/\\/api\\/widget\\.js.*$/, '');
+  }
+  console.log('[VintraStudio] API Base:', API_BASE);
   const scriptSrc = scriptTag.src;
   const url = new URL(scriptSrc);
   const API_BASE = url.origin;
@@ -517,19 +526,52 @@ export async function GET() {
   
   // Initialize
   async function init() {
+    console.log('[VintraStudio] Initializing widget for chatbot:', chatbotId);
     try {
-      const response = await fetch(API_BASE + '/api/chat/config?chatbot_id=' + chatbotId);
+      const configUrl = API_BASE + '/api/chat/config?chatbot_id=' + chatbotId;
+      console.log('[VintraStudio] Fetching config from:', configUrl);
+      
+      const response = await fetch(configUrl);
+      console.log('[VintraStudio] Config response status:', response.status);
+      
+      if (!response.ok) {
+        console.error('[VintraStudio] Config fetch failed:', response.status, response.statusText);
+        // Create widget with default config anyway
+        const widget = createWidget();
+        widget.applyConfig({
+          primary_color: '#14b8a6',
+          widget_title: 'Chat with us',
+          welcome_message: 'Hi! How can we help you today?',
+          placeholder_text: 'Type your message...',
+          show_branding: true,
+          position: 'bottom-right'
+        });
+        return;
+      }
+      
       const config = await response.json();
+      console.log('[VintraStudio] Config loaded:', config);
       
       if (config.error) {
-        console.error('VintraStudio:', config.error);
+        console.error('[VintraStudio]:', config.error);
         return;
       }
       
       const widget = createWidget();
       widget.applyConfig(config);
+      console.log('[VintraStudio] Widget initialized successfully');
     } catch (error) {
-      console.error('VintraStudio: Failed to initialize', error);
+      console.error('[VintraStudio] Failed to initialize:', error);
+      // Create widget with default config on error
+      const widget = createWidget();
+      widget.applyConfig({
+        primary_color: '#14b8a6',
+        widget_title: 'Chat with us',
+        welcome_message: 'Hi! How can we help you today?',
+        placeholder_text: 'Type your message...',
+        show_branding: true,
+        position: 'bottom-right'
+      });
     }
   }
   

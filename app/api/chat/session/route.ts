@@ -1,3 +1,4 @@
+import { createPublicClient } from '@/lib/supabase/public'
 import { createClient } from '@supabase/supabase-js'
 import { NextRequest, NextResponse } from 'next/server'
 
@@ -21,6 +22,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Missing chatbot_id' }, { status: 400 })
     }
 
+    const supabase = createPublicClient()
     const supabase = getPublicSupabaseClient()
 
     // Get the admin_id from the chatbot config
@@ -31,6 +33,7 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (configError || !config) {
+      console.error('[v0] Config not found:', configError)
       console.error('Config fetch error:', configError)
       return NextResponse.json({ error: 'Chatbot not found' }, { status: 404 })
     }
@@ -53,7 +56,7 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (sessionError) {
-      console.error('Session creation error:', sessionError)
+      console.error('[v0] Session creation error:', sessionError)
       return NextResponse.json({ error: 'Failed to create session' }, { status: 500 })
     }
 
@@ -74,7 +77,7 @@ export async function POST(request: NextRequest) {
       },
     })
   } catch (error) {
-    console.error('Session API error:', error)
+    console.error('[v0] Session API error:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
