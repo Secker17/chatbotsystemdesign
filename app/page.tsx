@@ -61,7 +61,7 @@ export default function LandingPage() {
         <div className="absolute inset-0 -z-10 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-accent via-background to-background" />
         <div className="mx-auto max-w-4xl text-center">
           <Badge variant="secondary" className="mb-6">
-            Now with AI-powered responses
+            Live Chat Platform by Vintra
           </Badge>
           <h1 className="text-balance text-4xl font-bold tracking-tight text-foreground sm:text-5xl lg:text-6xl">
             Build intelligent chatbots that 
@@ -87,12 +87,12 @@ export default function LandingPage() {
           </div>
         </div>
 
-        {/* Stats */}
+        {/* Key Benefits */}
         <div className="mx-auto mt-20 grid max-w-4xl grid-cols-1 gap-8 sm:grid-cols-3">
           {[
-            { label: 'Active Chatbots', value: '50K+', icon: Bot },
-            { label: 'Messages Processed', value: '10M+', icon: MessageSquare },
-            { label: 'Happy Customers', value: '5K+', icon: Users },
+            { label: 'Setup Time', value: '2 min', icon: Zap },
+            { label: 'Code Required', value: '1 line', icon: Code2 },
+            { label: 'Uptime', value: '99.9%', icon: Shield },
           ].map((stat) => (
             <div key={stat.label} className="flex flex-col items-center gap-2 text-center">
               <stat.icon className="h-8 w-8 text-primary" />
@@ -202,16 +202,16 @@ export default function LandingPage() {
               </div>
               <pre className="overflow-x-auto rounded-lg bg-muted p-4">
                 <code className="font-mono text-sm text-foreground">
-{`<!-- VintraStudio Chatbot -->
+{`<!-- Vintra Chatbot Widget -->
 <script 
-  src="https://cdn.vintrastudio.com/widget.js"
+  src="YOUR_DOMAIN/api/widget.js"
   data-chatbot-id="YOUR_CHATBOT_ID"
   async
 ></script>`}
                 </code>
               </pre>
               <p className="mt-4 text-xs text-muted-foreground">
-                Replace YOUR_CHATBOT_ID with your unique identifier from the admin panel.
+                Replace YOUR_DOMAIN and YOUR_CHATBOT_ID with values from your admin panel.
               </p>
             </div>
           </div>
@@ -225,7 +225,7 @@ export default function LandingPage() {
             Ready to transform your customer engagement?
           </h2>
           <p className="mx-auto mt-4 max-w-xl text-primary-foreground/80">
-            Join thousands of businesses using VintraStudio to connect with their customers.
+            Start building your chatbot today. Free to get started, no credit card required.
           </p>
           <div className="mt-8 flex flex-col items-center justify-center gap-4 sm:flex-row">
             <Link href="/auth/sign-up">
