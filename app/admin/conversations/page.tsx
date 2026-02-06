@@ -234,6 +234,28 @@ export default function ConversationsPage() {
           loadSessions()
         }
       )
+      .on(
+        'postgres_changes',
+        {
+          event: 'DELETE',
+          schema: 'public',
+          table: 'chat_sessions',
+        },
+        () => {
+          loadSessions()
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'DELETE',
+          schema: 'public',
+          table: 'chat_messages',
+        },
+        () => {
+          loadSessions()
+        }
+      )
       .subscribe((status) => {
 
         setIsConnected(status === 'SUBSCRIBED')
@@ -297,22 +319,36 @@ export default function ConversationsPage() {
   const handleDelete = async (sessionId: string) => {
     const supabase = createClient()
     
-    // First delete all messages
-    await supabase
-      .from('chat_messages')
-      .delete()
-      .eq('session_id', sessionId)
-    
-    // Then delete the session
-    await supabase
-      .from('chat_sessions')
-      .delete()
-      .eq('id', sessionId)
-    
+    // Optimistically remove from UI immediately
     if (selectedSession?.id === sessionId) {
       setSelectedSession(null)
     }
+    setSessions(prev => prev.filter(s => s.id !== sessionId))
+
+    // First delete all messages for the session
+    const { error: msgError } = await supabase
+      .from('chat_messages')
+      .delete()
+      .eq('session_id', sessionId)
+
+    if (msgError) {
+      console.error('Failed to delete messages:', msgError)
+      // Reload to restore state
+      await loadSessions()
+      return
+    }
     
+    // Then delete the session itself
+    const { error: sessionError } = await supabase
+      .from('chat_sessions')
+      .delete()
+      .eq('id', sessionId)
+
+    if (sessionError) {
+      console.error('Failed to delete session:', sessionError)
+    }
+
+    // Reload to ensure consistency
     await loadSessions()
   }
 
