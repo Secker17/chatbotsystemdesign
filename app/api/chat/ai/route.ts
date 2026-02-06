@@ -233,9 +233,17 @@ Important rules:
       { headers: corsHeaders }
     )
   } catch (error) {
-    console.error('AI Chat API error:', error)
+    console.error('AI Chat API error:', error instanceof Error ? error.message : error)
+    console.error('AI Chat API full error:', JSON.stringify(error, Object.getOwnPropertyNames(error as object), 2))
+    
+    const errorMessage = error instanceof Error ? error.message : 'Internal server error'
+    const isConfigError = errorMessage.includes('API key') || errorMessage.includes('gateway') || errorMessage.includes('auth')
+    
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { 
+        error: isConfigError ? 'AI service is not properly configured. Please check your API key settings.' : 'Internal server error',
+        detail: process.env.NODE_ENV === 'development' ? errorMessage : undefined
+      },
       { status: 500, headers: corsHeaders }
     )
   }
