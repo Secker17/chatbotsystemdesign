@@ -1,18 +1,16 @@
 import { createPublicClient } from '@/lib/supabase/public'
 import { NextRequest, NextResponse } from 'next/server'
+import { randomUUID } from 'crypto'
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json()
-    console.log('[v0] Session API request body:', JSON.stringify(body))
-    const { chatbot_id, visitor_name, visitor_email } = body
+    const { chatbot_id, visitor_name, visitor_email } = await request.json()
 
     if (!chatbot_id) {
       return NextResponse.json({ error: 'Missing chatbot_id' }, { status: 400 })
     }
 
     const supabase = createPublicClient()
-    console.log('[v0] Supabase client created successfully')
 
     // Get the admin_id from the chatbot config
     const { data: config, error: configError } = await supabase
@@ -21,11 +19,13 @@ export async function POST(request: NextRequest) {
       .eq('id', chatbot_id)
       .single()
 
-    console.log('[v0] Config fetch result:', JSON.stringify({ config, configError }))
     if (configError || !config) {
       console.error('Config fetch error:', configError)
       return NextResponse.json({ error: 'Chatbot not found' }, { status: 404 })
     }
+
+    // Generate a unique visitor ID for this session
+    const visitor_id = `visitor_${randomUUID()}`
 
     // Create new chat session
     const { data: session, error: sessionError } = await supabase
@@ -33,6 +33,7 @@ export async function POST(request: NextRequest) {
       .insert({
         chatbot_id,
         admin_id: config.admin_id,
+        visitor_id,
         visitor_name: visitor_name || 'Visitor',
         visitor_email: visitor_email || null,
         status: 'active',
@@ -45,11 +46,7 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (sessionError) {
-      console.log('[v0] Session creation error details:', JSON.stringify(sessionError, null, 2))
-      console.log('[v0] Session creation error message:', sessionError.message)
-      console.log('[v0] Session creation error code:', sessionError.code)
-      console.log('[v0] Session creation error hint:', sessionError.hint)
-      console.log('[v0] Session creation error details:', sessionError.details)
+      console.error('Session creation error:', sessionError)
       return NextResponse.json({ error: 'Failed to create session', details: sessionError.message }, { status: 500 })
     }
 
@@ -70,8 +67,7 @@ export async function POST(request: NextRequest) {
       },
     })
   } catch (error) {
-    console.log('[v0] Session API caught error:', error instanceof Error ? error.message : error)
-    console.log('[v0] Session API error stack:', error instanceof Error ? error.stack : 'N/A')
+    console.error('Session API error:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
