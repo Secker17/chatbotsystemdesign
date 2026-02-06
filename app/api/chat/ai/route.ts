@@ -3,16 +3,28 @@ import { createGroq } from '@ai-sdk/groq'
 import { createPublicClient } from '@/lib/supabase/public'
 import { NextRequest, NextResponse } from 'next/server'
 
-const groq = createGroq({
-  apiKey: process.env.GROQ_API_KEY,
-})
-
 export const maxDuration = 60
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
   'Access-Control-Allow-Headers': 'Content-Type',
+}
+
+// Supported Groq models in order of preference for fallback
+const GROQ_MODELS = [
+  'llama-3.3-70b-versatile',
+  'llama-3.1-70b-versatile',
+  'llama-3.1-8b-instant',
+  'mixtral-8x7b-32768',
+]
+
+function createGroqClient() {
+  const apiKey = process.env.GROQ_API_KEY
+  if (!apiKey) {
+    throw new Error('GROQ_API_KEY environment variable is not set')
+  }
+  return createGroq({ apiKey })
 }
 
 export async function POST(request: NextRequest) {
@@ -28,14 +40,15 @@ export async function POST(request: NextRequest) {
 
     const supabase = createPublicClient()
 
-    // Get session details
+    // Get session details including bot_messages_count
     const { data: session, error: sessionError } = await supabase
       .from('chat_sessions')
-      .select('admin_id, chatbot_id, is_bot_active, visitor_name, metadata')
+      .select('admin_id, chatbot_id, is_bot_active, visitor_name, metadata, bot_messages_count')
       .eq('id', session_id)
       .single()
 
     if (sessionError || !session) {
+      console.error('AI route - Session fetch error:', sessionError?.message)
       return NextResponse.json(
         { error: 'Session not found' },
         { status: 404, headers: corsHeaders }
@@ -50,21 +63,35 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Get chatbot AI config
+    // Get chatbot AI config - fetch canned_responses separately to avoid join issues
     const { data: config, error: configError } = await supabase
       .from('chatbot_configs')
       .select(
-        'ai_enabled, ai_system_prompt, ai_knowledge_base, ai_model, ai_temperature, ai_max_tokens, ai_greeting_message, ai_handoff_keywords, canned_responses:canned_responses(title, content, shortcut)'
+        'ai_enabled, ai_system_prompt, ai_knowledge_base, ai_model, ai_temperature, ai_max_tokens, ai_greeting_message, ai_handoff_keywords'
       )
       .eq('id', session.chatbot_id)
       .single()
 
-    if (configError || !config || !config.ai_enabled) {
+    if (configError) {
+      console.error('AI route - Config fetch error:', configError.message)
+      return NextResponse.json(
+        { error: 'Failed to load chatbot config', bot_active: false },
+        { status: 200, headers: corsHeaders }
+      )
+    }
+
+    if (!config || !config.ai_enabled) {
       return NextResponse.json(
         { error: 'AI is not enabled', bot_active: false },
         { status: 200, headers: corsHeaders }
       )
     }
+
+    // Fetch canned responses separately (avoids potential FK join issues)
+    const { data: cannedResponses } = await supabase
+      .from('canned_responses')
+      .select('title, content, shortcut')
+      .eq('chatbot_id', session.chatbot_id)
 
     // Fetch conversation history for context (last 20 messages)
     const { data: history } = await supabase
@@ -118,13 +145,13 @@ export async function POST(request: NextRequest) {
       })
 
       // Log analytics
-      await supabase.from('analytics_events').insert({
+      supabase.from('analytics_events').insert({
         admin_id: session.admin_id,
         chatbot_id: session.chatbot_id,
         session_id,
         event_type: 'handoff_requested',
         event_data: { trigger_message: content },
-      })
+      }).then(() => {}).catch(() => {})
 
       return NextResponse.json(
         {
@@ -139,18 +166,18 @@ export async function POST(request: NextRequest) {
     // Build conversation messages for the AI
     const conversationMessages = (history || []).map(
       (msg: { content: string; sender_type: string }) => ({
-        role: msg.sender_type === 'visitor' ? 'user' : 'assistant',
+        role: msg.sender_type === 'visitor' ? ('user' as const) : ('assistant' as const),
         content: msg.content,
       })
     )
 
     // Add the current message
-    conversationMessages.push({ role: 'user', content })
+    conversationMessages.push({ role: 'user' as const, content })
 
     // Build comprehensive system prompt
     const cannedResponsesContext =
-      config.canned_responses && config.canned_responses.length > 0
-        ? `\n\nYou have access to these pre-written responses that you can use or adapt:\n${config.canned_responses
+      cannedResponses && cannedResponses.length > 0
+        ? `\n\nYou have access to these pre-written responses that you can use or adapt:\n${cannedResponses
             .map(
               (r: { title: string; content: string }) =>
                 `- "${r.title}": ${r.content}`
@@ -178,19 +205,49 @@ Important rules:
 - You can understand and respond in multiple languages. Match the language of the visitor.
 - Current date/time: ${new Date().toISOString()}`
 
-    // Generate AI response using Groq (free, fast inference)
-    const modelId = config.ai_model || 'llama-3.3-70b-versatile'
-    
-    const { text, usage } = await generateText({
-      model: groq(modelId),
-      system: systemPrompt,
-      messages: conversationMessages,
-      maxOutputTokens: config.ai_max_tokens || 500,
-      temperature: config.ai_temperature || 0.7,
-    })
+    // Generate AI response using Groq with model fallback
+    const groq = createGroqClient()
+    const preferredModel = config.ai_model || 'llama-3.3-70b-versatile'
+
+    // Build model list: preferred model first, then fallbacks
+    const modelsToTry = [
+      preferredModel,
+      ...GROQ_MODELS.filter((m) => m !== preferredModel),
+    ]
+
+    let text = ''
+    let usage: { totalTokens?: number } | undefined
+    let usedModel = preferredModel
+    let lastError: Error | null = null
+
+    for (const modelId of modelsToTry) {
+      try {
+        const result = await generateText({
+          model: groq(modelId),
+          system: systemPrompt,
+          messages: conversationMessages,
+          maxOutputTokens: config.ai_max_tokens || 500,
+          temperature: config.ai_temperature ?? 0.7,
+        })
+        text = result.text
+        usage = result.usage
+        usedModel = modelId
+        lastError = null
+        break
+      } catch (modelError) {
+        lastError = modelError instanceof Error ? modelError : new Error(String(modelError))
+        console.error(`AI route - Model "${modelId}" failed:`, lastError.message)
+        // Continue to try next model
+      }
+    }
+
+    // If all models failed, throw the last error
+    if (lastError) {
+      throw lastError
+    }
 
     // Store the AI response in the database
-    await supabase.from('chat_messages').insert({
+    const { error: insertError } = await supabase.from('chat_messages').insert({
       session_id,
       admin_id: session.admin_id,
       content: text,
@@ -199,23 +256,30 @@ Important rules:
       is_read: false,
       is_ai_generated: true,
       metadata: {
-        model: config.ai_model || 'llama-3.3-70b-versatile',
+        model: usedModel,
         tokens_used: usage?.totalTokens || 0,
       },
     })
 
-    // Update session
+    if (insertError) {
+      console.error('AI route - Failed to store AI message:', insertError.message)
+      // Still return the reply even if storage fails
+    }
+
+    // Update session with proper bot_messages_count from the column
     const now = new Date().toISOString()
-    await supabase
+    supabase
       .from('chat_sessions')
       .update({
         updated_at: now,
         last_message_at: now,
-        bot_messages_count: (session.metadata?.bot_messages_count || 0) + 1,
+        bot_messages_count: (session.bot_messages_count || 0) + 1,
       })
       .eq('id', session_id)
+      .then(() => {})
+      .catch(() => {})
 
-    // Log analytics
+    // Log analytics (non-blocking)
     supabase
       .from('analytics_events')
       .insert({
@@ -225,7 +289,7 @@ Important rules:
         event_type: 'ai_response',
         event_data: {
           tokens_used: usage?.totalTokens || 0,
-          model: config.ai_model || 'llama-3.3-70b-versatile',
+          model: usedModel,
         },
       })
       .then(() => {})
@@ -240,17 +304,40 @@ Important rules:
       { headers: corsHeaders }
     )
   } catch (error) {
-    console.error('AI Chat API error:', error instanceof Error ? error.message : error)
+    const errorMessage = error instanceof Error ? error.message : String(error)
+    const errorStack = error instanceof Error ? error.stack : undefined
+
+    console.error('AI Chat API error:', {
+      message: errorMessage,
+      stack: errorStack?.split('\n').slice(0, 5).join('\n'),
+      name: error instanceof Error ? error.name : 'Unknown',
+    })
     
-    const errorMessage = error instanceof Error ? error.message : 'Internal server error'
-    const isConfigError = errorMessage.includes('API key') || errorMessage.includes('gateway') || errorMessage.includes('unauthorized') || errorMessage.includes('Missing')
-    
+    const isConfigError =
+      errorMessage.includes('API key') ||
+      errorMessage.includes('GROQ_API_KEY') ||
+      errorMessage.includes('gateway') ||
+      errorMessage.includes('unauthorized') ||
+      errorMessage.includes('401')
+
+    const isRateLimit =
+      errorMessage.includes('rate') ||
+      errorMessage.includes('429') ||
+      errorMessage.includes('quota')
+
+    let userFacingError: string
+    if (isConfigError) {
+      userFacingError = 'AI service is not properly configured. Please contact support.'
+    } else if (isRateLimit) {
+      userFacingError = 'The AI service is currently busy. Please try again in a moment.'
+    } else {
+      userFacingError = 'Sorry, I\'m having trouble responding right now. Please try again or ask to speak with a human agent.'
+    }
+
     return NextResponse.json(
       { 
-        error: isConfigError 
-          ? 'AI service is not properly configured. Please check your API key settings.' 
-          : 'Failed to generate a response. Please try again.',
-        reply: 'Sorry, I\'m having trouble responding right now. Please try again or ask to speak with a human agent.',
+        error: userFacingError,
+        reply: userFacingError,
         bot_active: true,
         handoff: false,
       },
