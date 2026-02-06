@@ -32,6 +32,7 @@ export default function LandingPage() {
               width={120} 
               height={40} 
               priority
+              loading="eager"
               className="h-8 w-auto"
             />
           </Link>
