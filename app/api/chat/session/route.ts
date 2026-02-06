@@ -2,12 +2,18 @@ import { createPublicClient } from '@/lib/supabase/public'
 import { NextRequest, NextResponse } from 'next/server'
 import { randomUUID } from 'crypto'
 
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type',
+}
+
 export async function POST(request: NextRequest) {
   try {
     const { chatbot_id, visitor_name, visitor_email } = await request.json()
 
     if (!chatbot_id) {
-      return NextResponse.json({ error: 'Missing chatbot_id' }, { status: 400 })
+      return NextResponse.json({ error: 'Missing chatbot_id' }, { status: 400, headers: corsHeaders })
     }
 
     const supabase = createPublicClient()
@@ -21,13 +27,13 @@ export async function POST(request: NextRequest) {
 
     if (configError || !config) {
       console.error('Config fetch error:', configError)
-      return NextResponse.json({ error: 'Chatbot not found' }, { status: 404 })
+      return NextResponse.json({ error: 'Chatbot not found' }, { status: 404, headers: corsHeaders })
     }
 
     // Generate a unique visitor ID for this session
     const visitor_id = `visitor_${randomUUID()}`
 
-    // Create new chat session
+    // Create new chat session with all required fields
     const { data: session, error: sessionError } = await supabase
       .from('chat_sessions')
       .insert({
@@ -37,6 +43,9 @@ export async function POST(request: NextRequest) {
         visitor_name: visitor_name || 'Visitor',
         visitor_email: visitor_email || null,
         status: 'active',
+        started_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        last_message_at: new Date().toISOString(),
         metadata: {
           user_agent: request.headers.get('user-agent'),
           referrer: request.headers.get('referer'),
@@ -47,7 +56,10 @@ export async function POST(request: NextRequest) {
 
     if (sessionError) {
       console.error('Session creation error:', sessionError)
-      return NextResponse.json({ error: 'Failed to create session', details: sessionError.message }, { status: 500 })
+      return NextResponse.json(
+        { error: 'Failed to create session', details: sessionError.message },
+        { status: 500, headers: corsHeaders }
+      )
     }
 
     // Log analytics event (non-blocking)
@@ -59,25 +71,13 @@ export async function POST(request: NextRequest) {
       event_data: { visitor_name, visitor_email },
     }).then(() => {}).catch(() => {})
 
-    return NextResponse.json({ session_id: session.id }, {
-      headers: {
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'POST, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type',
-      },
-    })
+    return NextResponse.json({ session_id: session.id }, { headers: corsHeaders })
   } catch (error) {
     console.error('Session API error:', error)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500, headers: corsHeaders })
   }
 }
 
 export async function OPTIONS() {
-  return new NextResponse(null, {
-    headers: {
-      'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Methods': 'POST, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type',
-    },
-  })
+  return new NextResponse(null, { headers: corsHeaders })
 }

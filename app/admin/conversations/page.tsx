@@ -34,9 +34,13 @@ interface ChatSession {
   id: string
   visitor_name: string | null
   visitor_email: string | null
+  visitor_id: string
   status: string
-  created_at: string
+  started_at: string
   updated_at: string
+  last_message_at: string | null
+  chatbot_id: string
+  admin_id: string | null
   chat_messages: ChatMessage[]
 }
 
@@ -45,6 +49,7 @@ interface ChatMessage {
   content: string
   sender_type: 'visitor' | 'admin' | 'bot'
   created_at: string
+  is_read: boolean
 }
 
 export default function ConversationsPage() {
@@ -55,36 +60,96 @@ export default function ConversationsPage() {
   const [newMessage, setNewMessage] = useState('')
   const [sending, setSending] = useState(false)
   const [isConnected, setIsConnected] = useState(false)
+  const [userId, setUserId] = useState<string | null>(null)
+  const [chatbotIds, setChatbotIds] = useState<string[]>([])
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const channelRef = useRef<RealtimeChannel | null>(null)
+  const selectedSessionRef = useRef<ChatSession | null>(null)
+
+  // Keep ref in sync with state
+  useEffect(() => {
+    selectedSessionRef.current = selectedSession
+  }, [selectedSession])
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }
 
-  const loadSessions = useCallback(async (selectFirst = false) => {
-    const supabase = createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return
+  // Initialize: get user and their chatbot IDs
+  useEffect(() => {
+    async function init() {
+      const supabase = createClient()
+      const { data: { user }, error } = await supabase.auth.getUser()
+      
+      if (!user || error) {
+        console.log('[v0] Auth failed in conversations, user:', user, 'error:', error)
+        setLoading(false)
+        return
+      }
 
-    const { data } = await supabase
+      setUserId(user.id)
+
+      // Fetch all chatbot IDs belonging to this admin
+      const { data: chatbots, error: chatbotsError } = await supabase
+        .from('chatbot_configs')
+        .select('id')
+        .eq('admin_id', user.id)
+
+      if (chatbotsError) {
+        console.log('[v0] Failed to fetch chatbots:', chatbotsError)
+        setLoading(false)
+        return
+      }
+
+      const ids = (chatbots || []).map(c => c.id)
+      setChatbotIds(ids)
+      console.log('[v0] Found chatbot IDs:', ids)
+    }
+
+    init()
+  }, [])
+
+  const loadSessions = useCallback(async (selectFirst = false) => {
+    if (chatbotIds.length === 0) {
+      setLoading(false)
+      return
+    }
+
+    const supabase = createClient()
+
+    // Query sessions by chatbot_id (which the admin owns) instead of admin_id on sessions
+    // This is more reliable and matches the RLS policy
+    const { data, error } = await supabase
       .from('chat_sessions')
       .select(`
         id,
         visitor_name,
         visitor_email,
+        visitor_id,
         status,
-        created_at,
+        started_at,
         updated_at,
+        last_message_at,
+        chatbot_id,
+        admin_id,
         chat_messages (
           id,
           content,
           sender_type,
-          created_at
+          created_at,
+          is_read
         )
       `)
-      .eq('admin_id', user.id)
+      .in('chatbot_id', chatbotIds)
       .order('updated_at', { ascending: false })
+
+    console.log('[v0] Sessions query result:', { count: data?.length, error })
+
+    if (error) {
+      console.log('[v0] Sessions query error:', error)
+      setLoading(false)
+      return
+    }
 
     if (data) {
       // Sort messages within each session
@@ -98,8 +163,9 @@ export default function ConversationsPage() {
       setSessions(sortedData)
       
       // Update selected session if it exists in new data
-      if (selectedSession) {
-        const updated = sortedData.find(s => s.id === selectedSession.id)
+      const current = selectedSessionRef.current
+      if (current) {
+        const updated = sortedData.find(s => s.id === current.id)
         if (updated) {
           setSelectedSession(updated)
         }
@@ -108,78 +174,68 @@ export default function ConversationsPage() {
       }
     }
     setLoading(false)
-  }, [selectedSession])
+  }, [chatbotIds])
+
+  // Load sessions when chatbotIds are available
+  useEffect(() => {
+    if (chatbotIds.length > 0) {
+      loadSessions(true)
+    }
+  }, [chatbotIds, loadSessions])
 
   // Setup real-time subscription
   useEffect(() => {
+    if (chatbotIds.length === 0) return
+
     const supabase = createClient()
     
-    const setupRealtime = async () => {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
+    const channel = supabase
+      .channel('admin-chat-updates')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'chat_messages',
+        },
+        () => {
+          loadSessions()
+          scrollToBottom()
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'chat_sessions',
+        },
+        () => {
+          loadSessions()
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'chat_sessions',
+        },
+        () => {
+          loadSessions()
+        }
+      )
+      .subscribe((status) => {
+        console.log('[v0] Realtime subscription status:', status)
+        setIsConnected(status === 'SUBSCRIBED')
+      })
 
-      // Subscribe to new messages
-      const channel = supabase
-        .channel('admin-chat-updates')
-        .on(
-          'postgres_changes',
-          {
-            event: 'INSERT',
-            schema: 'public',
-            table: 'chat_messages',
-          },
-          async (payload) => {
-            console.log('[v0] New message received:', payload)
-            // Reload sessions to get updated data
-            await loadSessions()
-            scrollToBottom()
-          }
-        )
-        .on(
-          'postgres_changes',
-          {
-            event: 'INSERT',
-            schema: 'public',
-            table: 'chat_sessions',
-          },
-          async (payload) => {
-            console.log('[v0] New session received:', payload)
-            await loadSessions()
-          }
-        )
-        .on(
-          'postgres_changes',
-          {
-            event: 'UPDATE',
-            schema: 'public',
-            table: 'chat_sessions',
-          },
-          async (payload) => {
-            console.log('[v0] Session updated:', payload)
-            await loadSessions()
-          }
-        )
-        .subscribe((status) => {
-          console.log('[v0] Realtime subscription status:', status)
-          setIsConnected(status === 'SUBSCRIBED')
-        })
-
-      channelRef.current = channel
-    }
-
-    setupRealtime()
+    channelRef.current = channel
 
     return () => {
-      if (channelRef.current) {
-        supabase.removeChannel(channelRef.current)
-      }
+      supabase.removeChannel(channel)
     }
-  }, [loadSessions])
-
-  // Initial load
-  useEffect(() => {
-    loadSessions(true)
-  }, [])
+  }, [chatbotIds, loadSessions])
 
   // Scroll to bottom when selected session changes or new messages arrive
   useEffect(() => {
@@ -187,39 +243,46 @@ export default function ConversationsPage() {
   }, [selectedSession?.chat_messages])
 
   const handleSendMessage = async () => {
-    if (!newMessage.trim() || !selectedSession) return
+    if (!newMessage.trim() || !selectedSession || !userId) return
     setSending(true)
 
     const supabase = createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return
 
     const { error } = await supabase.from('chat_messages').insert({
       session_id: selectedSession.id,
-      admin_id: user.id,
+      admin_id: userId,
       content: newMessage,
       sender_type: 'admin',
+      sender_id: userId,
     })
 
-    if (!error) {
-      // Update session's updated_at timestamp
+    if (error) {
+      console.log('[v0] Send message error:', error)
+    } else {
+      // Update session timestamps
       await supabase
         .from('chat_sessions')
-        .update({ updated_at: new Date().toISOString() })
+        .update({ 
+          updated_at: new Date().toISOString(),
+          last_message_at: new Date().toISOString(),
+        })
         .eq('id', selectedSession.id)
     }
 
     setNewMessage('')
     setSending(false)
-    // The realtime subscription will handle the update
   }
 
   const handleArchive = async (sessionId: string) => {
     const supabase = createClient()
-    await supabase
+    const { error } = await supabase
       .from('chat_sessions')
-      .update({ status: 'closed' })
+      .update({ status: 'closed', ended_at: new Date().toISOString() })
       .eq('id', sessionId)
+    
+    if (!error) {
+      await loadSessions()
+    }
   }
 
   const handleDelete = async (sessionId: string) => {
@@ -249,6 +312,7 @@ export default function ConversationsPage() {
     return (
       session.visitor_name?.toLowerCase().includes(searchLower) ||
       session.visitor_email?.toLowerCase().includes(searchLower) ||
+      session.visitor_id?.toLowerCase().includes(searchLower) ||
       session.chat_messages.some((m) => m.content.toLowerCase().includes(searchLower))
     )
   })
@@ -308,13 +372,16 @@ export default function ConversationsPage() {
                   <p className="mt-3 text-sm text-muted-foreground">
                     No conversations found
                   </p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Conversations will appear here when visitors start chatting through your widget
+                  </p>
                 </div>
               ) : (
                 <div className="divide-y">
                   {filteredSessions.map((session) => {
                     const lastMessage = session.chat_messages[session.chat_messages.length - 1]
                     const isSelected = selectedSession?.id === session.id
-                    const hasNewMessages = lastMessage?.sender_type === 'visitor'
+                    const hasNewMessages = lastMessage?.sender_type === 'visitor' && !lastMessage?.is_read
                     
                     return (
                       <button
@@ -357,7 +424,7 @@ export default function ConversationsPage() {
                             </div>
                           </div>
                           <span className="shrink-0 text-xs text-muted-foreground">
-                            {new Date(session.updated_at || session.created_at).toLocaleTimeString([], { 
+                            {new Date(session.updated_at || session.started_at).toLocaleTimeString([], { 
                               hour: '2-digit', 
                               minute: '2-digit' 
                             })}
