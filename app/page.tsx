@@ -26,13 +26,13 @@ export default function LandingPage() {
       <header className="sticky top-0 z-50 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
           <Link href="/" className="flex items-center">
-            <Image 
+            <img 
               src={VINTRA_LOGO} 
               alt="Vintra" 
               width={120} 
               height={40} 
-              priority
               loading="eager"
+              fetchPriority="high"
               className="h-8 w-auto"
             />
           </Link>
