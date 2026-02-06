@@ -174,8 +174,10 @@ Important rules:
 - Current date/time: ${new Date().toISOString()}`
 
     // Generate AI response
+    const modelId = config.ai_model || 'openai/gpt-4o-mini'
+    
     const { text, usage } = await generateText({
-      model: config.ai_model || 'openai/gpt-4o-mini',
+      model: modelId,
       system: systemPrompt,
       messages: conversationMessages,
       maxOutputTokens: config.ai_max_tokens || 500,
@@ -236,13 +238,16 @@ Important rules:
     console.error('AI Chat API error:', error instanceof Error ? error.message : error)
     
     const errorMessage = error instanceof Error ? error.message : 'Internal server error'
-    const isConfigError = errorMessage.includes('API key') || errorMessage.includes('gateway') || errorMessage.includes('unauthorized')
+    const isConfigError = errorMessage.includes('API key') || errorMessage.includes('gateway') || errorMessage.includes('unauthorized') || errorMessage.includes('Missing')
     
     return NextResponse.json(
       { 
         error: isConfigError 
-          ? 'AI service is not properly configured. Please check your API key settings in the admin panel.' 
+          ? 'AI service is not properly configured. Please check your API key settings.' 
           : 'Failed to generate a response. Please try again.',
+        reply: 'Sorry, I\'m having trouble responding right now. Please try again or ask to speak with a human agent.',
+        bot_active: true,
+        handoff: false,
       },
       { status: 500, headers: corsHeaders }
     )

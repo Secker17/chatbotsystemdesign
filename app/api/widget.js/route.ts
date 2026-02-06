@@ -739,6 +739,8 @@ export async function GET() {
             
             if (aiData.reply) {
               addMessage(aiData.reply, 'bot', true);
+            } else if (!aiResponse.ok) {
+              addMessage('Sorry, I\\'m having trouble responding right now. Please try again or ask to speak with a human agent.', 'bot', true);
             }
             
             if (aiData.handoff) {
@@ -753,6 +755,7 @@ export async function GET() {
             }
           } catch (err) {
             showTyping(false);
+            addMessage('Sorry, I could not connect to the AI service. Please try again later.', 'bot', true);
             console.error('VintraStudio: AI response failed', err);
           }
         }
