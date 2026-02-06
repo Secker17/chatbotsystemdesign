@@ -3,10 +3,6 @@ import { createGroq } from '@ai-sdk/groq'
 import { createClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
 
-const groq = createGroq({
-  apiKey: process.env.GROQ_API_KEY,
-})
-
 export const maxDuration = 30
 
 export async function POST(request: NextRequest) {
@@ -25,6 +21,16 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Missing message' }, { status: 400 })
     }
 
+    const apiKey = process.env.GROQ_API_KEY
+    if (!apiKey) {
+      return NextResponse.json(
+        { error: 'GROQ_API_KEY is not configured. Please add it in your environment variables.' },
+        { status: 500 }
+      )
+    }
+
+    const groq = createGroq({ apiKey })
+
     const fullPrompt = `${system_prompt || 'You are a helpful assistant.'}${
       knowledge_base ? `\n\nKnowledge Base:\n${knowledge_base}` : ''
     }\n\nCurrent date/time: ${new Date().toISOString()}`
@@ -34,14 +40,14 @@ export async function POST(request: NextRequest) {
       system: fullPrompt,
       messages: [{ role: 'user', content: message }],
       maxOutputTokens: max_tokens || 500,
-      temperature: temperature || 0.7,
+      temperature: temperature ?? 0.7,
     })
 
     return NextResponse.json({ reply: text })
   } catch (error) {
-    console.error('AI test error:', error)
+    console.error('AI test error:', error instanceof Error ? error.message : error)
     return NextResponse.json(
-      { error: 'Failed to generate response. Please check your configuration.' },
+      { error: error instanceof Error ? error.message : 'Failed to generate response. Please check your configuration.' },
       { status: 500 }
     )
   }
