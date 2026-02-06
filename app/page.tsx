@@ -31,6 +31,7 @@ export default function LandingPage() {
               alt="Vintra" 
               width={120} 
               height={40} 
+              priority
               className="h-8 w-auto"
             />
           </Link>
