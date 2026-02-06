@@ -174,13 +174,20 @@ Important rules:
 - Current date/time: ${new Date().toISOString()}`
 
     // Generate AI response
+    const modelId = config.ai_model || 'openai/gpt-4o-mini'
+    console.log('[v0] AI route - attempting generateText with model:', modelId)
+    console.log('[v0] AI route - conversation messages count:', conversationMessages.length)
+    console.log('[v0] AI route - AI_GATEWAY_API_KEY present:', !!process.env.AI_GATEWAY_API_KEY)
+    
     const { text, usage } = await generateText({
-      model: config.ai_model || 'openai/gpt-4o-mini',
+      model: modelId,
       system: systemPrompt,
       messages: conversationMessages,
       maxOutputTokens: config.ai_max_tokens || 500,
       temperature: config.ai_temperature || 0.7,
     })
+    
+    console.log('[v0] AI route - generateText succeeded, response length:', text?.length)
 
     // Store the AI response in the database
     await supabase.from('chat_messages').insert({
@@ -233,10 +240,14 @@ Important rules:
       { headers: corsHeaders }
     )
   } catch (error) {
-    console.error('AI Chat API error:', error instanceof Error ? error.message : error)
+    console.error('[v0] AI Chat API error:', error instanceof Error ? error.message : error)
+    console.error('[v0] AI Chat API error stack:', error instanceof Error ? error.stack : 'no stack')
+    console.error('[v0] AI_GATEWAY_API_KEY present:', !!process.env.AI_GATEWAY_API_KEY)
+    console.error('[v0] SUPABASE_SERVICE_ROLE_KEY present:', !!process.env.SUPABASE_SERVICE_ROLE_KEY)
+    console.error('[v0] NEXT_PUBLIC_SUPABASE_URL present:', !!process.env.NEXT_PUBLIC_SUPABASE_URL)
     
     const errorMessage = error instanceof Error ? error.message : 'Internal server error'
-    const isConfigError = errorMessage.includes('API key') || errorMessage.includes('gateway') || errorMessage.includes('unauthorized')
+    const isConfigError = errorMessage.includes('API key') || errorMessage.includes('gateway') || errorMessage.includes('unauthorized') || errorMessage.includes('Missing')
     
     return NextResponse.json(
       { 
