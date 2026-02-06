@@ -3,13 +3,16 @@ import { NextRequest, NextResponse } from 'next/server'
 
 export async function POST(request: NextRequest) {
   try {
-    const { chatbot_id, visitor_name, visitor_email } = await request.json()
+    const body = await request.json()
+    console.log('[v0] Session API request body:', JSON.stringify(body))
+    const { chatbot_id, visitor_name, visitor_email } = body
 
     if (!chatbot_id) {
       return NextResponse.json({ error: 'Missing chatbot_id' }, { status: 400 })
     }
 
     const supabase = createPublicClient()
+    console.log('[v0] Supabase client created successfully')
 
     // Get the admin_id from the chatbot config
     const { data: config, error: configError } = await supabase
@@ -18,6 +21,7 @@ export async function POST(request: NextRequest) {
       .eq('id', chatbot_id)
       .single()
 
+    console.log('[v0] Config fetch result:', JSON.stringify({ config, configError }))
     if (configError || !config) {
       console.error('Config fetch error:', configError)
       return NextResponse.json({ error: 'Chatbot not found' }, { status: 404 })
@@ -41,8 +45,12 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (sessionError) {
-      console.error('Session creation error:', sessionError)
-      return NextResponse.json({ error: 'Failed to create session' }, { status: 500 })
+      console.log('[v0] Session creation error details:', JSON.stringify(sessionError, null, 2))
+      console.log('[v0] Session creation error message:', sessionError.message)
+      console.log('[v0] Session creation error code:', sessionError.code)
+      console.log('[v0] Session creation error hint:', sessionError.hint)
+      console.log('[v0] Session creation error details:', sessionError.details)
+      return NextResponse.json({ error: 'Failed to create session', details: sessionError.message }, { status: 500 })
     }
 
     // Log analytics event (non-blocking)
@@ -62,7 +70,8 @@ export async function POST(request: NextRequest) {
       },
     })
   } catch (error) {
-    console.error('Session API error:', error)
+    console.log('[v0] Session API caught error:', error instanceof Error ? error.message : error)
+    console.log('[v0] Session API error stack:', error instanceof Error ? error.stack : 'N/A')
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
