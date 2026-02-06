@@ -1,6 +1,11 @@
 import { NextResponse } from 'next/server'
 import { generateText } from 'ai'
+import { createGroq } from '@ai-sdk/groq'
 import { createPublicClient } from '@/lib/supabase/public'
+
+const groq = createGroq({
+  apiKey: process.env.GROQ_API_KEY,
+})
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -13,8 +18,8 @@ export async function GET() {
 
   // Check environment variables
   checks.env = {
-    AI_GATEWAY_API_KEY: !!process.env.AI_GATEWAY_API_KEY,
-    AI_GATEWAY_API_KEY_length: process.env.AI_GATEWAY_API_KEY?.length || 0,
+    GROQ_API_KEY: !!process.env.GROQ_API_KEY,
+    GROQ_API_KEY_length: process.env.GROQ_API_KEY?.length || 0,
     NEXT_PUBLIC_SUPABASE_URL: !!process.env.NEXT_PUBLIC_SUPABASE_URL,
     NEXT_PUBLIC_SUPABASE_ANON_KEY: !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
     SUPABASE_SERVICE_ROLE_KEY: !!process.env.SUPABASE_SERVICE_ROLE_KEY,
@@ -32,10 +37,10 @@ export async function GET() {
     checks.supabase = { connected: false, error: e instanceof Error ? e.message : String(e) }
   }
 
-  // Check AI SDK generateText
+  // Check AI SDK generateText with Groq
   try {
     const { text } = await generateText({
-      model: 'openai/gpt-4o-mini',
+      model: groq('llama-3.3-70b-versatile'),
       prompt: 'Say "hello" and nothing else.',
       maxOutputTokens: 10,
     })
