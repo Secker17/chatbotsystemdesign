@@ -1,6 +1,18 @@
 import { createClient as createSupabaseClient } from '@supabase/supabase-js'
 import { cookies } from 'next/headers'
 
+function extractToken(cookieValue: string): string | null {
+  try {
+    const parsed = JSON.parse(cookieValue)
+    if (Array.isArray(parsed) && parsed[0]) return parsed[0]
+    if (typeof parsed === 'string') return parsed
+    if (parsed?.access_token) return parsed.access_token
+    return null
+  } catch {
+    return cookieValue || null
+  }
+}
+
 export async function createClient() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
@@ -13,27 +25,19 @@ export async function createClient() {
 
   try {
     const cookieStore = await cookies()
-    
-    // Check for our custom auth cookie first
-    const customCookie = cookieStore.get('sb-auth-token')
-    if (customCookie?.value) {
-      token = customCookie.value
-    }
-    
-    // Fallback: check for default Supabase auth cookie
-    if (!token) {
+
+    // Check custom auth cookie first
+    const customAuth = cookieStore.get('sb-auth-token')
+    if (customAuth?.value) {
+      token = customAuth.value
+    } else {
+      // Fallback to Supabase default auth cookie
       const allCookies = cookieStore.getAll()
-      const supabaseCookie = allCookies.find(
-        (c) => c.name.startsWith('sb-') && c.name.endsWith('-auth-token') && c.name !== 'sb-auth-token'
+      const authCookie = allCookies.find(
+        (c) => c.name.startsWith('sb-') && c.name.endsWith('-auth-token')
       )
-      if (supabaseCookie?.value) {
-        try {
-          const parsed = JSON.parse(supabaseCookie.value)
-          if (Array.isArray(parsed) && parsed[0]) token = parsed[0]
-          else if (parsed?.access_token) token = parsed.access_token
-        } catch {
-          token = supabaseCookie.value
-        }
+      if (authCookie) {
+        token = extractToken(authCookie.value)
       }
     }
   } catch {
