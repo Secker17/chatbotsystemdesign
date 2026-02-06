@@ -16,7 +16,7 @@ export async function GET(request: NextRequest) {
 
     const { data, error } = await supabase
       .from('chatbot_configs')
-      .select('widget_title, welcome_message, primary_color, position, avatar_url, show_branding, placeholder_text, offline_message, ai_enabled')
+      .select('widget_title, welcome_message, primary_color, position, avatar_url, show_branding, placeholder_text, offline_message, ai_enabled, business_hours_enabled, business_hours_timezone, business_hours, outside_hours_message')
       .eq('id', chatbotId)
       .single()
 

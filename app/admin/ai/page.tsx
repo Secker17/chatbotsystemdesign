@@ -32,7 +32,24 @@ import {
   ArrowLeftRight,
   Plus,
   X,
+  Clock,
 } from 'lucide-react'
+
+interface DaySchedule {
+  enabled: boolean
+  open: string
+  close: string
+}
+
+interface BusinessHours {
+  monday: DaySchedule
+  tuesday: DaySchedule
+  wednesday: DaySchedule
+  thursday: DaySchedule
+  friday: DaySchedule
+  saturday: DaySchedule
+  sunday: DaySchedule
+}
 
 interface AIConfig {
   id: string
@@ -45,7 +62,45 @@ interface AIConfig {
   ai_auto_greet: boolean | null
   ai_greeting_message: string | null
   ai_handoff_keywords: string[] | null
+  business_hours_enabled: boolean
+  business_hours_timezone: string
+  business_hours: BusinessHours
+  outside_hours_message: string
 }
+
+const DEFAULT_BUSINESS_HOURS: BusinessHours = {
+  monday: { enabled: true, open: '09:00', close: '17:00' },
+  tuesday: { enabled: true, open: '09:00', close: '17:00' },
+  wednesday: { enabled: true, open: '09:00', close: '17:00' },
+  thursday: { enabled: true, open: '09:00', close: '17:00' },
+  friday: { enabled: true, open: '09:00', close: '17:00' },
+  saturday: { enabled: false, open: '10:00', close: '15:00' },
+  sunday: { enabled: false, open: '10:00', close: '15:00' },
+}
+
+const DAYS_OF_WEEK = [
+  { key: 'monday', label: 'Monday', short: 'Mon' },
+  { key: 'tuesday', label: 'Tuesday', short: 'Tue' },
+  { key: 'wednesday', label: 'Wednesday', short: 'Wed' },
+  { key: 'thursday', label: 'Thursday', short: 'Thu' },
+  { key: 'friday', label: 'Friday', short: 'Fri' },
+  { key: 'saturday', label: 'Saturday', short: 'Sat' },
+  { key: 'sunday', label: 'Sunday', short: 'Sun' },
+] as const
+
+const TIMEZONES = [
+  { value: 'Europe/Oslo', label: 'Europe/Oslo (CET)' },
+  { value: 'Europe/London', label: 'Europe/London (GMT)' },
+  { value: 'Europe/Berlin', label: 'Europe/Berlin (CET)' },
+  { value: 'Europe/Paris', label: 'Europe/Paris (CET)' },
+  { value: 'America/New_York', label: 'US Eastern (ET)' },
+  { value: 'America/Chicago', label: 'US Central (CT)' },
+  { value: 'America/Denver', label: 'US Mountain (MT)' },
+  { value: 'America/Los_Angeles', label: 'US Pacific (PT)' },
+  { value: 'Asia/Tokyo', label: 'Asia/Tokyo (JST)' },
+  { value: 'Asia/Shanghai', label: 'Asia/Shanghai (CST)' },
+  { value: 'Australia/Sydney', label: 'Australia/Sydney (AEST)' },
+]
 
 const AI_MODELS = [
   { value: 'llama-3.3-70b-versatile', label: 'Llama 3.3 70B', description: 'Most capable, free via Groq' },
@@ -74,7 +129,7 @@ export default function AIConfigPage() {
 
     const { data } = await supabase
       .from('chatbot_configs')
-      .select('id, ai_enabled, ai_system_prompt, ai_knowledge_base, ai_model, ai_temperature, ai_max_tokens, ai_auto_greet, ai_greeting_message, ai_handoff_keywords')
+      .select('id, ai_enabled, ai_system_prompt, ai_knowledge_base, ai_model, ai_temperature, ai_max_tokens, ai_auto_greet, ai_greeting_message, ai_handoff_keywords, business_hours_enabled, business_hours_timezone, business_hours, outside_hours_message')
       .eq('admin_id', user.id)
       .single()
 
@@ -87,6 +142,10 @@ export default function AIConfigPage() {
         ai_handoff_keywords: data.ai_handoff_keywords ?? ['human', 'agent', 'person', 'real person', 'speak to someone', 'menneske', 'snakke med noen'],
         ai_greeting_message: data.ai_greeting_message ?? 'Hi! I\'m an AI assistant. How can I help you today? If you\'d like to speak with a human, just let me know!',
         ai_system_prompt: data.ai_system_prompt ?? 'You are a helpful customer support assistant. Be friendly, professional, and concise. Help visitors with their questions and guide them to the right resources.',
+        business_hours_enabled: data.business_hours_enabled ?? false,
+        business_hours_timezone: data.business_hours_timezone ?? 'Europe/Oslo',
+        business_hours: (data.business_hours as unknown as BusinessHours) ?? DEFAULT_BUSINESS_HOURS,
+        outside_hours_message: data.outside_hours_message ?? 'We are currently offline. Please leave a message and we will get back to you during our business hours.',
       })
     }
     setLoading(false)
@@ -109,6 +168,10 @@ export default function AIConfigPage() {
         ai_auto_greet: config.ai_auto_greet,
         ai_greeting_message: config.ai_greeting_message,
         ai_handoff_keywords: config.ai_handoff_keywords,
+        business_hours_enabled: config.business_hours_enabled,
+        business_hours_timezone: config.business_hours_timezone,
+        business_hours: config.business_hours,
+        outside_hours_message: config.outside_hours_message,
         updated_at: new Date().toISOString(),
       })
       .eq('id', config.id)
@@ -393,6 +456,141 @@ FAQ:
                     </p>
                   </div>
                 </CardContent>
+              </Card>
+
+              {/* Business Hours */}
+              <Card>
+                <CardHeader>
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
+                      <Clock className="h-5 w-5 text-primary" />
+                    </div>
+                    <div className="flex-1">
+                      <CardTitle>Business Hours</CardTitle>
+                      <CardDescription>
+                        Set when the chat is available. Outside these hours, visitors will see an offline message.
+                      </CardDescription>
+                    </div>
+                    <Switch
+                      checked={config.business_hours_enabled}
+                      onCheckedChange={(checked) => setConfig({ ...config, business_hours_enabled: checked })}
+                    />
+                  </div>
+                </CardHeader>
+                {config.business_hours_enabled && (
+                  <CardContent className="space-y-5 border-t pt-4">
+                    {/* Timezone */}
+                    <div className="space-y-2">
+                      <Label>Timezone</Label>
+                      <Select
+                        value={config.business_hours_timezone}
+                        onValueChange={(value) => setConfig({ ...config, business_hours_timezone: value })}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {TIMEZONES.map((tz) => (
+                            <SelectItem key={tz.value} value={tz.value}>
+                              {tz.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    {/* Schedule Grid */}
+                    <div className="space-y-2">
+                      <Label>Weekly Schedule</Label>
+                      <div className="space-y-2 rounded-lg border p-3">
+                        {DAYS_OF_WEEK.map(({ key, label, short }) => {
+                          const day = config.business_hours[key as keyof BusinessHours]
+                          return (
+                            <div key={key} className="flex items-center gap-3">
+                              <Switch
+                                checked={day.enabled}
+                                onCheckedChange={(checked) => {
+                                  setConfig({
+                                    ...config,
+                                    business_hours: {
+                                      ...config.business_hours,
+                                      [key]: { ...day, enabled: checked },
+                                    },
+                                  })
+                                }}
+                              />
+                              <span className="w-10 text-sm font-medium text-foreground md:hidden">
+                                {short}
+                              </span>
+                              <span className="hidden w-24 text-sm font-medium text-foreground md:inline">
+                                {label}
+                              </span>
+                              {day.enabled ? (
+                                <div className="flex items-center gap-2">
+                                  <Input
+                                    type="time"
+                                    value={day.open}
+                                    onChange={(e) => {
+                                      setConfig({
+                                        ...config,
+                                        business_hours: {
+                                          ...config.business_hours,
+                                          [key]: { ...day, open: e.target.value },
+                                        },
+                                      })
+                                    }}
+                                    className="w-[120px] text-sm"
+                                  />
+                                  <span className="text-sm text-muted-foreground">to</span>
+                                  <Input
+                                    type="time"
+                                    value={day.close}
+                                    onChange={(e) => {
+                                      setConfig({
+                                        ...config,
+                                        business_hours: {
+                                          ...config.business_hours,
+                                          [key]: { ...day, close: e.target.value },
+                                        },
+                                      })
+                                    }}
+                                    className="w-[120px] text-sm"
+                                  />
+                                </div>
+                              ) : (
+                                <span className="text-sm text-muted-foreground">Closed</span>
+                              )}
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </div>
+
+                    <Separator />
+
+                    {/* Offline Message */}
+                    <div className="space-y-2">
+                      <Label htmlFor="offline-msg">Offline Message</Label>
+                      <p className="text-xs text-muted-foreground">
+                        Shown to visitors when the chat is outside business hours
+                      </p>
+                      <Textarea
+                        id="offline-msg"
+                        value={config.outside_hours_message}
+                        onChange={(e) => setConfig({ ...config, outside_hours_message: e.target.value })}
+                        placeholder="We are currently offline. Leave a message and we'll get back to you!"
+                        rows={3}
+                      />
+                    </div>
+
+                    <div className="flex items-start gap-2 rounded-lg bg-primary/5 p-3">
+                      <Clock className="mt-0.5 h-4 w-4 text-primary" />
+                      <p className="text-xs text-muted-foreground">
+                        When business hours are enabled and the chat is outside hours, visitors will see the offline message and the chat input will be disabled. The AI bot will not respond outside business hours.
+                      </p>
+                    </div>
+                  </CardContent>
+                )}
               </Card>
             </>
           )}

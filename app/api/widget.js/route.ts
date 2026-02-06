@@ -448,6 +448,62 @@ export async function GET() {
       color: var(--vintra-primary, #14b8a6);
       background: #f0fdf4;
     }
+    .vintra-offline-overlay {
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      padding: 32px 24px;
+      text-align: center;
+      flex: 1;
+    }
+    .vintra-offline-overlay.show {
+      display: flex;
+    }
+    .vintra-offline-icon {
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      background: #f3f4f6;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .vintra-offline-icon svg {
+      width: 24px;
+      height: 24px;
+      color: #9ca3af;
+    }
+    .vintra-offline-overlay h3 {
+      margin: 0;
+      font-size: 16px;
+      font-weight: 600;
+      color: #374151;
+    }
+    .vintra-offline-overlay p {
+      margin: 0;
+      font-size: 13px;
+      color: #6b7280;
+      line-height: 1.5;
+    }
+    .vintra-offline-hours {
+      margin-top: 4px;
+      padding: 8px 12px;
+      background: #f9fafb;
+      border-radius: 8px;
+      font-size: 12px;
+      color: #6b7280;
+      width: 100%;
+    }
+    .vintra-offline-hours strong {
+      display: block;
+      color: #374151;
+      margin-bottom: 4px;
+    }
+    .vintra-status-dot.offline {
+      background: #9ca3af;
+    }
     @media (max-width: 480px) {
       .vintra-chat-window {
         width: calc(100vw - 20px);
@@ -517,6 +573,17 @@ export async function GET() {
           <input type="email" class="vintra-email-input" placeholder="Your email (optional)">
           <button class="vintra-start-btn">Start Chat</button>
         </div>
+        <div class="vintra-offline-overlay">
+          <div class="vintra-offline-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="10"></circle>
+              <polyline points="12 6 12 12 16 14"></polyline>
+            </svg>
+          </div>
+          <h3>We're currently offline</h3>
+          <p class="vintra-offline-msg">We are currently outside business hours. Please check back later.</p>
+          <div class="vintra-offline-hours"></div>
+        </div>
         <div class="vintra-messages" style="display: none;"></div>
         <div class="vintra-typing">
           <div class="vintra-typing-dots">
@@ -567,6 +634,10 @@ export async function GET() {
     const unreadBadge = container.querySelector('.vintra-unread-badge');
     const quickActions = container.querySelector('.vintra-quick-actions');
     const quickActionBtns = container.querySelectorAll('.vintra-quick-action');
+    const offlineOverlay = container.querySelector('.vintra-offline-overlay');
+    const offlineMsg = container.querySelector('.vintra-offline-msg');
+    const offlineHours = container.querySelector('.vintra-offline-hours');
+    let isOffline = false;
     
     // Event handlers
     launcher.addEventListener('click', () => toggleChat(true));
@@ -860,6 +931,60 @@ export async function GET() {
       pollInterval = setTimeout(pollMessages, 3000);
     }
     
+    // Business hours check
+    function checkBusinessHours(cfg) {
+      if (!cfg.business_hours_enabled || !cfg.business_hours) {
+        return { isOpen: true };
+      }
+      
+      const tz = cfg.business_hours_timezone || 'Europe/Oslo';
+      const now = new Date();
+      
+      // Get current time in the configured timezone
+      const formatter = new Intl.DateTimeFormat('en-US', {
+        timeZone: tz,
+        weekday: 'long',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false,
+      });
+      const parts = formatter.formatToParts(now);
+      const weekday = parts.find(p => p.type === 'weekday')?.value?.toLowerCase() || '';
+      const hour = parts.find(p => p.type === 'hour')?.value || '00';
+      const minute = parts.find(p => p.type === 'minute')?.value || '00';
+      const currentTime = hour.padStart(2, '0') + ':' + minute.padStart(2, '0');
+      
+      const todaySchedule = cfg.business_hours[weekday];
+      if (!todaySchedule || !todaySchedule.enabled) {
+        return { isOpen: false, nextOpen: findNextOpen(cfg.business_hours, weekday) };
+      }
+      
+      const isOpen = currentTime >= todaySchedule.open && currentTime < todaySchedule.close;
+      if (isOpen) {
+        return { isOpen: true, closesAt: todaySchedule.close };
+      }
+      
+      return { isOpen: false, nextOpen: currentTime < todaySchedule.open 
+        ? 'Today at ' + todaySchedule.open 
+        : findNextOpen(cfg.business_hours, weekday) };
+    }
+    
+    function findNextOpen(hours, currentDay) {
+      const days = ['monday','tuesday','wednesday','thursday','friday','saturday','sunday'];
+      const currentIdx = days.indexOf(currentDay);
+      
+      for (let i = 1; i <= 7; i++) {
+        const nextIdx = (currentIdx + i) % 7;
+        const nextDay = days[nextIdx];
+        const schedule = hours[nextDay];
+        if (schedule && schedule.enabled) {
+          const dayName = nextDay.charAt(0).toUpperCase() + nextDay.slice(1);
+          return dayName + ' at ' + schedule.open;
+        }
+      }
+      return null;
+    }
+
     // Apply config
     function applyConfig(cfg) {
       config = cfg;
@@ -882,6 +1007,36 @@ export async function GET() {
       
       if (cfg.position === 'bottom-left') {
         container.classList.add('position-left');
+      }
+      
+      // Check business hours
+      const hoursStatus = checkBusinessHours(cfg);
+      if (!hoursStatus.isOpen) {
+        isOffline = true;
+        
+        // Show offline state
+        statusDot.className = 'vintra-status-dot offline';
+        statusText.textContent = 'Offline';
+        
+        // Show offline overlay instead of pre-chat
+        preChat.classList.add('hidden');
+        offlineOverlay.classList.add('show');
+        
+        // Set offline message
+        if (cfg.outside_hours_message) {
+          offlineMsg.textContent = cfg.outside_hours_message;
+        }
+        
+        // Show next open time
+        if (hoursStatus.nextOpen) {
+          offlineHours.innerHTML = '<strong>Next available</strong>' + hoursStatus.nextOpen;
+          offlineHours.style.display = 'block';
+        } else {
+          offlineHours.style.display = 'none';
+        }
+        
+        // Disable input
+        inputArea.style.display = 'none';
       }
     }
     
