@@ -61,6 +61,11 @@ const menuItems = [
     href: '/admin/conversations',
   },
   {
+    title: 'AI Assistant',
+    icon: Bot,
+    href: '/admin/ai',
+  },
+  {
     title: 'Canned Responses',
     icon: MessagesSquare,
     href: '/admin/responses',

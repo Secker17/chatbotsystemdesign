@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Textarea } from '@/components/ui/textarea'
+import { Separator } from '@/components/ui/separator'
 import { 
   Loader2, 
   Search, 
@@ -20,14 +21,26 @@ import {
   Archive,
   Trash2,
   RefreshCw,
-  Circle
+  Circle,
+  Sparkles,
+  UserCheck,
+  ArrowLeftRight,
+  Power,
+  AlertTriangle,
 } from 'lucide-react'
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
 import type { RealtimeChannel } from '@supabase/supabase-js'
 
 interface ChatSession {
@@ -41,6 +54,9 @@ interface ChatSession {
   last_message_at: string | null
   chatbot_id: string
   admin_id: string | null
+  is_bot_active: boolean | null
+  handoff_requested_at: string | null
+  bot_messages_count: number | null
   chat_messages: ChatMessage[]
 }
 
@@ -50,6 +66,8 @@ interface ChatMessage {
   sender_type: 'visitor' | 'admin' | 'bot'
   created_at: string
   is_read: boolean
+  is_ai_generated: boolean | null
+  metadata: Record<string, unknown> | null
 }
 
 export default function ConversationsPage() {
@@ -62,6 +80,7 @@ export default function ConversationsPage() {
   const [isConnected, setIsConnected] = useState(false)
   const [userId, setUserId] = useState<string | null>(null)
   const [chatbotIds, setChatbotIds] = useState<string[]>([])
+  const [filter, setFilter] = useState<'all' | 'handoff' | 'active' | 'ai'>('all')
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const channelRef = useRef<RealtimeChannel | null>(null)
   const selectedSessionRef = useRef<ChatSession | null>(null)
@@ -103,7 +122,6 @@ export default function ConversationsPage() {
 
       const ids = (chatbots || []).map(c => c.id)
       setChatbotIds(ids)
-
     }
 
     init()
@@ -117,10 +135,9 @@ export default function ConversationsPage() {
 
     const supabase = createClient()
 
-    // Fetch sessions and messages separately to avoid PostgREST embedded resource 400 errors
     const { data: sessionsData, error: sessionsError } = await supabase
       .from('chat_sessions')
-      .select('id, visitor_name, visitor_email, visitor_id, status, started_at, updated_at, last_message_at, chatbot_id, admin_id')
+      .select('id, visitor_name, visitor_email, visitor_id, status, started_at, updated_at, last_message_at, chatbot_id, admin_id, is_bot_active, handoff_requested_at, bot_messages_count')
       .in('chatbot_id', chatbotIds)
       .order('updated_at', { ascending: false })
 
@@ -140,7 +157,7 @@ export default function ConversationsPage() {
     const sessionIds = sessionsData.map(s => s.id)
     const { data: messagesData, error: messagesError } = await supabase
       .from('chat_messages')
-      .select('id, content, sender_type, created_at, is_read, session_id')
+      .select('id, content, sender_type, created_at, is_read, session_id, is_ai_generated, metadata')
       .in('session_id', sessionIds)
       .order('created_at', { ascending: true })
 
@@ -160,6 +177,8 @@ export default function ConversationsPage() {
         sender_type: msg.sender_type,
         created_at: msg.created_at,
         is_read: msg.is_read,
+        is_ai_generated: msg.is_ai_generated,
+        metadata: msg.metadata,
       })
     }
 
@@ -202,62 +221,30 @@ export default function ConversationsPage() {
       .channel('admin-chat-updates')
       .on(
         'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'chat_messages',
-        },
-        () => {
-          loadSessions()
-          scrollToBottom()
-        }
+        { event: 'INSERT', schema: 'public', table: 'chat_messages' },
+        () => { loadSessions(); scrollToBottom(); }
       )
       .on(
         'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'chat_sessions',
-        },
-        () => {
-          loadSessions()
-        }
+        { event: 'INSERT', schema: 'public', table: 'chat_sessions' },
+        () => { loadSessions(); }
       )
       .on(
         'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'chat_sessions',
-        },
-        () => {
-          loadSessions()
-        }
+        { event: 'UPDATE', schema: 'public', table: 'chat_sessions' },
+        () => { loadSessions(); }
       )
       .on(
         'postgres_changes',
-        {
-          event: 'DELETE',
-          schema: 'public',
-          table: 'chat_sessions',
-        },
-        () => {
-          loadSessions()
-        }
+        { event: 'DELETE', schema: 'public', table: 'chat_sessions' },
+        () => { loadSessions(); }
       )
       .on(
         'postgres_changes',
-        {
-          event: 'DELETE',
-          schema: 'public',
-          table: 'chat_messages',
-        },
-        () => {
-          loadSessions()
-        }
+        { event: 'DELETE', schema: 'public', table: 'chat_messages' },
+        () => { loadSessions(); }
       )
       .subscribe((status) => {
-
         setIsConnected(status === 'SUBSCRIBED')
       })
 
@@ -279,6 +266,19 @@ export default function ConversationsPage() {
 
     const supabase = createClient()
 
+    // If the admin sends a message and the bot is still active, deactivate it
+    if (selectedSession.is_bot_active) {
+      await supabase
+        .from('chat_sessions')
+        .update({ 
+          is_bot_active: false,
+          updated_at: new Date().toISOString(),
+          last_message_at: new Date().toISOString(),
+          status: 'active',
+        })
+        .eq('id', selectedSession.id)
+    }
+
     const { error } = await supabase.from('chat_messages').insert({
       session_id: selectedSession.id,
       admin_id: userId,
@@ -290,12 +290,12 @@ export default function ConversationsPage() {
     if (error) {
       console.error('Send message error:', error)
     } else {
-      // Update session timestamps
       await supabase
         .from('chat_sessions')
         .update({ 
           updated_at: new Date().toISOString(),
           last_message_at: new Date().toISOString(),
+          status: 'active',
         })
         .eq('id', selectedSession.id)
     }
@@ -304,11 +304,47 @@ export default function ConversationsPage() {
     setSending(false)
   }
 
+  const handleTakeOver = async (sessionId: string) => {
+    const supabase = createClient()
+    await supabase
+      .from('chat_sessions')
+      .update({ 
+        is_bot_active: false,
+        status: 'active',
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', sessionId)
+
+    // Send a system message to let the visitor know
+    await supabase.from('chat_messages').insert({
+      session_id: sessionId,
+      admin_id: userId,
+      content: 'A human agent has joined the conversation. How can I help you?',
+      sender_type: 'admin',
+      sender_id: userId,
+    })
+
+    await loadSessions()
+  }
+
+  const handleReactivateBot = async (sessionId: string) => {
+    const supabase = createClient()
+    await supabase
+      .from('chat_sessions')
+      .update({ 
+        is_bot_active: true,
+        status: 'active',
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', sessionId)
+    await loadSessions()
+  }
+
   const handleArchive = async (sessionId: string) => {
     const supabase = createClient()
     const { error } = await supabase
       .from('chat_sessions')
-      .update({ status: 'closed', ended_at: new Date().toISOString() })
+      .update({ status: 'closed', ended_at: new Date().toISOString(), is_bot_active: false })
       .eq('id', sessionId)
     
     if (!error) {
@@ -319,13 +355,11 @@ export default function ConversationsPage() {
   const handleDelete = async (sessionId: string) => {
     const supabase = createClient()
     
-    // Optimistically remove from UI immediately
     if (selectedSession?.id === sessionId) {
       setSelectedSession(null)
     }
     setSessions(prev => prev.filter(s => s.id !== sessionId))
 
-    // First delete all messages for the session
     const { error: msgError } = await supabase
       .from('chat_messages')
       .delete()
@@ -333,12 +367,10 @@ export default function ConversationsPage() {
 
     if (msgError) {
       console.error('Failed to delete messages:', msgError)
-      // Reload to restore state
       await loadSessions()
       return
     }
     
-    // Then delete the session itself
     const { error: sessionError } = await supabase
       .from('chat_sessions')
       .delete()
@@ -348,12 +380,40 @@ export default function ConversationsPage() {
       console.error('Failed to delete session:', sessionError)
     }
 
-    // Reload to ensure consistency
     await loadSessions()
   }
 
+  const getSessionStatusBadge = (session: ChatSession) => {
+    if (session.status === 'waiting_for_human') {
+      return (
+        <Badge variant="destructive" className="gap-1 text-xs">
+          <AlertTriangle className="h-3 w-3" />
+          Handoff
+        </Badge>
+      )
+    }
+    if (session.is_bot_active) {
+      return (
+        <Badge variant="secondary" className="gap-1 text-xs bg-purple-500/10 text-purple-400 border-purple-500/20">
+          <Sparkles className="h-3 w-3" />
+          AI
+        </Badge>
+      )
+    }
+    if (session.status === 'active') {
+      return <Badge variant="default" className="text-xs">Active</Badge>
+    }
+    return <Badge variant="secondary" className="text-xs">{session.status}</Badge>
+  }
+
   const filteredSessions = sessions.filter((session) => {
+    // Apply status filter
+    if (filter === 'handoff' && session.status !== 'waiting_for_human') return false
+    if (filter === 'active' && session.status !== 'active') return false
+    if (filter === 'ai' && !session.is_bot_active) return false
+
     const searchLower = searchQuery.toLowerCase()
+    if (!searchLower) return true
     return (
       session.visitor_name?.toLowerCase().includes(searchLower) ||
       session.visitor_email?.toLowerCase().includes(searchLower) ||
@@ -361,6 +421,8 @@ export default function ConversationsPage() {
       session.chat_messages.some((m) => m.content.toLowerCase().includes(searchLower))
     )
   })
+
+  const handoffCount = sessions.filter(s => s.status === 'waiting_for_human').length
 
   if (loading) {
     return (
@@ -380,6 +442,12 @@ export default function ConversationsPage() {
           </p>
         </div>
         <div className="flex items-center gap-3">
+          {handoffCount > 0 && (
+            <Badge variant="destructive" className="gap-1 py-1">
+              <AlertTriangle className="h-3 w-3" />
+              {handoffCount} waiting for human
+            </Badge>
+          )}
           <div className="flex items-center gap-2 text-sm">
             <Circle 
               className={`h-2 w-2 ${isConnected ? 'fill-green-500 text-green-500' : 'fill-yellow-500 text-yellow-500'}`} 
@@ -398,7 +466,7 @@ export default function ConversationsPage() {
       <div className="grid h-[calc(100vh-220px)] gap-6 lg:grid-cols-3">
         {/* Sessions List */}
         <Card className="flex flex-col">
-          <CardHeader className="pb-3">
+          <CardHeader className="space-y-3 pb-3">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
@@ -407,6 +475,29 @@ export default function ConversationsPage() {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
+            </div>
+            <div className="flex gap-1.5">
+              {[
+                { key: 'all' as const, label: 'All' },
+                { key: 'handoff' as const, label: 'Handoff', count: handoffCount },
+                { key: 'ai' as const, label: 'AI' },
+                { key: 'active' as const, label: 'Active' },
+              ].map(f => (
+                <Button 
+                  key={f.key}
+                  variant={filter === f.key ? 'default' : 'ghost'}
+                  size="sm"
+                  className="h-7 text-xs"
+                  onClick={() => setFilter(f.key)}
+                >
+                  {f.label}
+                  {f.count ? (
+                    <Badge variant="destructive" className="ml-1 h-4 px-1 text-[10px]">
+                      {f.count}
+                    </Badge>
+                  ) : null}
+                </Button>
+              ))}
             </div>
           </CardHeader>
           <CardContent className="flex-1 overflow-hidden p-0">
@@ -427,6 +518,7 @@ export default function ConversationsPage() {
                     const lastMessage = session.chat_messages[session.chat_messages.length - 1]
                     const isSelected = selectedSession?.id === session.id
                     const hasNewMessages = lastMessage?.sender_type === 'visitor' && !lastMessage?.is_read
+                    const isHandoff = session.status === 'waiting_for_human'
                     
                     return (
                       <button
@@ -434,7 +526,7 @@ export default function ConversationsPage() {
                         onClick={() => setSelectedSession(session)}
                         className={`w-full p-4 text-left transition-colors hover:bg-muted/50 ${
                           isSelected ? 'bg-muted' : ''
-                        }`}
+                        } ${isHandoff ? 'border-l-2 border-l-destructive' : ''}`}
                       >
                         <div className="flex items-start justify-between gap-2">
                           <div className="flex items-center gap-3">
@@ -444,7 +536,7 @@ export default function ConversationsPage() {
                                   {session.visitor_name?.[0]?.toUpperCase() || 'V'}
                                 </AvatarFallback>
                               </Avatar>
-                              {hasNewMessages && session.status === 'active' && (
+                              {hasNewMessages && session.status !== 'closed' && (
                                 <span className="absolute -right-0.5 -top-0.5 h-3 w-3 rounded-full border-2 border-background bg-primary" />
                               )}
                             </div>
@@ -453,16 +545,12 @@ export default function ConversationsPage() {
                                 <span className="truncate font-medium">
                                   {session.visitor_name || 'Anonymous'}
                                 </span>
-                                <Badge
-                                  variant={session.status === 'active' ? 'default' : 'secondary'}
-                                  className="text-xs"
-                                >
-                                  {session.status}
-                                </Badge>
+                                {getSessionStatusBadge(session)}
                               </div>
                               {lastMessage && (
                                 <p className="mt-0.5 line-clamp-1 text-xs text-muted-foreground">
                                   {lastMessage.sender_type === 'admin' && 'You: '}
+                                  {lastMessage.sender_type === 'bot' && 'AI: '}
                                   {lastMessage.content}
                                 </p>
                               )}
@@ -496,35 +584,107 @@ export default function ConversationsPage() {
                     </AvatarFallback>
                   </Avatar>
                   <div>
-                    <CardTitle className="text-base">
-                      {selectedSession.visitor_name || 'Anonymous Visitor'}
-                    </CardTitle>
+                    <div className="flex items-center gap-2">
+                      <CardTitle className="text-base">
+                        {selectedSession.visitor_name || 'Anonymous Visitor'}
+                      </CardTitle>
+                      {getSessionStatusBadge(selectedSession)}
+                    </div>
                     <CardDescription className="text-xs">
                       {selectedSession.visitor_email || 'No email provided'}
+                      {selectedSession.bot_messages_count ? ` \u00B7 ${selectedSession.bot_messages_count} AI messages` : ''}
                     </CardDescription>
                   </div>
                 </div>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="icon">
-                      <MoreVertical className="h-4 w-4" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    <DropdownMenuItem onClick={() => handleArchive(selectedSession.id)}>
-                      <Archive className="mr-2 h-4 w-4" />
-                      Archive
-                    </DropdownMenuItem>
-                    <DropdownMenuItem 
-                      className="text-destructive"
-                      onClick={() => handleDelete(selectedSession.id)}
-                    >
-                      <Trash2 className="mr-2 h-4 w-4" />
-                      Delete
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
+                <div className="flex items-center gap-2">
+                  <TooltipProvider>
+                    {selectedSession.status === 'waiting_for_human' && (
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button 
+                            variant="default"
+                            size="sm" 
+                            onClick={() => handleTakeOver(selectedSession.id)}
+                          >
+                            <UserCheck className="mr-2 h-4 w-4" />
+                            Take Over
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>Take over from AI and respond as a human</TooltipContent>
+                      </Tooltip>
+                    )}
+                    {selectedSession.is_bot_active && selectedSession.status !== 'waiting_for_human' && (
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button 
+                            variant="outline"
+                            size="sm" 
+                            onClick={() => handleTakeOver(selectedSession.id)}
+                          >
+                            <UserCheck className="mr-2 h-4 w-4" />
+                            Take Over
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>Disable AI and respond manually</TooltipContent>
+                      </Tooltip>
+                    )}
+                    {!selectedSession.is_bot_active && selectedSession.status === 'active' && (
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button 
+                            variant="ghost"
+                            size="sm" 
+                            onClick={() => handleReactivateBot(selectedSession.id)}
+                          >
+                            <Power className="mr-2 h-4 w-4" />
+                            Reactivate AI
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>Let AI handle this conversation again</TooltipContent>
+                      </Tooltip>
+                    )}
+                  </TooltipProvider>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="icon">
+                        <MoreVertical className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={() => handleArchive(selectedSession.id)}>
+                        <Archive className="mr-2 h-4 w-4" />
+                        Archive
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem 
+                        className="text-destructive"
+                        onClick={() => handleDelete(selectedSession.id)}
+                      >
+                        <Trash2 className="mr-2 h-4 w-4" />
+                        Delete
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
               </CardHeader>
+
+              {/* Handoff Alert Banner */}
+              {selectedSession.status === 'waiting_for_human' && (
+                <div className="flex items-center gap-3 border-b bg-destructive/5 px-4 py-3">
+                  <AlertTriangle className="h-4 w-4 text-destructive" />
+                  <p className="flex-1 text-sm text-destructive">
+                    This visitor has requested to speak with a human agent.
+                  </p>
+                  <Button 
+                    size="sm" 
+                    onClick={() => handleTakeOver(selectedSession.id)}
+                  >
+                    <UserCheck className="mr-2 h-4 w-4" />
+                    Take Over
+                  </Button>
+                </div>
+              )}
+
               <CardContent className="flex-1 overflow-hidden p-0">
                 <ScrollArea className="h-full p-4">
                   <div className="space-y-4">
@@ -539,38 +699,62 @@ export default function ConversationsPage() {
                       selectedSession.chat_messages.map((message) => {
                         const isAdmin = message.sender_type === 'admin'
                         const isBot = message.sender_type === 'bot'
+                        const isHandoffMsg = message.metadata && (message.metadata as Record<string, unknown>).type === 'handoff'
+                        
                         return (
-                          <div
-                            key={message.id}
-                            className={`flex gap-3 ${isAdmin ? 'flex-row-reverse' : ''}`}
-                          >
-                            <Avatar className="h-8 w-8 shrink-0">
-                              <AvatarFallback className={
-                                isAdmin 
-                                  ? 'bg-primary text-primary-foreground' 
-                                  : isBot 
-                                  ? 'bg-secondary text-secondary-foreground'
-                                  : 'bg-muted'
-                              }>
-                                {isAdmin ? 'A' : isBot ? <Bot className="h-4 w-4" /> : <User className="h-4 w-4" />}
-                              </AvatarFallback>
-                            </Avatar>
-                            <div className={`max-w-[70%] ${isAdmin ? 'text-right' : ''}`}>
-                              <div
-                                className={`inline-block rounded-lg px-4 py-2 text-sm ${
-                                  isAdmin
-                                    ? 'bg-primary text-primary-foreground'
-                                    : 'bg-muted'
-                                }`}
-                              >
-                                {message.content}
+                          <div key={message.id}>
+                            {isHandoffMsg && (
+                              <div className="mb-2 flex items-center gap-2 justify-center">
+                                <Separator className="flex-1" />
+                                <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                                  <ArrowLeftRight className="h-3 w-3" />
+                                  Handoff requested
+                                </span>
+                                <Separator className="flex-1" />
                               </div>
-                              <p className="mt-1 text-xs text-muted-foreground">
-                                {new Date(message.created_at).toLocaleTimeString([], {
-                                  hour: '2-digit',
-                                  minute: '2-digit'
-                                })}
-                              </p>
+                            )}
+                            <div className={`flex gap-3 ${isAdmin ? 'flex-row-reverse' : ''}`}>
+                              <Avatar className="h-8 w-8 shrink-0">
+                                <AvatarFallback className={
+                                  isAdmin 
+                                    ? 'bg-primary text-primary-foreground' 
+                                    : isBot 
+                                    ? 'bg-purple-500/10 text-purple-400'
+                                    : 'bg-muted'
+                                }>
+                                  {isAdmin ? 'A' : isBot ? <Sparkles className="h-4 w-4" /> : <User className="h-4 w-4" />}
+                                </AvatarFallback>
+                              </Avatar>
+                              <div className={`max-w-[70%] ${isAdmin ? 'text-right' : ''}`}>
+                                <div className="mb-0.5 flex items-center gap-1.5">
+                                  {isBot && (
+                                    <span className="text-[11px] text-purple-400">AI Assistant</span>
+                                  )}
+                                  {isAdmin && (
+                                    <span className="text-[11px] text-primary ml-auto">You</span>
+                                  )}
+                                  {!isAdmin && !isBot && (
+                                    <span className="text-[11px] text-muted-foreground">Visitor</span>
+                                  )}
+                                </div>
+                                <div
+                                  className={`inline-block rounded-lg px-4 py-2 text-sm whitespace-pre-wrap ${
+                                    isAdmin
+                                      ? 'bg-primary text-primary-foreground'
+                                      : isBot
+                                      ? 'bg-purple-500/10 border border-purple-500/20'
+                                      : 'bg-muted'
+                                  }`}
+                                >
+                                  {message.content}
+                                </div>
+                                <p className="mt-1 text-xs text-muted-foreground">
+                                  {new Date(message.created_at).toLocaleTimeString([], {
+                                    hour: '2-digit',
+                                    minute: '2-digit'
+                                  })}
+                                </p>
+                              </div>
                             </div>
                           </div>
                         )
@@ -583,7 +767,11 @@ export default function ConversationsPage() {
               <div className="border-t p-4">
                 <div className="flex gap-2">
                   <Textarea
-                    placeholder="Type your reply..."
+                    placeholder={
+                      selectedSession.is_bot_active 
+                        ? "Type to take over from AI..." 
+                        : "Type your reply..."
+                    }
                     value={newMessage}
                     onChange={(e) => setNewMessage(e.target.value)}
                     onKeyDown={(e) => {
@@ -603,6 +791,12 @@ export default function ConversationsPage() {
                     )}
                   </Button>
                 </div>
+                {selectedSession.is_bot_active && (
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    <Sparkles className="mr-1 inline h-3 w-3 text-purple-400" />
+                    AI is currently handling this conversation. Sending a message will automatically take over.
+                  </p>
+                )}
               </div>
             </>
           ) : (

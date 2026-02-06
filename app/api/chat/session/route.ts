@@ -18,10 +18,10 @@ export async function POST(request: NextRequest) {
 
     const supabase = createPublicClient()
 
-    // Get the admin_id from the chatbot config
+    // Get the admin_id and AI config from the chatbot config
     const { data: config, error: configError } = await supabase
       .from('chatbot_configs')
-      .select('admin_id')
+      .select('admin_id, ai_enabled, ai_auto_greet, ai_greeting_message')
       .eq('id', chatbot_id)
       .single()
 
@@ -33,6 +33,8 @@ export async function POST(request: NextRequest) {
     // Generate a unique visitor ID for this session
     const visitor_id = `visitor_${randomUUID()}`
 
+    const isBotActive = config.ai_enabled || false
+
     // Create new chat session with all required fields
     const { data: session, error: sessionError } = await supabase
       .from('chat_sessions')
@@ -43,6 +45,8 @@ export async function POST(request: NextRequest) {
         visitor_name: visitor_name || 'Visitor',
         visitor_email: visitor_email || null,
         status: 'active',
+        is_bot_active: isBotActive,
+        bot_messages_count: 0,
         started_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
         last_message_at: new Date().toISOString(),
@@ -71,7 +75,25 @@ export async function POST(request: NextRequest) {
       event_data: { visitor_name, visitor_email },
     }).then(() => {}).catch(() => {})
 
-    return NextResponse.json({ session_id: session.id }, { headers: corsHeaders })
+    // If AI is enabled and has a greeting, send it as the first bot message
+    if (isBotActive && config.ai_auto_greet && config.ai_greeting_message) {
+      await supabase.from('chat_messages').insert({
+        session_id: session.id,
+        admin_id: config.admin_id,
+        content: config.ai_greeting_message,
+        sender_type: 'bot',
+        sender_id: 'ai-bot',
+        is_read: false,
+        is_ai_generated: true,
+        metadata: { type: 'greeting' },
+      })
+    }
+
+    return NextResponse.json({ 
+      session_id: session.id,
+      ai_enabled: isBotActive,
+      ai_greeting: isBotActive && config.ai_auto_greet ? config.ai_greeting_message : null,
+    }, { headers: corsHeaders })
   } catch (error) {
     console.error('Session API error:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500, headers: corsHeaders })
