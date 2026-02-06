@@ -1,6 +1,11 @@
 import { generateText } from 'ai'
+import { createGroq } from '@ai-sdk/groq'
 import { createPublicClient } from '@/lib/supabase/public'
 import { NextRequest, NextResponse } from 'next/server'
+
+const groq = createGroq({
+  apiKey: process.env.GROQ_API_KEY,
+})
 
 export const maxDuration = 60
 
@@ -173,11 +178,11 @@ Important rules:
 - You can understand and respond in multiple languages. Match the language of the visitor.
 - Current date/time: ${new Date().toISOString()}`
 
-    // Generate AI response
-    const modelId = config.ai_model || 'openai/gpt-4o-mini'
+    // Generate AI response using Groq (free, fast inference)
+    const modelId = config.ai_model || 'llama-3.3-70b-versatile'
     
     const { text, usage } = await generateText({
-      model: modelId,
+      model: groq(modelId),
       system: systemPrompt,
       messages: conversationMessages,
       maxOutputTokens: config.ai_max_tokens || 500,
@@ -194,7 +199,7 @@ Important rules:
       is_read: false,
       is_ai_generated: true,
       metadata: {
-        model: config.ai_model || 'openai/gpt-4o-mini',
+        model: config.ai_model || 'llama-3.3-70b-versatile',
         tokens_used: usage?.totalTokens || 0,
       },
     })
@@ -220,7 +225,7 @@ Important rules:
         event_type: 'ai_response',
         event_data: {
           tokens_used: usage?.totalTokens || 0,
-          model: config.ai_model || 'openai/gpt-4o-mini',
+          model: config.ai_model || 'llama-3.3-70b-versatile',
         },
       })
       .then(() => {})

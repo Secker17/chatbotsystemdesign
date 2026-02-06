@@ -1,6 +1,11 @@
 import { generateText } from 'ai'
+import { createGroq } from '@ai-sdk/groq'
 import { createClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
+
+const groq = createGroq({
+  apiKey: process.env.GROQ_API_KEY,
+})
 
 export const maxDuration = 30
 
@@ -25,7 +30,7 @@ export async function POST(request: NextRequest) {
     }\n\nCurrent date/time: ${new Date().toISOString()}`
 
     const { text } = await generateText({
-      model: model || 'openai/gpt-4o-mini',
+      model: groq(model || 'llama-3.3-70b-versatile'),
       system: fullPrompt,
       messages: [{ role: 'user', content: message }],
       maxOutputTokens: max_tokens || 500,

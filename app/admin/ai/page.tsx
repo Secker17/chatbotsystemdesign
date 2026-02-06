@@ -48,12 +48,12 @@ interface AIConfig {
 }
 
 const AI_MODELS = [
-  { value: 'openai/gpt-4o-mini', label: 'GPT-4o Mini', description: 'Fast and affordable' },
-  { value: 'openai/gpt-4o', label: 'GPT-4o', description: 'Most capable' },
-  { value: 'openai/gpt-4.1-mini', label: 'GPT-4.1 Mini', description: 'Improved mini model' },
-  { value: 'openai/gpt-4.1', label: 'GPT-4.1', description: 'Latest flagship model' },
-  { value: 'anthropic/claude-sonnet-4-20250514', label: 'Claude Sonnet 4', description: 'Balanced performance' },
-  { value: 'anthropic/claude-haiku-3.5', label: 'Claude 3.5 Haiku', description: 'Fast and efficient' },
+  { value: 'llama-3.3-70b-versatile', label: 'Llama 3.3 70B', description: 'Powerful and free (Recommended)' },
+  { value: 'llama-3.1-8b-instant', label: 'Llama 3.1 8B', description: 'Ultra-fast, free' },
+  { value: 'llama3-70b-8192', label: 'Llama 3 70B', description: 'Fast and capable, free' },
+  { value: 'llama3-8b-8192', label: 'Llama 3 8B', description: 'Lightweight and fast, free' },
+  { value: 'mixtral-8x7b-32768', label: 'Mixtral 8x7B', description: 'Great for longer context, free' },
+  { value: 'gemma2-9b-it', label: 'Gemma 2 9B', description: 'Google model, free' },
 ]
 
 export default function AIConfigPage() {
@@ -85,7 +85,7 @@ export default function AIConfigPage() {
         ...data,
         ai_temperature: data.ai_temperature ?? 0.7,
         ai_max_tokens: data.ai_max_tokens ?? 500,
-        ai_model: data.ai_model ?? 'openai/gpt-4o-mini',
+        ai_model: data.ai_model ?? 'llama-3.3-70b-versatile',
         ai_handoff_keywords: data.ai_handoff_keywords ?? ['human', 'agent', 'person', 'real person', 'speak to someone', 'menneske', 'snakke med noen'],
         ai_greeting_message: data.ai_greeting_message ?? 'Hi! I\'m an AI assistant. How can I help you today? If you\'d like to speak with a human, just let me know!',
         ai_system_prompt: data.ai_system_prompt ?? 'You are a helpful customer support assistant. Be friendly, professional, and concise. Help visitors with their questions and guide them to the right resources.',
@@ -416,7 +416,7 @@ FAQ:
                   <div className="space-y-2">
                     <Label>AI Model</Label>
                     <Select
-                      value={config.ai_model || 'openai/gpt-4o-mini'}
+                      value={config.ai_model || 'llama-3.3-70b-versatile'}
                       onValueChange={(value) => setConfig({ ...config, ai_model: value })}
                     >
                       <SelectTrigger>
