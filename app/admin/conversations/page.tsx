@@ -82,7 +82,7 @@ export default function ConversationsPage() {
       const { data: { user }, error } = await supabase.auth.getUser()
       
       if (!user || error) {
-        console.log('[v0] Auth failed in conversations, user:', user, 'error:', error)
+        console.error('Auth failed in conversations:', error)
         setLoading(false)
         return
       }
@@ -96,14 +96,14 @@ export default function ConversationsPage() {
         .eq('admin_id', user.id)
 
       if (chatbotsError) {
-        console.log('[v0] Failed to fetch chatbots:', chatbotsError)
+        console.error('Failed to fetch chatbots:', chatbotsError)
         setLoading(false)
         return
       }
 
       const ids = (chatbots || []).map(c => c.id)
       setChatbotIds(ids)
-      console.log('[v0] Found chatbot IDs:', ids)
+
     }
 
     init()
@@ -117,62 +117,71 @@ export default function ConversationsPage() {
 
     const supabase = createClient()
 
-    // Query sessions by chatbot_id (which the admin owns) instead of admin_id on sessions
-    // This is more reliable and matches the RLS policy
-    const { data, error } = await supabase
+    // Fetch sessions and messages separately to avoid PostgREST embedded resource 400 errors
+    const { data: sessionsData, error: sessionsError } = await supabase
       .from('chat_sessions')
-      .select(`
-        id,
-        visitor_name,
-        visitor_email,
-        visitor_id,
-        status,
-        started_at,
-        updated_at,
-        last_message_at,
-        chatbot_id,
-        admin_id,
-        chat_messages (
-          id,
-          content,
-          sender_type,
-          created_at,
-          is_read
-        )
-      `)
+      .select('id, visitor_name, visitor_email, visitor_id, status, started_at, updated_at, last_message_at, chatbot_id, admin_id')
       .in('chatbot_id', chatbotIds)
       .order('updated_at', { ascending: false })
 
-    console.log('[v0] Sessions query result:', { count: data?.length, error })
-
-    if (error) {
-      console.log('[v0] Sessions query error:', error)
+    if (sessionsError) {
+      console.error('Sessions query error:', sessionsError)
       setLoading(false)
       return
     }
 
-    if (data) {
-      // Sort messages within each session
-      const sortedData = data.map(session => ({
-        ...session,
-        chat_messages: [...session.chat_messages].sort(
-          (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
-        )
-      }))
-      
-      setSessions(sortedData)
-      
-      // Update selected session if it exists in new data
-      const current = selectedSessionRef.current
-      if (current) {
-        const updated = sortedData.find(s => s.id === current.id)
-        if (updated) {
-          setSelectedSession(updated)
-        }
-      } else if (selectFirst && sortedData.length > 0) {
-        setSelectedSession(sortedData[0])
-      }
+    if (!sessionsData || sessionsData.length === 0) {
+      setSessions([])
+      setLoading(false)
+      return
     }
+
+    // Fetch messages for all sessions in a single query
+    const sessionIds = sessionsData.map(s => s.id)
+    const { data: messagesData, error: messagesError } = await supabase
+      .from('chat_messages')
+      .select('id, content, sender_type, created_at, is_read, session_id')
+      .in('session_id', sessionIds)
+      .order('created_at', { ascending: true })
+
+    if (messagesError) {
+      console.error('Messages query error:', messagesError)
+    }
+
+    // Group messages by session_id
+    const messagesBySession: Record<string, ChatMessage[]> = {}
+    for (const msg of (messagesData || [])) {
+      if (!messagesBySession[msg.session_id]) {
+        messagesBySession[msg.session_id] = []
+      }
+      messagesBySession[msg.session_id].push({
+        id: msg.id,
+        content: msg.content,
+        sender_type: msg.sender_type,
+        created_at: msg.created_at,
+        is_read: msg.is_read,
+      })
+    }
+
+    // Combine sessions with their messages
+    const sortedData: ChatSession[] = sessionsData.map(session => ({
+      ...session,
+      chat_messages: messagesBySession[session.id] || [],
+    }))
+
+    setSessions(sortedData)
+
+    // Update selected session if it exists in new data
+    const current = selectedSessionRef.current
+    if (current) {
+      const updated = sortedData.find(s => s.id === current.id)
+      if (updated) {
+        setSelectedSession(updated)
+      }
+    } else if (selectFirst && sortedData.length > 0) {
+      setSelectedSession(sortedData[0])
+    }
+
     setLoading(false)
   }, [chatbotIds])
 
@@ -226,7 +235,7 @@ export default function ConversationsPage() {
         }
       )
       .subscribe((status) => {
-        console.log('[v0] Realtime subscription status:', status)
+
         setIsConnected(status === 'SUBSCRIBED')
       })
 
@@ -257,7 +266,7 @@ export default function ConversationsPage() {
     })
 
     if (error) {
-      console.log('[v0] Send message error:', error)
+      console.error('Send message error:', error)
     } else {
       // Update session timestamps
       await supabase
