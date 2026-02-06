@@ -155,29 +155,40 @@ export default function AIConfigPage() {
     if (!config) return
     setSaving(true)
 
-    const supabase = createClient()
-    const { error } = await supabase
-      .from('chatbot_configs')
-      .update({
-        ai_enabled: config.ai_enabled,
-        ai_system_prompt: config.ai_system_prompt,
-        ai_knowledge_base: config.ai_knowledge_base,
-        ai_model: config.ai_model,
-        ai_temperature: config.ai_temperature,
-        ai_max_tokens: config.ai_max_tokens,
-        ai_auto_greet: config.ai_auto_greet,
-        ai_greeting_message: config.ai_greeting_message,
-        ai_handoff_keywords: config.ai_handoff_keywords,
-        business_hours_enabled: config.business_hours_enabled,
-        business_hours_timezone: config.business_hours_timezone,
-        business_hours: config.business_hours,
-        outside_hours_message: config.outside_hours_message,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', config.id)
+    try {
+      const supabase = createClient()
+      console.log('[v0] handleSave called, config id:', config.id)
+      console.log('[v0] business_hours_enabled:', config.business_hours_enabled)
+      console.log('[v0] business_hours:', JSON.stringify(config.business_hours))
+      
+      const { error, data } = await supabase
+        .from('chatbot_configs')
+        .update({
+          ai_enabled: config.ai_enabled,
+          ai_system_prompt: config.ai_system_prompt,
+          ai_knowledge_base: config.ai_knowledge_base,
+          ai_model: config.ai_model,
+          ai_temperature: config.ai_temperature,
+          ai_max_tokens: config.ai_max_tokens,
+          ai_auto_greet: config.ai_auto_greet,
+          ai_greeting_message: config.ai_greeting_message,
+          ai_handoff_keywords: config.ai_handoff_keywords,
+          business_hours_enabled: config.business_hours_enabled,
+          business_hours_timezone: config.business_hours_timezone,
+          business_hours: config.business_hours as unknown as Record<string, unknown>,
+          outside_hours_message: config.outside_hours_message,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', config.id)
+        .select()
 
-    if (error) {
-      console.error('Save error:', error)
+      console.log('[v0] Save result - error:', error, 'data:', data)
+
+      if (error) {
+        console.error('[v0] Save error:', error.message, error.details, error.hint)
+      }
+    } catch (err) {
+      console.error('[v0] Save exception:', err)
     }
 
     setSaving(false)
