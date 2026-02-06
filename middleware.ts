@@ -1,26 +1,29 @@
 import { NextResponse, type NextRequest } from 'next/server'
 
-export async function middleware(request: NextRequest) {
-  // Skip middleware for API routes and static files
-  if (
-    request.nextUrl.pathname.startsWith('/api/') ||
-    request.nextUrl.pathname.startsWith('/_next/')
-  ) {
+// Simple cookie-based auth check middleware
+// No external dependencies - only uses next/server
+export function middleware(request: NextRequest) {
+  const { pathname } = request.nextUrl
+
+  // Skip API routes entirely - they handle their own auth
+  if (pathname.startsWith('/api/')) {
     return NextResponse.next()
   }
 
-  // For admin routes, check if the user has a session cookie
-  if (request.nextUrl.pathname.startsWith('/admin')) {
-    // Check for our custom auth cookie or the default Supabase cookie
-    const customAuthCookie = request.cookies.get('sb-auth-token')
-    const supabaseAuthCookie = request.cookies.getAll().find(
-      (cookie) => cookie.name.startsWith('sb-') && cookie.name.endsWith('-auth-token')
+  // Skip static assets
+  if (pathname.startsWith('/_next/')) {
+    return NextResponse.next()
+  }
+
+  // Protect admin routes
+  if (pathname.startsWith('/admin')) {
+    const hasCustomAuth = request.cookies.has('sb-auth-token')
+    const hasSupabaseAuth = request.cookies.getAll().some(
+      (c) => c.name.startsWith('sb-') && c.name.endsWith('-auth-token')
     )
 
-    if (!customAuthCookie && !supabaseAuthCookie) {
-      const url = request.nextUrl.clone()
-      url.pathname = '/auth/login'
-      return NextResponse.redirect(url)
+    if (!hasCustomAuth && !hasSupabaseAuth) {
+      return NextResponse.redirect(new URL('/auth/login', request.url))
     }
   }
 
@@ -28,7 +31,5 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: [
-    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
-  ],
+  matcher: ['/admin/:path*'],
 }
