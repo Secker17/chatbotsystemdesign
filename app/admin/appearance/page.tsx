@@ -511,14 +511,14 @@ export default function AppearancePage() {
                   <div className="relative inline-flex items-center justify-center">
                     {config.launcher_text_enabled && config.launcher_text && (
                       <svg
-                        className="absolute -top-8 left-1/2 -translate-x-1/2"
-                        width="130"
-                        height="60"
-                        viewBox="0 0 160 80"
+                        className="absolute -top-7 left-1/2 -translate-x-1/2"
+                        width="160"
+                        height="75"
+                        viewBox="0 0 200 100"
                         xmlns="http://www.w3.org/2000/svg"
                       >
                         <defs>
-                          <path id="preview-curve" d="M 15,75 Q 80,-10 145,75" fill="none"/>
+                          <path id="preview-curve" d="M 10,95 Q 100,-15 190,95" fill="none"/>
                         </defs>
                         <text>
                           <textPath
@@ -526,10 +526,10 @@ export default function AppearancePage() {
                             startOffset="50%"
                             textAnchor="middle"
                             style={{
-                              fontSize: '14px',
+                              fontSize: '18px',
                               fontWeight: 800,
                               fill: config.primary_color,
-                              letterSpacing: '0.5px',
+                              letterSpacing: '0.8px',
                             }}
                           >
                             {config.launcher_text}
