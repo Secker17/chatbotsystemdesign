@@ -507,28 +507,42 @@ export default function AppearancePage() {
                 </div>
 
                 {/* Launcher Button */}
-                <div className={`flex flex-col gap-2 ${config.position === 'bottom-left' ? 'items-start' : 'items-end'}`}>
-                  {config.launcher_text_enabled && config.launcher_text && (
-                    <div className="relative rounded-2xl bg-white px-5 py-3 text-center shadow-lg">
-                      <button className="absolute right-1 top-0.5 text-xs text-muted-foreground/60 hover:text-muted-foreground">
-                        {'×'}
-                      </button>
-                      <span className="mb-0.5 block text-xl" style={{ animation: 'wave 2.5s infinite', transformOrigin: '70% 70%' }}>
-                        {'👋'}
-                      </span>
-                      <span className="block text-sm font-bold text-foreground">
-                        {config.launcher_text}
-                      </span>
-                      <div
-                        className={`absolute -bottom-1.5 ${config.position === 'bottom-left' ? 'left-6' : 'right-6'} h-3 w-3 rotate-45 bg-white`}
-                      />
+                <div className={`flex flex-col ${config.position === 'bottom-left' ? 'items-start' : 'items-end'}`}>
+                  <div className="relative inline-flex items-center justify-center">
+                    {config.launcher_text_enabled && config.launcher_text && (
+                      <svg
+                        className="absolute -top-8 left-1/2 -translate-x-1/2"
+                        width="130"
+                        height="60"
+                        viewBox="0 0 160 80"
+                        xmlns="http://www.w3.org/2000/svg"
+                      >
+                        <defs>
+                          <path id="preview-curve" d="M 15,75 Q 80,-10 145,75" fill="none"/>
+                        </defs>
+                        <text>
+                          <textPath
+                            href="#preview-curve"
+                            startOffset="50%"
+                            textAnchor="middle"
+                            style={{
+                              fontSize: '14px',
+                              fontWeight: 800,
+                              fill: config.primary_color,
+                              letterSpacing: '0.5px',
+                            }}
+                          >
+                            {config.launcher_text}
+                          </textPath>
+                        </text>
+                      </svg>
+                    )}
+                    <div 
+                      className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full text-white shadow-lg"
+                      style={{ backgroundColor: config.primary_color }}
+                    >
+                      <MessageCircle className="h-6 w-6" />
                     </div>
-                  )}
-                  <div 
-                    className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full text-white shadow-lg"
-                    style={{ backgroundColor: config.primary_color }}
-                  >
-                    <MessageCircle className="h-6 w-6" />
                   </div>
                 </div>
               </div>
