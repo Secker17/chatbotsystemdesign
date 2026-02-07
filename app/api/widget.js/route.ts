@@ -87,6 +87,78 @@ export async function GET() {
     .vintra-unread-badge.show {
       display: flex;
     }
+    .vintra-launcher-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      justify-content: flex-end;
+    }
+    .vintra-widget-container.position-left .vintra-launcher-row {
+      flex-direction: row-reverse;
+    }
+    .vintra-launcher-text {
+      display: none;
+      padding: 8px 16px;
+      border-radius: 20px;
+      color: white;
+      font-size: 14px;
+      font-weight: 500;
+      white-space: nowrap;
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.12);
+      cursor: pointer;
+      transition: transform 0.2s, box-shadow 0.2s;
+      animation: vintraFadeIn 0.4s ease;
+    }
+    .vintra-launcher-text:hover {
+      transform: scale(1.03);
+      box-shadow: 0 6px 20px rgba(0, 0, 0, 0.18);
+    }
+    .vintra-launcher-text.show {
+      display: block;
+    }
+    @keyframes vintraFadeIn {
+      from { opacity: 0; transform: translateX(10px); }
+      to { opacity: 1; transform: translateX(0); }
+    }
+    .vintra-offline-overlay {
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      flex: 1;
+      padding: 32px 20px;
+      text-align: center;
+    }
+    .vintra-offline-overlay.show {
+      display: flex;
+    }
+    .vintra-offline-overlay .vintra-offline-icon {
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      background: #f3f4f6;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .vintra-offline-overlay .vintra-offline-icon svg {
+      width: 24px;
+      height: 24px;
+      fill: #9ca3af;
+    }
+    .vintra-offline-overlay h3 {
+      margin: 0;
+      font-size: 16px;
+      font-weight: 600;
+      color: #374151;
+    }
+    .vintra-offline-overlay p {
+      margin: 0;
+      font-size: 14px;
+      color: #6b7280;
+      line-height: 1.5;
+    }
     .vintra-chat-window {
       position: absolute;
       bottom: 80px;
@@ -478,6 +550,7 @@ export async function GET() {
   let isWaitingForHuman = false;
   let isSending = false;
   let unreadCount = 0;
+  let isOffline = false;
   
   // Icons
   const icons = {
@@ -517,6 +590,11 @@ export async function GET() {
           <input type="email" class="vintra-email-input" placeholder="Your email (optional)">
           <button class="vintra-start-btn">Start Chat</button>
         </div>
+        <div class="vintra-offline-overlay">
+          <div class="vintra-offline-icon">\${icons.bot}</div>
+          <h3>We're currently offline</h3>
+          <p class="vintra-offline-msg">We're currently offline. Leave a message and we'll get back to you!</p>
+        </div>
         <div class="vintra-messages" style="display: none;"></div>
         <div class="vintra-typing">
           <div class="vintra-typing-dots">
@@ -537,10 +615,13 @@ export async function GET() {
           Powered by <a href="https://vintrastudio.com" target="_blank">VintraStudio</a>
         </div>
       </div>
-      <button class="vintra-launcher">
-        \${icons.chat}
-        <span class="vintra-unread-badge">0</span>
-      </button>
+      <div class="vintra-launcher-row">
+        <span class="vintra-launcher-text">Talk to us</span>
+        <button class="vintra-launcher">
+          \${icons.chat}
+          <span class="vintra-unread-badge">0</span>
+        </button>
+      </div>
     \`;
     document.body.appendChild(container);
     
@@ -567,9 +648,13 @@ export async function GET() {
     const unreadBadge = container.querySelector('.vintra-unread-badge');
     const quickActions = container.querySelector('.vintra-quick-actions');
     const quickActionBtns = container.querySelectorAll('.vintra-quick-action');
+    const launcherText = container.querySelector('.vintra-launcher-text');
+    const offlineOverlay = container.querySelector('.vintra-offline-overlay');
+    const offlineMsg = container.querySelector('.vintra-offline-msg');
     
     // Event handlers
     launcher.addEventListener('click', () => toggleChat(true));
+    launcherText.addEventListener('click', () => toggleChat(true));
     closeBtn.addEventListener('click', () => toggleChat(false));
     sendBtn.addEventListener('click', sendMessage);
     input.addEventListener('keypress', (e) => {
@@ -597,8 +682,24 @@ export async function GET() {
         unreadCount = 0;
         unreadBadge.classList.remove('show');
         unreadBadge.textContent = '0';
+        // Hide launcher text when chat is open
+        launcherText.classList.remove('show');
+        
+        // Show offline overlay if outside business hours
+        if (isOffline && !hasStartedChat) {
+          offlineOverlay.classList.add('show');
+          preChat.classList.add('hidden');
+          messagesContainer.style.display = 'none';
+          inputArea.style.display = 'none';
+        }
+        
         if (hasStartedChat) {
           input.focus();
+        }
+      } else {
+        // Re-show launcher text when chat is closed
+        if (config?.launcher_text_enabled && config?.launcher_text) {
+          launcherText.classList.add('show');
         }
       }
     }
@@ -861,6 +962,34 @@ export async function GET() {
     }
     
     // Apply config
+    function checkBusinessHours(cfg) {
+      if (!cfg.business_hours_enabled || !cfg.business_hours) {
+        return true; // No business hours configured = always online
+      }
+      
+      const tz = cfg.business_hours_timezone || 'UTC';
+      let now;
+      try {
+        now = new Date(new Date().toLocaleString('en-US', { timeZone: tz }));
+      } catch(e) {
+        now = new Date();
+      }
+      
+      const days = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+      const dayKey = days[now.getDay()];
+      const schedule = cfg.business_hours[dayKey];
+      
+      if (!schedule || !schedule.enabled) return false;
+      
+      const currentMinutes = now.getHours() * 60 + now.getMinutes();
+      const [startH, startM] = schedule.start.split(':').map(Number);
+      const [endH, endM] = schedule.end.split(':').map(Number);
+      const startMinutes = startH * 60 + startM;
+      const endMinutes = endH * 60 + endM;
+      
+      return currentMinutes >= startMinutes && currentMinutes < endMinutes;
+    }
+    
     function applyConfig(cfg) {
       config = cfg;
       
@@ -869,6 +998,7 @@ export async function GET() {
         header.style.background = cfg.primary_color;
         sendBtn.style.background = cfg.primary_color;
         startBtn.style.background = cfg.primary_color;
+        launcherText.style.background = cfg.primary_color;
         document.documentElement.style.setProperty('--vintra-primary', cfg.primary_color);
       }
       
@@ -882,6 +1012,22 @@ export async function GET() {
       
       if (cfg.position === 'bottom-left') {
         container.classList.add('position-left');
+      }
+      
+      // Launcher text
+      if (cfg.launcher_text_enabled && cfg.launcher_text) {
+        launcherText.textContent = cfg.launcher_text;
+        launcherText.classList.add('show');
+      }
+      
+      // Business hours check
+      isOffline = !checkBusinessHours(cfg);
+      if (isOffline) {
+        statusDot.className = 'vintra-status-dot waiting';
+        statusText.textContent = 'Offline';
+        if (cfg.outside_hours_message) {
+          offlineMsg.textContent = cfg.outside_hours_message;
+        }
       }
     }
     

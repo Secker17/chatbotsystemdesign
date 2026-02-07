@@ -15,7 +15,56 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Loader2, Save, Bot } from 'lucide-react'
+import { Loader2, Save, Bot, Clock, MessageCircle } from 'lucide-react'
+
+interface DaySchedule {
+  enabled: boolean
+  start: string
+  end: string
+}
+
+interface BusinessHours {
+  monday: DaySchedule
+  tuesday: DaySchedule
+  wednesday: DaySchedule
+  thursday: DaySchedule
+  friday: DaySchedule
+  saturday: DaySchedule
+  sunday: DaySchedule
+}
+
+const DEFAULT_BUSINESS_HOURS: BusinessHours = {
+  monday: { enabled: true, start: '09:00', end: '17:00' },
+  tuesday: { enabled: true, start: '09:00', end: '17:00' },
+  wednesday: { enabled: true, start: '09:00', end: '17:00' },
+  thursday: { enabled: true, start: '09:00', end: '17:00' },
+  friday: { enabled: true, start: '09:00', end: '17:00' },
+  saturday: { enabled: false, start: '09:00', end: '17:00' },
+  sunday: { enabled: false, start: '09:00', end: '17:00' },
+}
+
+const DAYS_OF_WEEK = [
+  { key: 'monday', label: 'Monday' },
+  { key: 'tuesday', label: 'Tuesday' },
+  { key: 'wednesday', label: 'Wednesday' },
+  { key: 'thursday', label: 'Thursday' },
+  { key: 'friday', label: 'Friday' },
+  { key: 'saturday', label: 'Saturday' },
+  { key: 'sunday', label: 'Sunday' },
+] as const
+
+const TIMEZONES = [
+  { value: 'Europe/London', label: 'London (GMT/BST)' },
+  { value: 'Europe/Paris', label: 'Paris (CET/CEST)' },
+  { value: 'Europe/Berlin', label: 'Berlin (CET/CEST)' },
+  { value: 'America/New_York', label: 'New York (EST/EDT)' },
+  { value: 'America/Chicago', label: 'Chicago (CST/CDT)' },
+  { value: 'America/Denver', label: 'Denver (MST/MDT)' },
+  { value: 'America/Los_Angeles', label: 'Los Angeles (PST/PDT)' },
+  { value: 'Asia/Tokyo', label: 'Tokyo (JST)' },
+  { value: 'Asia/Shanghai', label: 'Shanghai (CST)' },
+  { value: 'Australia/Sydney', label: 'Sydney (AEST/AEDT)' },
+]
 
 interface ChatbotConfig {
   id: string
@@ -27,6 +76,12 @@ interface ChatbotConfig {
   show_branding: boolean
   offline_message: string
   placeholder_text: string
+  launcher_text: string | null
+  launcher_text_enabled: boolean
+  business_hours_enabled: boolean
+  business_hours: BusinessHours | null
+  business_hours_timezone: string | null
+  outside_hours_message: string | null
 }
 
 export default function AppearancePage() {
@@ -70,6 +125,12 @@ export default function AppearancePage() {
         show_branding: config.show_branding,
         offline_message: config.offline_message,
         placeholder_text: config.placeholder_text,
+        launcher_text: config.launcher_text,
+        launcher_text_enabled: config.launcher_text_enabled,
+        business_hours_enabled: config.business_hours_enabled,
+        business_hours: config.business_hours,
+        business_hours_timezone: config.business_hours_timezone,
+        outside_hours_message: config.outside_hours_message,
       })
       .eq('id', config.id)
 
@@ -223,6 +284,154 @@ export default function AppearancePage() {
               </div>
             </CardContent>
           </Card>
+
+          <Card>
+            <CardHeader>
+              <div className="flex items-center gap-2">
+                <MessageCircle className="h-5 w-5 text-muted-foreground" />
+                <CardTitle>Launcher Text</CardTitle>
+              </div>
+              <CardDescription>
+                Show a &quot;Talk to us&quot; label next to the chat button
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <Label>Enable Launcher Text</Label>
+                  <p className="text-xs text-muted-foreground">
+                    Display text next to the chat bubble
+                  </p>
+                </div>
+                <Switch
+                  checked={config.launcher_text_enabled}
+                  onCheckedChange={(checked) => setConfig({ ...config, launcher_text_enabled: checked })}
+                />
+              </div>
+              {config.launcher_text_enabled && (
+                <div className="space-y-2">
+                  <Label htmlFor="launcher-text">Launcher Text</Label>
+                  <Input
+                    id="launcher-text"
+                    value={config.launcher_text || ''}
+                    onChange={(e) => setConfig({ ...config, launcher_text: e.target.value })}
+                    placeholder="Talk to us"
+                  />
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <div className="flex items-center gap-2">
+                <Clock className="h-5 w-5 text-muted-foreground" />
+                <CardTitle>Business Hours</CardTitle>
+              </div>
+              <CardDescription>
+                Set when the chatbot is online. Outside these hours, visitors see an offline message.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <Label>Enable Business Hours</Label>
+                  <p className="text-xs text-muted-foreground">
+                    Bot will appear offline outside scheduled hours
+                  </p>
+                </div>
+                <Switch
+                  checked={config.business_hours_enabled}
+                  onCheckedChange={(checked) => {
+                    const updates: Partial<ChatbotConfig> = { business_hours_enabled: checked }
+                    if (checked && !config.business_hours) {
+                      updates.business_hours = DEFAULT_BUSINESS_HOURS
+                    }
+                    if (checked && !config.business_hours_timezone) {
+                      updates.business_hours_timezone = Intl.DateTimeFormat().resolvedOptions().timeZone
+                    }
+                    setConfig({ ...config, ...updates })
+                  }}
+                />
+              </div>
+              {config.business_hours_enabled && (
+                <>
+                  <div className="space-y-2">
+                    <Label>Timezone</Label>
+                    <Select
+                      value={config.business_hours_timezone || 'Europe/London'}
+                      onValueChange={(value) => setConfig({ ...config, business_hours_timezone: value })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {TIMEZONES.map((tz) => (
+                          <SelectItem key={tz.value} value={tz.value}>
+                            {tz.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-3">
+                    <Label>Schedule</Label>
+                    {DAYS_OF_WEEK.map(({ key, label }) => {
+                      const hours = config.business_hours || DEFAULT_BUSINESS_HOURS
+                      const day = hours[key]
+                      return (
+                        <div key={key} className="flex items-center gap-3">
+                          <Switch
+                            checked={day.enabled}
+                            onCheckedChange={(checked) => {
+                              const updated = { ...hours, [key]: { ...day, enabled: checked } }
+                              setConfig({ ...config, business_hours: updated })
+                            }}
+                          />
+                          <span className="w-24 text-sm font-medium">{label}</span>
+                          {day.enabled ? (
+                            <div className="flex items-center gap-2">
+                              <Input
+                                type="time"
+                                value={day.start}
+                                onChange={(e) => {
+                                  const updated = { ...hours, [key]: { ...day, start: e.target.value } }
+                                  setConfig({ ...config, business_hours: updated })
+                                }}
+                                className="w-28"
+                              />
+                              <span className="text-sm text-muted-foreground">to</span>
+                              <Input
+                                type="time"
+                                value={day.end}
+                                onChange={(e) => {
+                                  const updated = { ...hours, [key]: { ...day, end: e.target.value } }
+                                  setConfig({ ...config, business_hours: updated })
+                                }}
+                                className="w-28"
+                              />
+                            </div>
+                          ) : (
+                            <span className="text-sm text-muted-foreground">Closed</span>
+                          )}
+                        </div>
+                      )
+                    })}
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="outside-hours-msg">Outside Hours Message</Label>
+                    <Textarea
+                      id="outside-hours-msg"
+                      value={config.outside_hours_message || ''}
+                      onChange={(e) => setConfig({ ...config, outside_hours_message: e.target.value })}
+                      placeholder="We're currently offline. Our business hours are Mon-Fri 9am-5pm. Leave a message and we'll get back to you!"
+                      rows={2}
+                    />
+                  </div>
+                </>
+              )}
+            </CardContent>
+          </Card>
         </div>
 
         {/* Preview */}
@@ -298,11 +507,21 @@ export default function AppearancePage() {
                 </div>
 
                 {/* Launcher Button */}
-                <div 
-                  className={`flex h-14 w-14 items-center justify-center rounded-full text-white shadow-lg ${config.position === 'bottom-left' ? '' : 'ml-auto'}`}
-                  style={{ backgroundColor: config.primary_color }}
-                >
-                  <Bot className="h-6 w-6" />
+                <div className={`flex items-center gap-3 ${config.position === 'bottom-left' ? '' : 'justify-end'}`}>
+                  {config.launcher_text_enabled && config.launcher_text && (
+                    <div
+                      className="rounded-full px-4 py-2 text-sm font-medium text-white shadow-lg"
+                      style={{ backgroundColor: config.primary_color }}
+                    >
+                      {config.launcher_text}
+                    </div>
+                  )}
+                  <div 
+                    className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full text-white shadow-lg"
+                    style={{ backgroundColor: config.primary_color }}
+                  >
+                    <Bot className="h-6 w-6" />
+                  </div>
                 </div>
               </div>
             </div>
