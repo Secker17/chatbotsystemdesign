@@ -38,13 +38,13 @@ export async function GET() {
     .vintra-widget-container {
       position: fixed;
       bottom: 20px;
-      right: 20px;
+      right: 32px;
       z-index: 999999;
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
     }
     .vintra-widget-container.position-left {
       right: auto;
-      left: 20px;
+      left: 32px;
     }
     .vintra-launcher {
       width: 60px;
@@ -104,11 +104,11 @@ export async function GET() {
     }
     .vintra-curved-text {
       position: absolute;
-      bottom: 46px;
+      bottom: 38px;
       left: 50%;
       transform: translateX(-50%);
-      width: 160px;
-      height: 80px;
+      width: 200px;
+      height: 100px;
       pointer-events: none;
       display: none;
     }
@@ -117,10 +117,10 @@ export async function GET() {
       animation: vintraCurvedIn 0.5s ease;
     }
     .vintra-curved-label {
-      font-size: 14px;
+      font-size: 18px;
       font-weight: 800;
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-      letter-spacing: 0.5px;
+      letter-spacing: 0.8px;
     }
     @keyframes vintraCurvedIn {
       from { opacity: 0; transform: translateX(-50%) translateY(6px); }
@@ -623,9 +623,9 @@ export async function GET() {
       </div>
       <div class="vintra-launcher-row">
         <div class="vintra-launcher-wrapper">
-          <svg class="vintra-curved-text" viewBox="0 0 160 80" xmlns="http://www.w3.org/2000/svg">
+          <svg class="vintra-curved-text" viewBox="0 0 200 100" xmlns="http://www.w3.org/2000/svg">
             <defs>
-              <path id="vintra-curve" d="M 15,75 Q 80,-10 145,75" fill="none"/>
+              <path id="vintra-curve" d="M 10,95 Q 100,-15 190,95" fill="none"/>
             </defs>
             <text>
               <textPath href="#vintra-curve" startOffset="50%" text-anchor="middle" class="vintra-curved-label" fill="currentColor">Talk to us</textPath>
