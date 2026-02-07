@@ -91,88 +91,40 @@ export async function GET() {
       display: flex;
       flex-direction: column;
       align-items: flex-end;
-      gap: 8px;
       position: relative;
     }
     .vintra-widget-container.position-left .vintra-launcher-row {
       align-items: flex-start;
     }
-    .vintra-launcher-callout {
-      display: none;
-      background: #ffffff;
-      border-radius: 16px;
-      padding: 14px 20px 14px 16px;
-      box-shadow: 0 4px 24px rgba(0, 0, 0, 0.13);
-      text-align: center;
-      animation: vintraCalloutIn 0.4s ease;
+    .vintra-launcher-wrapper {
       position: relative;
-      cursor: pointer;
-      min-width: 140px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
     }
-    .vintra-launcher-callout.show {
-      display: block;
-    }
-    .vintra-launcher-callout::after {
-      content: '';
+    .vintra-curved-text {
       position: absolute;
-      bottom: -7px;
-      right: 24px;
-      width: 14px;
-      height: 14px;
-      background: #ffffff;
-      transform: rotate(45deg);
-      box-shadow: 2px 2px 4px rgba(0, 0, 0, 0.04);
+      bottom: 46px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 160px;
+      height: 80px;
+      pointer-events: none;
+      display: none;
     }
-    .vintra-widget-container.position-left .vintra-launcher-callout::after {
-      right: auto;
-      left: 24px;
-    }
-    .vintra-callout-wave {
-      font-size: 26px;
+    .vintra-curved-text.show {
       display: block;
-      margin-bottom: 4px;
-      animation: vintraWave 2.5s infinite;
-      transform-origin: 70% 70%;
+      animation: vintraCurvedIn 0.5s ease;
     }
-    .vintra-callout-text {
-      font-size: 15px;
-      font-weight: 700;
-      color: #1a1a1a;
-      display: block;
-      line-height: 1.3;
+    .vintra-curved-label {
+      font-size: 14px;
+      font-weight: 800;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      letter-spacing: 0.5px;
     }
-    .vintra-callout-close {
-      position: absolute;
-      top: 2px;
-      right: 4px;
-      background: none;
-      border: none;
-      color: #aaa;
-      font-size: 18px;
-      cursor: pointer;
-      padding: 2px 6px;
-      line-height: 1;
-      border-radius: 50%;
-      transition: color 0.2s;
-    }
-    .vintra-callout-close:hover {
-      color: #555;
-    }
-    @keyframes vintraCalloutIn {
-      from { opacity: 0; transform: translateY(8px) scale(0.95); }
-      to { opacity: 1; transform: translateY(0) scale(1); }
-    }
-    @keyframes vintraWave {
-      0%, 60%, 100% { transform: rotate(0deg); }
-      10% { transform: rotate(14deg); }
-      20% { transform: rotate(-8deg); }
-      30% { transform: rotate(14deg); }
-      40% { transform: rotate(-4deg); }
-      50% { transform: rotate(10deg); }
-    }
-    @keyframes vintraFadeIn {
-      from { opacity: 0; transform: translateX(10px); }
-      to { opacity: 1; transform: translateX(0); }
+    @keyframes vintraCurvedIn {
+      from { opacity: 0; transform: translateX(-50%) translateY(6px); }
+      to { opacity: 1; transform: translateX(-50%) translateY(0); }
     }
     .vintra-offline-overlay {
       display: none;
@@ -670,15 +622,20 @@ export async function GET() {
         </div>
       </div>
       <div class="vintra-launcher-row">
-        <div class="vintra-launcher-callout">
-          <button class="vintra-callout-close">&times;</button>
-          <span class="vintra-callout-wave">&#x1F44B;</span>
-          <span class="vintra-callout-text">We Are Here!</span>
+        <div class="vintra-launcher-wrapper">
+          <svg class="vintra-curved-text" viewBox="0 0 160 80" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <path id="vintra-curve" d="M 15,75 Q 80,-10 145,75" fill="none"/>
+            </defs>
+            <text>
+              <textPath href="#vintra-curve" startOffset="50%" text-anchor="middle" class="vintra-curved-label" fill="currentColor">Talk to us</textPath>
+            </text>
+          </svg>
+          <button class="vintra-launcher">
+            \${icons.chat}
+            <span class="vintra-unread-badge">0</span>
+          </button>
         </div>
-        <button class="vintra-launcher">
-          \${icons.chat}
-          <span class="vintra-unread-badge">0</span>
-        </button>
       </div>
     \`;
     document.body.appendChild(container);
@@ -706,21 +663,13 @@ export async function GET() {
     const unreadBadge = container.querySelector('.vintra-unread-badge');
     const quickActions = container.querySelector('.vintra-quick-actions');
     const quickActionBtns = container.querySelectorAll('.vintra-quick-action');
-    const launcherCallout = container.querySelector('.vintra-launcher-callout');
-    const calloutClose = container.querySelector('.vintra-callout-close');
-    const calloutText = container.querySelector('.vintra-callout-text');
+    const curvedText = container.querySelector('.vintra-curved-text');
+    const curvedLabel = container.querySelector('.vintra-curved-label');
     const offlineOverlay = container.querySelector('.vintra-offline-overlay');
     const offlineMsg = container.querySelector('.vintra-offline-msg');
     
     // Event handlers
     launcher.addEventListener('click', () => toggleChat(true));
-    launcherCallout.addEventListener('click', (e) => {
-      if (e.target !== calloutClose) toggleChat(true);
-    });
-    calloutClose.addEventListener('click', (e) => {
-      e.stopPropagation();
-      launcherCallout.classList.remove('show');
-    });
     closeBtn.addEventListener('click', () => toggleChat(false));
     sendBtn.addEventListener('click', sendMessage);
     input.addEventListener('keypress', (e) => {
@@ -748,8 +697,8 @@ export async function GET() {
         unreadCount = 0;
         unreadBadge.classList.remove('show');
         unreadBadge.textContent = '0';
-        // Hide launcher callout when chat is open
-        launcherCallout.classList.remove('show');
+        // Hide curved text when chat is open
+        curvedText.classList.remove('show');
         
         // Show offline overlay if outside business hours
         if (isOffline && !hasStartedChat) {
@@ -763,9 +712,9 @@ export async function GET() {
           input.focus();
         }
       } else {
-        // Re-show launcher callout when chat is closed
+        // Re-show curved text when chat is closed
         if (config?.launcher_text_enabled && config?.launcher_text) {
-          launcherCallout.classList.add('show');
+          curvedText.classList.add('show');
         }
       }
     }
@@ -1079,10 +1028,11 @@ export async function GET() {
         container.classList.add('position-left');
       }
       
-      // Launcher callout
+      // Curved text around launcher
       if (cfg.launcher_text_enabled && cfg.launcher_text) {
-        calloutText.textContent = cfg.launcher_text;
-        launcherCallout.classList.add('show');
+        curvedLabel.textContent = cfg.launcher_text;
+        curvedText.style.color = cfg.primary_color || '#14b8a6';
+        curvedText.classList.add('show');
       }
       
       // Business hours check
