@@ -507,20 +507,28 @@ export default function AppearancePage() {
                 </div>
 
                 {/* Launcher Button */}
-                <div className={`flex items-center gap-3 ${config.position === 'bottom-left' ? '' : 'justify-end'}`}>
+                <div className={`flex flex-col gap-2 ${config.position === 'bottom-left' ? 'items-start' : 'items-end'}`}>
                   {config.launcher_text_enabled && config.launcher_text && (
-                    <div
-                      className="rounded-full px-4 py-2 text-sm font-medium text-white shadow-lg"
-                      style={{ backgroundColor: config.primary_color }}
-                    >
-                      {config.launcher_text}
+                    <div className="relative rounded-2xl bg-white px-5 py-3 text-center shadow-lg">
+                      <button className="absolute right-1 top-0.5 text-xs text-muted-foreground/60 hover:text-muted-foreground">
+                        {'×'}
+                      </button>
+                      <span className="mb-0.5 block text-xl" style={{ animation: 'wave 2.5s infinite', transformOrigin: '70% 70%' }}>
+                        {'👋'}
+                      </span>
+                      <span className="block text-sm font-bold text-foreground">
+                        {config.launcher_text}
+                      </span>
+                      <div
+                        className={`absolute -bottom-1.5 ${config.position === 'bottom-left' ? 'left-6' : 'right-6'} h-3 w-3 rotate-45 bg-white`}
+                      />
                     </div>
                   )}
                   <div 
                     className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full text-white shadow-lg"
                     style={{ backgroundColor: config.primary_color }}
                   >
-                    <Bot className="h-6 w-6" />
+                    <MessageCircle className="h-6 w-6" />
                   </div>
                 </div>
               </div>

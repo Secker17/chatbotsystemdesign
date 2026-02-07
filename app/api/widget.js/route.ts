@@ -89,32 +89,86 @@ export async function GET() {
     }
     .vintra-launcher-row {
       display: flex;
-      align-items: center;
-      gap: 10px;
-      justify-content: flex-end;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 8px;
+      position: relative;
     }
     .vintra-widget-container.position-left .vintra-launcher-row {
-      flex-direction: row-reverse;
+      align-items: flex-start;
     }
-    .vintra-launcher-text {
+    .vintra-launcher-callout {
       display: none;
-      padding: 8px 16px;
-      border-radius: 20px;
-      color: white;
-      font-size: 14px;
-      font-weight: 500;
-      white-space: nowrap;
-      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.12);
+      background: #ffffff;
+      border-radius: 16px;
+      padding: 14px 20px 14px 16px;
+      box-shadow: 0 4px 24px rgba(0, 0, 0, 0.13);
+      text-align: center;
+      animation: vintraCalloutIn 0.4s ease;
+      position: relative;
       cursor: pointer;
-      transition: transform 0.2s, box-shadow 0.2s;
-      animation: vintraFadeIn 0.4s ease;
+      min-width: 140px;
     }
-    .vintra-launcher-text:hover {
-      transform: scale(1.03);
-      box-shadow: 0 6px 20px rgba(0, 0, 0, 0.18);
-    }
-    .vintra-launcher-text.show {
+    .vintra-launcher-callout.show {
       display: block;
+    }
+    .vintra-launcher-callout::after {
+      content: '';
+      position: absolute;
+      bottom: -7px;
+      right: 24px;
+      width: 14px;
+      height: 14px;
+      background: #ffffff;
+      transform: rotate(45deg);
+      box-shadow: 2px 2px 4px rgba(0, 0, 0, 0.04);
+    }
+    .vintra-widget-container.position-left .vintra-launcher-callout::after {
+      right: auto;
+      left: 24px;
+    }
+    .vintra-callout-wave {
+      font-size: 26px;
+      display: block;
+      margin-bottom: 4px;
+      animation: vintraWave 2.5s infinite;
+      transform-origin: 70% 70%;
+    }
+    .vintra-callout-text {
+      font-size: 15px;
+      font-weight: 700;
+      color: #1a1a1a;
+      display: block;
+      line-height: 1.3;
+    }
+    .vintra-callout-close {
+      position: absolute;
+      top: 2px;
+      right: 4px;
+      background: none;
+      border: none;
+      color: #aaa;
+      font-size: 18px;
+      cursor: pointer;
+      padding: 2px 6px;
+      line-height: 1;
+      border-radius: 50%;
+      transition: color 0.2s;
+    }
+    .vintra-callout-close:hover {
+      color: #555;
+    }
+    @keyframes vintraCalloutIn {
+      from { opacity: 0; transform: translateY(8px) scale(0.95); }
+      to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+    @keyframes vintraWave {
+      0%, 60%, 100% { transform: rotate(0deg); }
+      10% { transform: rotate(14deg); }
+      20% { transform: rotate(-8deg); }
+      30% { transform: rotate(14deg); }
+      40% { transform: rotate(-4deg); }
+      50% { transform: rotate(10deg); }
     }
     @keyframes vintraFadeIn {
       from { opacity: 0; transform: translateX(10px); }
@@ -616,7 +670,11 @@ export async function GET() {
         </div>
       </div>
       <div class="vintra-launcher-row">
-        <span class="vintra-launcher-text">Talk to us</span>
+        <div class="vintra-launcher-callout">
+          <button class="vintra-callout-close">&times;</button>
+          <span class="vintra-callout-wave">&#x1F44B;</span>
+          <span class="vintra-callout-text">We Are Here!</span>
+        </div>
         <button class="vintra-launcher">
           \${icons.chat}
           <span class="vintra-unread-badge">0</span>
@@ -648,13 +706,21 @@ export async function GET() {
     const unreadBadge = container.querySelector('.vintra-unread-badge');
     const quickActions = container.querySelector('.vintra-quick-actions');
     const quickActionBtns = container.querySelectorAll('.vintra-quick-action');
-    const launcherText = container.querySelector('.vintra-launcher-text');
+    const launcherCallout = container.querySelector('.vintra-launcher-callout');
+    const calloutClose = container.querySelector('.vintra-callout-close');
+    const calloutText = container.querySelector('.vintra-callout-text');
     const offlineOverlay = container.querySelector('.vintra-offline-overlay');
     const offlineMsg = container.querySelector('.vintra-offline-msg');
     
     // Event handlers
     launcher.addEventListener('click', () => toggleChat(true));
-    launcherText.addEventListener('click', () => toggleChat(true));
+    launcherCallout.addEventListener('click', (e) => {
+      if (e.target !== calloutClose) toggleChat(true);
+    });
+    calloutClose.addEventListener('click', (e) => {
+      e.stopPropagation();
+      launcherCallout.classList.remove('show');
+    });
     closeBtn.addEventListener('click', () => toggleChat(false));
     sendBtn.addEventListener('click', sendMessage);
     input.addEventListener('keypress', (e) => {
@@ -682,8 +748,8 @@ export async function GET() {
         unreadCount = 0;
         unreadBadge.classList.remove('show');
         unreadBadge.textContent = '0';
-        // Hide launcher text when chat is open
-        launcherText.classList.remove('show');
+        // Hide launcher callout when chat is open
+        launcherCallout.classList.remove('show');
         
         // Show offline overlay if outside business hours
         if (isOffline && !hasStartedChat) {
@@ -697,9 +763,9 @@ export async function GET() {
           input.focus();
         }
       } else {
-        // Re-show launcher text when chat is closed
+        // Re-show launcher callout when chat is closed
         if (config?.launcher_text_enabled && config?.launcher_text) {
-          launcherText.classList.add('show');
+          launcherCallout.classList.add('show');
         }
       }
     }
@@ -998,7 +1064,6 @@ export async function GET() {
         header.style.background = cfg.primary_color;
         sendBtn.style.background = cfg.primary_color;
         startBtn.style.background = cfg.primary_color;
-        launcherText.style.background = cfg.primary_color;
         document.documentElement.style.setProperty('--vintra-primary', cfg.primary_color);
       }
       
@@ -1014,10 +1079,10 @@ export async function GET() {
         container.classList.add('position-left');
       }
       
-      // Launcher text
+      // Launcher callout
       if (cfg.launcher_text_enabled && cfg.launcher_text) {
-        launcherText.textContent = cfg.launcher_text;
-        launcherText.classList.add('show');
+        calloutText.textContent = cfg.launcher_text;
+        launcherCallout.classList.add('show');
       }
       
       // Business hours check
