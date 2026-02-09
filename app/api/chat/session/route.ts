@@ -1,6 +1,7 @@
 import { createPublicClient } from '@/lib/supabase/public'
 import { NextRequest, NextResponse } from 'next/server'
 import { randomUUID } from 'crypto'
+import { getPlanLimits, type PlanId } from '@/lib/products'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -30,10 +31,58 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Chatbot not found' }, { status: 404, headers: corsHeaders })
     }
 
+    // Check plan conversation limits
+    const { data: adminProfile } = await supabase
+      .from('admin_profiles')
+      .select('plan, conversations_this_month, conversations_reset_at')
+      .eq('id', config.admin_id)
+      .single()
+
+    const adminPlan = (adminProfile?.plan as PlanId) || 'starter'
+    const planLimits = getPlanLimits(adminPlan)
+    const conversationsThisMonth = adminProfile?.conversations_this_month || 0
+
+    // Check if we need to reset the monthly counter
+    const resetAt = adminProfile?.conversations_reset_at
+    const now = new Date()
+    let actualConversations = conversationsThisMonth
+    if (resetAt) {
+      const resetDate = new Date(resetAt)
+      const monthsSinceReset = (now.getFullYear() - resetDate.getFullYear()) * 12 + (now.getMonth() - resetDate.getMonth())
+      if (monthsSinceReset >= 1) {
+        // Reset counter
+        actualConversations = 0
+        await supabase
+          .from('admin_profiles')
+          .update({
+            conversations_this_month: 0,
+            conversations_reset_at: now.toISOString(),
+          })
+          .eq('id', config.admin_id)
+      }
+    }
+
+    if (actualConversations >= planLimits.maxConversationsPerMonth) {
+      return NextResponse.json(
+        { error: 'Monthly conversation limit reached. The site owner needs to upgrade their plan.' },
+        { status: 429, headers: corsHeaders }
+      )
+    }
+
+    // Increment conversation counter
+    await supabase
+      .from('admin_profiles')
+      .update({
+        conversations_this_month: actualConversations + 1,
+        conversations_reset_at: adminProfile?.conversations_reset_at || now.toISOString(),
+      })
+      .eq('id', config.admin_id)
+
     // Generate a unique visitor ID for this session
     const visitor_id = `visitor_${randomUUID()}`
 
-    const isBotActive = config.ai_enabled || false
+    // Only enable AI bot if the plan supports it
+    const isBotActive = (config.ai_enabled && planLimits.aiEnabled) || false
 
     // Create new chat session with all required fields
     const { data: session, error: sessionError } = await supabase

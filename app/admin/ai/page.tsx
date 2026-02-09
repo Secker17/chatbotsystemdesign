@@ -33,6 +33,8 @@ import {
   Plus,
   X,
 } from 'lucide-react'
+import { UpgradeBanner } from '@/components/admin/upgrade-banner'
+import type { PlanLimits } from '@/lib/products'
 
 interface AIConfig {
   id: string
@@ -64,10 +66,26 @@ export default function AIConfigPage() {
   const [testMessage, setTestMessage] = useState('')
   const [testResponse, setTestResponse] = useState('')
   const [testing, setTesting] = useState(false)
+  const [planId, setPlanId] = useState<string>('starter')
+  const [planLimits, setPlanLimits] = useState<PlanLimits | null>(null)
 
   useEffect(() => {
     loadConfig()
+    loadPlan()
   }, [])
+
+  const loadPlan = async () => {
+    try {
+      const res = await fetch('/api/plan')
+      if (res.ok) {
+        const data = await res.json()
+        setPlanId(data.planId)
+        setPlanLimits(data.limits)
+      }
+    } catch {
+      // Default to starter
+    }
+  }
 
   const loadConfig = async () => {
     const supabase = createClient()
@@ -189,6 +207,26 @@ export default function AIConfigPage() {
   }
 
   const selectedModel = AI_MODELS.find(m => m.value === config.ai_model)
+
+  // Check if plan allows AI
+  if (planLimits && !planLimits.aiEnabled) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-2xl font-bold text-foreground">AI Assistant</h1>
+          <p className="text-muted-foreground">
+            Configure your AI chatbot to automatically respond to visitors
+          </p>
+        </div>
+        <UpgradeBanner
+          feature="AI Assistant"
+          description="Upgrade to unlock AI-powered automatic responses for your chatbot visitors."
+          requiredPlan="pro"
+          currentPlan={planId}
+        />
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-6">

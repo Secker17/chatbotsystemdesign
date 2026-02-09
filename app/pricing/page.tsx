@@ -1,5 +1,6 @@
 'use client'
 
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { Button } from '@/components/ui/button'
@@ -11,6 +12,14 @@ import { PRODUCTS, formatPrice } from '@/lib/products'
 const VINTRA_LOGO = "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/vintratext-skOk2ureyF4j9EWL7jotcLG1aD5kpr.png"
 
 export default function PricingPage() {
+  const [currentPlan, setCurrentPlan] = useState<string | null>(null)
+
+  useEffect(() => {
+    fetch('/api/plan')
+      .then(r => { if (r.ok) return r.json(); throw new Error('not logged in') })
+      .then(d => setCurrentPlan(d.planId))
+      .catch(() => setCurrentPlan(null))
+  }, [])
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
@@ -58,7 +67,12 @@ export default function PricingPage() {
                 key={product.id} 
                 className={`relative flex flex-col ${product.popular ? 'border-primary ring-2 ring-primary' : ''}`}
               >
-                {product.popular && (
+                {currentPlan === product.id && (
+                  <Badge variant="secondary" className="absolute -top-3 left-1/2 -translate-x-1/2 bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400">
+                    Current Plan
+                  </Badge>
+                )}
+                {product.popular && currentPlan !== product.id && (
                   <Badge className="absolute -top-3 left-1/2 -translate-x-1/2">
                     Most Popular
                   </Badge>
@@ -86,14 +100,22 @@ export default function PricingPage() {
                   </ul>
                 </CardContent>
                 <CardFooter>
-                  <Link href={product.priceInCents === 0 ? '/auth/sign-up' : `/checkout/${product.id}`} className="w-full">
-                    <Button 
-                      className="w-full" 
-                      variant={product.popular ? 'default' : 'outline'}
-                    >
-                      {product.priceInCents === 0 ? 'Get Started Free' : 'Subscribe'}
+                  {currentPlan === product.id ? (
+                    <Button className="w-full" variant="outline" disabled>
+                      Current Plan
                     </Button>
-                  </Link>
+                  ) : (
+                    <Link href={product.priceInCents === 0 ? '/auth/sign-up' : `/checkout/${product.id}`} className="w-full">
+                      <Button 
+                        className="w-full" 
+                        variant={product.popular ? 'default' : 'outline'}
+                      >
+                        {product.priceInCents === 0
+                          ? (currentPlan ? 'Downgrade' : 'Get Started Free')
+                          : (currentPlan ? 'Upgrade' : 'Subscribe')}
+                      </Button>
+                    </Link>
+                  )}
                 </CardFooter>
               </Card>
             ))}
