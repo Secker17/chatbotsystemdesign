@@ -545,6 +545,33 @@ export async function GET() {
   styleSheet.textContent = styles;
   document.head.appendChild(styleSheet);
   
+  // Session persistence helpers
+  const STORAGE_KEY = 'vintra_session_' + chatbotId;
+  
+  function saveSession() {
+    try {
+      sessionStorage.setItem(STORAGE_KEY, JSON.stringify({
+        sessionId,
+        visitorName,
+        visitorEmail,
+        hasStartedChat,
+        isBotActive,
+        isWaitingForHuman,
+      }));
+    } catch(e) {}
+  }
+  
+  function loadSavedSession() {
+    try {
+      const raw = sessionStorage.getItem(STORAGE_KEY);
+      return raw ? JSON.parse(raw) : null;
+    } catch(e) { return null; }
+  }
+  
+  function clearSavedSession() {
+    try { sessionStorage.removeItem(STORAGE_KEY); } catch(e) {}
+  }
+  
   // State
   let config = null;
   let sessionId = null;
@@ -766,7 +793,11 @@ export async function GET() {
         isBotActive = data.ai_enabled || false;
         hasStartedChat = true;
         
+        // Persist session for page refreshes
+        saveSession();
+        
         preChat.classList.add('hidden');
+        offlineOverlay.classList.remove('show');
         messagesContainer.style.display = 'flex';
         inputArea.style.display = 'flex';
         if (config?.show_branding) {
@@ -864,6 +895,7 @@ export async function GET() {
               isWaitingForHuman = true;
               updateStatus('waiting');
               addSystemMessage('You have been transferred to a human agent. Please wait...');
+              saveSession();
             }
             
             if (aiData.bot_active === false && !aiData.handoff) {
@@ -961,6 +993,7 @@ export async function GET() {
                 isWaitingForHuman = false;
                 updateStatus('human');
                 addSystemMessage('A human agent has joined the conversation.');
+                saveSession();
               }
               addMessage(msg.content, 'admin', false);
             }
@@ -974,6 +1007,76 @@ export async function GET() {
       }
       
       pollInterval = setTimeout(pollMessages, 3000);
+    }
+    
+    // Restore a saved session on page load
+    async function restoreSession() {
+      const saved = loadSavedSession();
+      if (!saved || !saved.sessionId || !saved.hasStartedChat) return false;
+      
+      try {
+        // Verify the session is still valid on the server
+        const verifyUrl = API_BASE + '/api/chat/session?session_id=' + saved.sessionId;
+        const res = await fetch(verifyUrl);
+        const data = await res.json();
+        
+        if (!data.valid) {
+          clearSavedSession();
+          return false;
+        }
+        
+        // Restore state
+        sessionId = saved.sessionId;
+        visitorName = saved.visitorName || 'Visitor';
+        visitorEmail = saved.visitorEmail || '';
+        hasStartedChat = true;
+        isBotActive = data.ai_enabled || false;
+        isWaitingForHuman = saved.isWaitingForHuman || false;
+        
+        // Show chat UI (skip pre-chat form)
+        preChat.classList.add('hidden');
+        offlineOverlay.classList.remove('show');
+        messagesContainer.style.display = 'flex';
+        inputArea.style.display = 'flex';
+        if (config?.show_branding) {
+          branding.style.display = 'block';
+        }
+        
+        // Update status
+        if (isWaitingForHuman) {
+          updateStatus('waiting');
+        } else if (isBotActive) {
+          updateStatus('ai');
+        } else {
+          updateStatus('online');
+        }
+        
+        // Load all existing messages for this session
+        const msgsUrl = API_BASE + '/api/chat/messages?session_id=' + sessionId;
+        const msgsRes = await fetch(msgsUrl);
+        const messages = await msgsRes.json();
+        
+        if (Array.isArray(messages) && messages.length > 0) {
+          messages.forEach(msg => {
+            if (msg.sender_type === 'visitor') {
+              addMessage(msg.content, 'visitor');
+            } else if (msg.sender_type === 'admin') {
+              addMessage(msg.content, 'admin', false);
+            } else if (msg.sender_type === 'bot') {
+              addMessage(msg.content, 'bot', true);
+            }
+            lastMessageId = msg.id;
+          });
+        }
+        
+        // Start polling for new messages
+        pollMessages();
+        return true;
+      } catch (e) {
+        console.error('VintraStudio: Failed to restore session', e);
+        clearSavedSession();
+        return false;
+      }
     }
     
     // Apply config
@@ -1044,6 +1147,9 @@ export async function GET() {
           offlineMsg.textContent = cfg.outside_hours_message;
         }
       }
+      
+      // Try to restore a previous session
+      restoreSession();
     }
     
     return { applyConfig };
