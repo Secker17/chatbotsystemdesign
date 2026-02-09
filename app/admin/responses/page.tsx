@@ -8,6 +8,8 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
+import { UpgradeBanner } from '@/components/admin/upgrade-banner'
+import type { PlanLimits } from '@/lib/products'
 import {
   Dialog,
   DialogContent,
@@ -41,6 +43,8 @@ export default function ResponsesPage() {
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editingResponse, setEditingResponse] = useState<CannedResponse | null>(null)
   const [saving, setSaving] = useState(false)
+  const [planId, setPlanId] = useState<string>('starter')
+  const [planLimits, setPlanLimits] = useState<PlanLimits | null>(null)
 
   const [formData, setFormData] = useState({
     title: '',
@@ -48,6 +52,13 @@ export default function ResponsesPage() {
     shortcut: '',
     category: '',
   })
+
+  useEffect(() => {
+    fetch('/api/plan').then(r => r.json()).then(d => {
+      setPlanId(d.planId)
+      setPlanLimits(d.limits)
+    }).catch(() => {})
+  }, [])
 
   const loadResponses = useCallback(async () => {
     const supabase = createClient()
@@ -139,6 +150,25 @@ export default function ResponsesPage() {
     return (
       <div className="flex items-center justify-center py-20">
         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    )
+  }
+
+  if (planLimits && !planLimits.cannedResponses) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-2xl font-bold text-foreground">Canned Responses</h1>
+          <p className="text-muted-foreground">
+            Create quick replies for common questions
+          </p>
+        </div>
+        <UpgradeBanner
+          feature="Canned Responses"
+          description="Upgrade to create quick reply templates for common questions and speed up your response time."
+          requiredPlan="pro"
+          currentPlan={planId}
+        />
       </div>
     )
   }

@@ -1,14 +1,18 @@
 import { createClient } from '@/lib/supabase/server'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import Link from 'next/link'
 import { 
   MessageSquare, 
   Users, 
   TrendingUp, 
   Clock,
   ArrowUpRight,
-  ArrowDownRight
+  ArrowDownRight,
+  Zap,
 } from 'lucide-react'
+import { getPlanLimits, getProduct, type PlanId } from '@/lib/products'
 
 async function getDashboardStats(adminId: string) {
   const supabase = await createClient()
@@ -83,6 +87,19 @@ export default async function AdminDashboard() {
 
   const stats = await getDashboardStats(user.id)
   const recentConversations = await getRecentConversations(user.id)
+
+  // Fetch plan info
+  const { data: profile } = await supabase
+    .from('admin_profiles')
+    .select('plan, conversations_this_month, conversations_reset_at')
+    .eq('id', user.id)
+    .single()
+
+  const planId = (profile?.plan as PlanId) || 'starter'
+  const planLimits = getPlanLimits(planId)
+  const product = getProduct(planId)
+  const conversationsUsed = profile?.conversations_this_month || 0
+  const conversationsPercent = Math.min(100, Math.round((conversationsUsed / planLimits.maxConversationsPerMonth) * 100))
 
   const statCards = [
     {
@@ -160,6 +177,61 @@ export default async function AdminDashboard() {
           </Card>
         ))}
       </div>
+
+      {/* Plan Usage */}
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <div>
+            <CardTitle className="flex items-center gap-2">
+              Plan Usage
+              <Badge variant={planId === 'starter' ? 'secondary' : 'default'}>
+                {product?.name || 'Starter'}
+              </Badge>
+            </CardTitle>
+            <CardDescription>
+              Your current plan limits and usage this month
+            </CardDescription>
+          </div>
+          {planId !== 'business' && (
+            <Button asChild size="sm">
+              <Link href="/pricing">
+                <Zap className="mr-2 h-4 w-4" />
+                Upgrade
+              </Link>
+            </Button>
+          )}
+        </CardHeader>
+        <CardContent>
+          <div className="grid gap-4 sm:grid-cols-3">
+            <div className="space-y-2">
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-muted-foreground">Conversations</span>
+                <span className="font-medium">{conversationsUsed} / {planLimits.maxConversationsPerMonth.toLocaleString()}</span>
+              </div>
+              <div className="h-2 overflow-hidden rounded-full bg-muted">
+                <div
+                  className={`h-full transition-all ${conversationsPercent > 80 ? 'bg-amber-500' : 'bg-primary'}`}
+                  style={{ width: `${conversationsPercent}%` }}
+                />
+              </div>
+            </div>
+            <div className="space-y-1">
+              <span className="text-sm text-muted-foreground">AI Assistant</span>
+              <div className="flex items-center gap-2">
+                <Badge variant={planLimits.aiEnabled ? 'default' : 'secondary'}>
+                  {planLimits.aiEnabled ? 'Enabled' : 'Locked'}
+                </Badge>
+              </div>
+            </div>
+            <div className="space-y-1">
+              <span className="text-sm text-muted-foreground">Chat History</span>
+              <p className="text-sm font-medium">
+                {planLimits.chatHistoryDays === null ? 'Unlimited' : `${planLimits.chatHistoryDays} days`}
+              </p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Recent Conversations */}
       <Card>

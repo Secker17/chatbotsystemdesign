@@ -2,6 +2,7 @@ import { generateText } from 'ai'
 import { createGroq } from '@ai-sdk/groq'
 import { createPublicClient } from '@/lib/supabase/public'
 import { NextRequest, NextResponse } from 'next/server'
+import { getPlanLimits, type PlanId } from '@/lib/products'
 
 export const maxDuration = 60
 
@@ -84,6 +85,27 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { error: 'AI is not enabled', bot_active: false },
         { status: 200, headers: corsHeaders }
+      )
+    }
+
+    // Check if the admin's plan allows AI usage
+    const { data: adminProfile } = await supabase
+      .from('admin_profiles')
+      .select('plan')
+      .eq('id', session.admin_id)
+      .single()
+
+    const adminPlan = (adminProfile?.plan as PlanId) || 'starter'
+    const planLimits = getPlanLimits(adminPlan)
+
+    if (!planLimits.aiEnabled) {
+      return NextResponse.json(
+        {
+          reply: 'AI assistant is not available on your current plan. The admin needs to upgrade to Pro or Business to enable AI responses.',
+          handoff: false,
+          bot_active: false,
+        },
+        { headers: corsHeaders }
       )
     }
 

@@ -4,6 +4,8 @@ import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Loader2, TrendingUp, MessageSquare, Users, Clock, ArrowUpRight, ArrowDownRight } from 'lucide-react'
+import { UpgradeBanner } from '@/components/admin/upgrade-banner'
+import type { PlanLimits } from '@/lib/products'
 import {
   ChartConfig,
   ChartContainer,
@@ -36,9 +38,15 @@ const chartConfig = {
 export default function AnalyticsPage() {
   const [data, setData] = useState<AnalyticsData | null>(null)
   const [loading, setLoading] = useState(true)
+  const [planId, setPlanId] = useState<string>('starter')
+  const [planLimits, setPlanLimits] = useState<PlanLimits | null>(null)
 
   useEffect(() => {
     loadAnalytics()
+    fetch('/api/plan').then(r => r.json()).then(d => {
+      setPlanId(d.planId)
+      setPlanLimits(d.limits)
+    }).catch(() => {})
   }, [])
 
   const loadAnalytics = async () => {
@@ -91,6 +99,25 @@ export default function AnalyticsPage() {
   }
 
   if (!data) return null
+
+  if (planLimits && !planLimits.analyticsEnabled) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-2xl font-bold text-foreground">Analytics</h1>
+          <p className="text-muted-foreground">
+            Track your chatbot performance and engagement metrics
+          </p>
+        </div>
+        <UpgradeBanner
+          feature="Analytics Dashboard"
+          description="Upgrade to unlock detailed analytics, charts, and performance metrics for your chatbot."
+          requiredPlan="pro"
+          currentPlan={planId}
+        />
+      </div>
+    )
+  }
 
   const statCards = [
     {

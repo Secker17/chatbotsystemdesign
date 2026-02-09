@@ -16,6 +16,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Loader2, Save, Bot, Clock, MessageCircle } from 'lucide-react'
+import type { PlanLimits } from '@/lib/products'
 
 interface DaySchedule {
   enabled: boolean
@@ -88,9 +89,13 @@ export default function AppearancePage() {
   const [config, setConfig] = useState<ChatbotConfig | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [planLimits, setPlanLimits] = useState<PlanLimits | null>(null)
 
   useEffect(() => {
     loadConfig()
+    fetch('/api/plan').then(r => r.json()).then(d => {
+      setPlanLimits(d.limits)
+    }).catch(() => {})
   }, [])
 
   const loadConfig = async () => {
@@ -276,10 +281,16 @@ export default function AppearancePage() {
                   <p className="text-xs text-muted-foreground">
                     Display &quot;Powered by VintraStudio&quot;
                   </p>
+                  {!planLimits?.removeBranding && (
+                    <p className="text-xs font-medium text-amber-600">
+                      Business plan required to remove branding
+                    </p>
+                  )}
                 </div>
                 <Switch
                   checked={config.show_branding}
                   onCheckedChange={(checked) => setConfig({ ...config, show_branding: checked })}
+                  disabled={!planLimits?.removeBranding}
                 />
               </div>
             </CardContent>
