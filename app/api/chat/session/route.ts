@@ -5,8 +5,46 @@ import { getPlanLimits, type PlanId } from '@/lib/products'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
   'Access-Control-Allow-Headers': 'Content-Type',
+}
+
+// GET: Verify an existing session is still valid and return its state
+export async function GET(request: NextRequest) {
+  const sessionId = request.nextUrl.searchParams.get('session_id')
+
+  if (!sessionId) {
+    return NextResponse.json({ error: 'Missing session_id' }, { status: 400, headers: corsHeaders })
+  }
+
+  try {
+    const supabase = createPublicClient()
+
+    const { data: session, error } = await supabase
+      .from('chat_sessions')
+      .select('id, status, is_bot_active, visitor_name, visitor_email')
+      .eq('id', sessionId)
+      .single()
+
+    if (error || !session) {
+      return NextResponse.json({ valid: false }, { headers: corsHeaders })
+    }
+
+    // Session is only valid if it is still active
+    if (session.status !== 'active') {
+      return NextResponse.json({ valid: false }, { headers: corsHeaders })
+    }
+
+    return NextResponse.json({
+      valid: true,
+      session_id: session.id,
+      ai_enabled: session.is_bot_active || false,
+      visitor_name: session.visitor_name,
+      visitor_email: session.visitor_email,
+    }, { headers: corsHeaders })
+  } catch {
+    return NextResponse.json({ valid: false }, { headers: corsHeaders })
+  }
 }
 
 export async function POST(request: NextRequest) {
