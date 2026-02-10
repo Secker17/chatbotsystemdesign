@@ -46,6 +46,8 @@ export default function ResponsesPage() {
   const [planId, setPlanId] = useState<string>('starter')
   const [planLimits, setPlanLimits] = useState<PlanLimits | null>(null)
 
+  const [chatbotId, setChatbotId] = useState<string | null>(null)
+
   const [formData, setFormData] = useState({
     title: '',
     content: '',
@@ -65,6 +67,18 @@ export default function ResponsesPage() {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
 
+    // Fetch the user's first chatbot ID for inserting new responses
+    if (!chatbotId) {
+      const { data: chatbots } = await supabase
+        .from('chatbot_configs')
+        .select('id')
+        .eq('admin_id', user.id)
+        .limit(1)
+      if (chatbots && chatbots.length > 0) {
+        setChatbotId(chatbots[0].id)
+      }
+    }
+
     const { data } = await supabase
       .from('canned_responses')
       .select('*')
@@ -75,7 +89,7 @@ export default function ResponsesPage() {
       setResponses(data)
     }
     setLoading(false)
-  }, [])
+  }, [chatbotId])
 
   useEffect(() => {
     loadResponses()
@@ -114,8 +128,14 @@ export default function ResponsesPage() {
         })
         .eq('id', editingResponse.id)
     } else {
+      if (!chatbotId) {
+        console.error('No chatbot ID found for this user')
+        setSaving(false)
+        return
+      }
       await supabase.from('canned_responses').insert({
         admin_id: user.id,
+        chatbot_id: chatbotId,
         title: formData.title,
         content: formData.content,
         shortcut: formData.shortcut || null,

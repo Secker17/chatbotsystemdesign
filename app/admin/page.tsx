@@ -37,7 +37,7 @@ async function getDashboardStats(adminId: string) {
     .from('chat_sessions')
     .select('*', { count: 'exact', head: true })
     .eq('admin_id', adminId)
-    .gte('created_at', sevenDaysAgo.toISOString())
+    .gte('started_at', sevenDaysAgo.toISOString())
 
   // Get active sessions
   const { count: activeSessions } = await supabase
@@ -64,7 +64,7 @@ async function getRecentConversations(adminId: string) {
       visitor_name,
       visitor_email,
       status,
-      created_at,
+      started_at,
       chat_messages (
         id,
         content,
@@ -73,7 +73,7 @@ async function getRecentConversations(adminId: string) {
       )
     `)
     .eq('admin_id', adminId)
-    .order('created_at', { ascending: false })
+    .order('started_at', { ascending: false })
     .limit(5)
 
   return data || []
@@ -282,7 +282,7 @@ export default async function AdminDashboard() {
                       )}
                     </div>
                     <span className="text-xs text-muted-foreground">
-                      {new Date(conversation.created_at).toLocaleDateString()}
+                      {new Date(conversation.started_at).toLocaleDateString()}
                     </span>
                   </div>
                 )

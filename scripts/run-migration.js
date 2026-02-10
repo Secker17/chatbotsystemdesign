@@ -1,6 +1,9 @@
 import { createClient } from "@supabase/supabase-js";
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+// Hardcode the correct URL since env vars may be cached with the wrong project ref
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.includes("dzdxmhzmyfxiqbnwhzst")
+  ? process.env.NEXT_PUBLIC_SUPABASE_URL
+  : "https://dzdxmhzmyfxiqbnwhzst.supabase.co";
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 if (!supabaseUrl || !supabaseServiceKey) {
