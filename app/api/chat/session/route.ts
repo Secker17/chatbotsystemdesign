@@ -30,8 +30,8 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ valid: false }, { headers: corsHeaders })
     }
 
-    // Session is only valid if it is still active
-    if (session.status !== 'active') {
+    // Session is valid if active or waiting for human
+    if (session.status !== 'active' && session.status !== 'waiting_for_human') {
       return NextResponse.json({ valid: false }, { headers: corsHeaders })
     }
 
