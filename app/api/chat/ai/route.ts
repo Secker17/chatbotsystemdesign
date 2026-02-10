@@ -1,5 +1,5 @@
 import { generateText } from 'ai'
-import { createGroq } from '@ai-sdk/groq'
+import { xai } from '@ai-sdk/xai'
 import { createPublicClient } from '@/lib/supabase/public'
 import { NextRequest, NextResponse } from 'next/server'
 import { getPlanLimits, type PlanId } from '@/lib/products'
@@ -12,21 +12,12 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'Content-Type',
 }
 
-// Supported Groq models in order of preference for fallback
-const GROQ_MODELS = [
-  'llama-3.3-70b-versatile',
-  'llama-3.1-70b-versatile',
-  'llama-3.1-8b-instant',
-  'mixtral-8x7b-32768',
+// Supported Grok (xAI) models in order of preference for fallback
+const GROK_MODELS = [
+  'grok-4-mini',
+  'grok-3-mini-fast',
+  'grok-3-fast',
 ]
-
-function createGroqClient() {
-  const apiKey = process.env.GROQ_API_KEY
-  if (!apiKey) {
-    throw new Error('GROQ_API_KEY environment variable is not set')
-  }
-  return createGroq({ apiKey })
-}
 
 export async function POST(request: NextRequest) {
   try {
@@ -227,14 +218,30 @@ Important rules:
 - You can understand and respond in multiple languages. Match the language of the visitor.
 - Current date/time: ${new Date().toISOString()}`
 
-    // Generate AI response using Groq with model fallback
-    const groq = createGroqClient()
-    const preferredModel = config.ai_model || 'llama-3.3-70b-versatile'
+    // Generate AI response using Grok (xAI) with model fallback
+    const apiKey = process.env.XAI_API_KEY
+    if (!apiKey) {
+      throw new Error('XAI_API_KEY environment variable is not set')
+    }
+
+    // Map old Groq model names to Grok models for backwards compatibility
+    const modelMap: Record<string, string> = {
+      'llama-3.3-70b-versatile': 'grok-4-mini',
+      'llama-3.1-70b-versatile': 'grok-4-mini',
+      'llama-3.1-8b-instant': 'grok-3-mini-fast',
+      'llama3-70b-8192': 'grok-3-fast',
+      'llama3-8b-8192': 'grok-3-mini-fast',
+      'mixtral-8x7b-32768': 'grok-3-fast',
+      'gemma2-9b-it': 'grok-3-mini-fast',
+    }
+
+    const rawModel = config.ai_model || 'grok-4-mini'
+    const preferredModel = modelMap[rawModel] || rawModel
 
     // Build model list: preferred model first, then fallbacks
     const modelsToTry = [
       preferredModel,
-      ...GROQ_MODELS.filter((m) => m !== preferredModel),
+      ...GROK_MODELS.filter((m) => m !== preferredModel),
     ]
 
     let text = ''
@@ -245,7 +252,7 @@ Important rules:
     for (const modelId of modelsToTry) {
       try {
         const result = await generateText({
-          model: groq(modelId),
+          model: xai(modelId, { apiKey }),
           system: systemPrompt,
           messages: conversationMessages,
           maxOutputTokens: config.ai_max_tokens || 500,
@@ -337,7 +344,7 @@ Important rules:
     
     const isConfigError =
       errorMessage.includes('API key') ||
-      errorMessage.includes('GROQ_API_KEY') ||
+      errorMessage.includes('XAI_API_KEY') ||
       errorMessage.includes('gateway') ||
       errorMessage.includes('unauthorized') ||
       errorMessage.includes('401')

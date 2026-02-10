@@ -545,31 +545,39 @@ export async function GET() {
   styleSheet.textContent = styles;
   document.head.appendChild(styleSheet);
   
-  // Session persistence helpers
+  // Session persistence helpers - uses localStorage so chat survives refresh and tab close
   const STORAGE_KEY = 'vintra_session_' + chatbotId;
   
   function saveSession() {
     try {
-      sessionStorage.setItem(STORAGE_KEY, JSON.stringify({
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({
         sessionId,
         visitorName,
         visitorEmail,
         hasStartedChat,
         isBotActive,
         isWaitingForHuman,
+        savedAt: Date.now(),
       }));
     } catch(e) {}
   }
   
   function loadSavedSession() {
     try {
-      const raw = sessionStorage.getItem(STORAGE_KEY);
-      return raw ? JSON.parse(raw) : null;
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) return null;
+      const data = JSON.parse(raw);
+      // Expire sessions after 24 hours
+      if (data.savedAt && (Date.now() - data.savedAt) > 24 * 60 * 60 * 1000) {
+        localStorage.removeItem(STORAGE_KEY);
+        return null;
+      }
+      return data;
     } catch(e) { return null; }
   }
   
   function clearSavedSession() {
-    try { sessionStorage.removeItem(STORAGE_KEY); } catch(e) {}
+    try { localStorage.removeItem(STORAGE_KEY); } catch(e) {}
   }
   
   // State

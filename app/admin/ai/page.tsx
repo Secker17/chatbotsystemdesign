@@ -50,12 +50,9 @@ interface AIConfig {
 }
 
 const AI_MODELS = [
-  { value: 'llama-3.3-70b-versatile', label: 'Llama 3.3 70B', description: 'Powerful and free (Recommended)' },
-  { value: 'llama-3.1-8b-instant', label: 'Llama 3.1 8B', description: 'Ultra-fast, free' },
-  { value: 'llama3-70b-8192', label: 'Llama 3 70B', description: 'Fast and capable, free' },
-  { value: 'llama3-8b-8192', label: 'Llama 3 8B', description: 'Lightweight and fast, free' },
-  { value: 'mixtral-8x7b-32768', label: 'Mixtral 8x7B', description: 'Great for longer context, free' },
-  { value: 'gemma2-9b-it', label: 'Gemma 2 9B', description: 'Google model, free' },
+  { value: 'grok-4-mini', label: 'Grok 4 Mini', description: 'Powerful and fast (Recommended)' },
+  { value: 'grok-3-mini-fast', label: 'Grok 3 Mini Fast', description: 'Ultra-fast responses' },
+  { value: 'grok-3-fast', label: 'Grok 3 Fast', description: 'Fast and capable' },
 ]
 
 export default function AIConfigPage() {
@@ -103,7 +100,7 @@ export default function AIConfigPage() {
         ...data,
         ai_temperature: data.ai_temperature ?? 0.7,
         ai_max_tokens: data.ai_max_tokens ?? 500,
-        ai_model: data.ai_model ?? 'llama-3.3-70b-versatile',
+        ai_model: data.ai_model ?? 'grok-4-mini',
         ai_handoff_keywords: data.ai_handoff_keywords ?? ['human', 'agent', 'person', 'real person', 'speak to someone', 'menneske', 'snakke med noen'],
         ai_greeting_message: data.ai_greeting_message ?? 'Hi! I\'m an AI assistant. How can I help you today? If you\'d like to speak with a human, just let me know!',
         ai_system_prompt: data.ai_system_prompt ?? 'You are a helpful customer support assistant. Be friendly, professional, and concise. Help visitors with their questions and guide them to the right resources.',
@@ -454,7 +451,7 @@ FAQ:
                   <div className="space-y-2">
                     <Label>AI Model</Label>
                     <Select
-                      value={config.ai_model || 'llama-3.3-70b-versatile'}
+                      value={config.ai_model || 'grok-4-mini'}
                       onValueChange={(value) => setConfig({ ...config, ai_model: value })}
                     >
                       <SelectTrigger>

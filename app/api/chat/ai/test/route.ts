@@ -1,9 +1,20 @@
 import { generateText } from 'ai'
-import { createGroq } from '@ai-sdk/groq'
+import { xai } from '@ai-sdk/xai'
 import { createClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
 
 export const maxDuration = 30
+
+// Map old Groq model names to Grok models for backwards compatibility
+const modelMap: Record<string, string> = {
+  'llama-3.3-70b-versatile': 'grok-4-mini',
+  'llama-3.1-70b-versatile': 'grok-4-mini',
+  'llama-3.1-8b-instant': 'grok-3-mini-fast',
+  'llama3-70b-8192': 'grok-3-fast',
+  'llama3-8b-8192': 'grok-3-mini-fast',
+  'mixtral-8x7b-32768': 'grok-3-fast',
+  'gemma2-9b-it': 'grok-3-mini-fast',
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -21,22 +32,23 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Missing message' }, { status: 400 })
     }
 
-    const apiKey = process.env.GROQ_API_KEY
+    const apiKey = process.env.XAI_API_KEY
     if (!apiKey) {
       return NextResponse.json(
-        { error: 'GROQ_API_KEY is not configured. Please add it in your environment variables.' },
+        { error: 'XAI_API_KEY is not configured. Please add it in your environment variables.' },
         { status: 500 }
       )
     }
 
-    const groq = createGroq({ apiKey })
+    const rawModel = model || 'grok-4-mini'
+    const resolvedModel = modelMap[rawModel] || rawModel
 
     const fullPrompt = `${system_prompt || 'You are a helpful assistant.'}${
       knowledge_base ? `\n\nKnowledge Base:\n${knowledge_base}` : ''
     }\n\nCurrent date/time: ${new Date().toISOString()}`
 
     const { text } = await generateText({
-      model: groq(model || 'llama-3.3-70b-versatile'),
+      model: xai(resolvedModel, { apiKey }),
       system: fullPrompt,
       messages: [{ role: 'user', content: message }],
       maxOutputTokens: max_tokens || 500,

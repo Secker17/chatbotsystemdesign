@@ -28,7 +28,7 @@ export const PLAN_LIMITS: Record<PlanId, PlanLimits> = {
     maxChatbots: 1,
     maxConversationsPerMonth: 100,
     chatHistoryDays: 7,
-    aiEnabled: false,
+    aiEnabled: true,
     cannedResponses: false,
     analyticsEnabled: false,
     fullCustomization: false,
@@ -73,6 +73,7 @@ export const PRODUCTS: Product[] = [
       'Basic customization',
       'Email support',
       '7-day chat history',
+      'AI Assistant (Grok)',
     ],
   },
   {
