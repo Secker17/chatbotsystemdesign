@@ -9,8 +9,8 @@ const corsHeaders = {
 }
 
 const MODELS_TO_TEST = [
-  'openai/gpt-4o-mini',
-  'openai/gpt-4.1-nano',
+  'xai/grok-beta',
+  'xai/grok-2-1212',
 ]
 
 export async function GET() {
