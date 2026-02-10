@@ -50,12 +50,13 @@ interface AIConfig {
 }
 
 const AI_MODELS = [
-  { value: 'llama-3.3-70b-versatile', label: 'Llama 3.3 70B', description: 'Powerful and free (Recommended)' },
-  { value: 'llama-3.1-8b-instant', label: 'Llama 3.1 8B', description: 'Ultra-fast, free' },
-  { value: 'llama3-70b-8192', label: 'Llama 3 70B', description: 'Fast and capable, free' },
-  { value: 'llama3-8b-8192', label: 'Llama 3 8B', description: 'Lightweight and fast, free' },
-  { value: 'mixtral-8x7b-32768', label: 'Mixtral 8x7B', description: 'Great for longer context, free' },
-  { value: 'gemma2-9b-it', label: 'Gemma 2 9B', description: 'Google model, free' },
+  { value: 'gpt-4o-mini', label: 'GPT-4o Mini', description: 'Fast and capable (Recommended)' },
+  { value: 'gpt-4o', label: 'GPT-4o', description: 'Most capable OpenAI model' },
+  { value: 'claude-3-5-haiku-latest', label: 'Claude 3.5 Haiku', description: 'Fast Anthropic model' },
+  { value: 'llama-3.3-70b-versatile', label: 'Llama 3.3 70B', description: 'Powerful open-source via Groq' },
+  { value: 'llama-3.1-8b-instant', label: 'Llama 3.1 8B', description: 'Ultra-fast via Groq' },
+  { value: 'mixtral-8x7b-32768', label: 'Mixtral 8x7B', description: 'Great for longer context via Groq' },
+  { value: 'gemma2-9b-it', label: 'Gemma 2 9B', description: 'Google model via Groq' },
 ]
 
 export default function AIConfigPage() {

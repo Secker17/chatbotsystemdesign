@@ -1,5 +1,4 @@
 import { generateText } from 'ai'
-import { createGroq } from '@ai-sdk/groq'
 import { createPublicClient } from '@/lib/supabase/public'
 import { NextRequest, NextResponse } from 'next/server'
 import { getPlanLimits, type PlanId } from '@/lib/products'
@@ -12,20 +11,29 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'Content-Type',
 }
 
-// Supported Groq models in order of preference for fallback
-const GROQ_MODELS = [
-  'llama-3.3-70b-versatile',
-  'llama-3.1-70b-versatile',
-  'llama-3.1-8b-instant',
-  'mixtral-8x7b-32768',
+// Model mapping: user-facing model IDs to Vercel AI Gateway model strings
+const MODEL_MAP: Record<string, string> = {
+  'llama-3.3-70b-versatile': 'groq/llama-3.3-70b-versatile',
+  'llama-3.1-8b-instant': 'groq/llama-3.1-8b-instant',
+  'llama3-70b-8192': 'groq/llama3-70b-8192',
+  'llama3-8b-8192': 'groq/llama3-8b-8192',
+  'mixtral-8x7b-32768': 'groq/mixtral-8x7b-32768',
+  'gemma2-9b-it': 'groq/gemma2-9b-it',
+  'gpt-4o-mini': 'openai/gpt-4o-mini',
+  'gpt-4o': 'openai/gpt-4o',
+  'claude-3-5-haiku-latest': 'anthropic/claude-3-5-haiku-latest',
+}
+
+// Fallback chain for free models via AI Gateway
+const FALLBACK_MODELS = [
+  'openai/gpt-4o-mini',
+  'anthropic/claude-3-5-haiku-latest',
+  'groq/llama-3.3-70b-versatile',
 ]
 
-function createGroqClient() {
-  const apiKey = process.env.GROQ_API_KEY
-  if (!apiKey) {
-    throw new Error('GROQ_API_KEY environment variable is not set')
-  }
-  return createGroq({ apiKey })
+function resolveModel(modelId: string | null): string {
+  if (!modelId) return 'openai/gpt-4o-mini'
+  return MODEL_MAP[modelId] || modelId
 }
 
 export async function POST(request: NextRequest) {
@@ -64,7 +72,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Get chatbot AI config - fetch canned_responses separately to avoid join issues
+    // Get chatbot AI config
     const { data: config, error: configError } = await supabase
       .from('chatbot_configs')
       .select(
@@ -109,7 +117,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Fetch canned responses separately (avoids potential FK join issues)
+    // Fetch canned responses separately
     const { data: cannedResponses } = await supabase
       .from('canned_responses')
       .select('title, content, shortcut')
@@ -227,14 +235,13 @@ Important rules:
 - You can understand and respond in multiple languages. Match the language of the visitor.
 - Current date/time: ${new Date().toISOString()}`
 
-    // Generate AI response using Groq with model fallback
-    const groq = createGroqClient()
-    const preferredModel = config.ai_model || 'llama-3.3-70b-versatile'
+    // Generate AI response using Vercel AI Gateway with model fallback
+    const preferredModel = resolveModel(config.ai_model)
 
     // Build model list: preferred model first, then fallbacks
     const modelsToTry = [
       preferredModel,
-      ...GROQ_MODELS.filter((m) => m !== preferredModel),
+      ...FALLBACK_MODELS.filter((m) => m !== preferredModel),
     ]
 
     let text = ''
@@ -245,7 +252,7 @@ Important rules:
     for (const modelId of modelsToTry) {
       try {
         const result = await generateText({
-          model: groq(modelId),
+          model: modelId,
           system: systemPrompt,
           messages: conversationMessages,
           maxOutputTokens: config.ai_max_tokens || 500,
@@ -285,7 +292,6 @@ Important rules:
 
     if (insertError) {
       console.error('AI route - Failed to store AI message:', insertError.message)
-      // Still return the reply even if storage fails
     }
 
     // Update session with proper bot_messages_count from the column
@@ -337,7 +343,6 @@ Important rules:
     
     const isConfigError =
       errorMessage.includes('API key') ||
-      errorMessage.includes('GROQ_API_KEY') ||
       errorMessage.includes('gateway') ||
       errorMessage.includes('unauthorized') ||
       errorMessage.includes('401')

@@ -1,9 +1,26 @@
 import { generateText } from 'ai'
-import { createGroq } from '@ai-sdk/groq'
 import { createClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
 
 export const maxDuration = 30
+
+// Model mapping: user-facing model IDs to Vercel AI Gateway model strings
+const MODEL_MAP: Record<string, string> = {
+  'llama-3.3-70b-versatile': 'groq/llama-3.3-70b-versatile',
+  'llama-3.1-8b-instant': 'groq/llama-3.1-8b-instant',
+  'llama3-70b-8192': 'groq/llama3-70b-8192',
+  'llama3-8b-8192': 'groq/llama3-8b-8192',
+  'mixtral-8x7b-32768': 'groq/mixtral-8x7b-32768',
+  'gemma2-9b-it': 'groq/gemma2-9b-it',
+  'gpt-4o-mini': 'openai/gpt-4o-mini',
+  'gpt-4o': 'openai/gpt-4o',
+  'claude-3-5-haiku-latest': 'anthropic/claude-3-5-haiku-latest',
+}
+
+function resolveModel(modelId: string | null): string {
+  if (!modelId) return 'openai/gpt-4o-mini'
+  return MODEL_MAP[modelId] || modelId
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -21,22 +38,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Missing message' }, { status: 400 })
     }
 
-    const apiKey = process.env.GROQ_API_KEY
-    if (!apiKey) {
-      return NextResponse.json(
-        { error: 'GROQ_API_KEY is not configured. Please add it in your environment variables.' },
-        { status: 500 }
-      )
-    }
-
-    const groq = createGroq({ apiKey })
+    const resolvedModel = resolveModel(model)
 
     const fullPrompt = `${system_prompt || 'You are a helpful assistant.'}${
       knowledge_base ? `\n\nKnowledge Base:\n${knowledge_base}` : ''
     }\n\nCurrent date/time: ${new Date().toISOString()}`
 
     const { text } = await generateText({
-      model: groq(model || 'llama-3.3-70b-versatile'),
+      model: resolvedModel,
       system: fullPrompt,
       messages: [{ role: 'user', content: message }],
       maxOutputTokens: max_tokens || 500,
