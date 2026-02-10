@@ -1,9 +1,26 @@
 import { generateText } from 'ai'
-import { createGroq } from '@ai-sdk/groq'
 import { createClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
 
 export const maxDuration = 30
+
+// Model mapping: user-facing model IDs to Vercel AI Gateway model strings
+const MODEL_MAP: Record<string, string> = {
+  'gpt-4o-mini': 'openai/gpt-4o-mini',
+  'gpt-4o': 'openai/gpt-4o',
+  'gpt-4.1-mini': 'openai/gpt-4.1-mini',
+  'gpt-4.1-nano': 'openai/gpt-4.1-nano',
+  'claude-3-5-haiku-latest': 'anthropic/claude-3-5-haiku-latest',
+  'llama-3.3-70b-versatile': 'fireworks/accounts/fireworks/models/llama-v3p3-70b-instruct',
+  'llama-3.1-8b-instant': 'fireworks/accounts/fireworks/models/llama-v3p1-8b-instruct',
+  'mixtral-8x7b-32768': 'fireworks/accounts/fireworks/models/mixtral-8x7b-instruct',
+  'gemma2-9b-it': 'fireworks/accounts/fireworks/models/gemma2-9b-it',
+}
+
+function resolveModel(modelId: string | null): string {
+  if (!modelId) return 'openai/gpt-4o-mini'
+  return MODEL_MAP[modelId] || modelId
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -21,22 +38,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Missing message' }, { status: 400 })
     }
 
-    const apiKey = process.env.GROQ_API_KEY
-    if (!apiKey) {
-      return NextResponse.json(
-        { error: 'GROQ_API_KEY is not configured. Please add it in your environment variables.' },
-        { status: 500 }
-      )
-    }
-
-    const groq = createGroq({ apiKey })
+    const resolvedModel = resolveModel(model)
 
     const fullPrompt = `${system_prompt || 'You are a helpful assistant.'}${
       knowledge_base ? `\n\nKnowledge Base:\n${knowledge_base}` : ''
     }\n\nCurrent date/time: ${new Date().toISOString()}`
 
     const { text } = await generateText({
-      model: groq(model || 'llama-3.3-70b-versatile'),
+      model: resolvedModel,
       system: fullPrompt,
       messages: [{ role: 'user', content: message }],
       maxOutputTokens: max_tokens || 500,
