@@ -63,11 +63,8 @@ export default function SignUpPage() {
       })
       if (signUpError) throw signUpError
       
-      // If session is returned (email confirmation disabled), set cookie
+      // If session is returned (email confirmation disabled), redirect to admin
       if (data.session) {
-        const maxAge = 60 * 60 * 24 * 365
-        document.cookie = `sb-auth-token=${data.session.access_token}; path=/; max-age=${maxAge}; SameSite=Lax`
-        document.cookie = `sb-refresh-token=${data.session.refresh_token}; path=/; max-age=${maxAge}; SameSite=Lax`
         router.push('/admin')
         router.refresh()
         return
