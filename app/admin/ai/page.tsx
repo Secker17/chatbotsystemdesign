@@ -50,15 +50,13 @@ interface AIConfig {
 }
 
 const AI_MODELS = [
-  { value: 'gpt-4o-mini', label: 'GPT-4o Mini', description: 'Fast and capable (Recommended)' },
-  { value: 'gpt-4.1-mini', label: 'GPT-4.1 Mini', description: 'Latest small OpenAI model' },
-  { value: 'gpt-4.1-nano', label: 'GPT-4.1 Nano', description: 'Fastest OpenAI model' },
+  { value: 'grok-3-mini', label: 'Grok 3 Mini', description: 'Fast and capable (Recommended)' },
+  { value: 'grok-3', label: 'Grok 3', description: 'Most powerful xAI model' },
+  { value: 'grok-2', label: 'Grok 2', description: 'Reliable xAI model' },
+  { value: 'gpt-4o-mini', label: 'GPT-4o Mini', description: 'Fast OpenAI model' },
   { value: 'gpt-4o', label: 'GPT-4o', description: 'Powerful OpenAI model' },
+  { value: 'gpt-4.1-mini', label: 'GPT-4.1 Mini', description: 'Latest small OpenAI model' },
   { value: 'claude-3-5-haiku-latest', label: 'Claude 3.5 Haiku', description: 'Fast Anthropic model' },
-  { value: 'llama-3.3-70b-versatile', label: 'Llama 3.3 70B', description: 'Powerful open-source via Fireworks' },
-  { value: 'llama-3.1-8b-instant', label: 'Llama 3.1 8B', description: 'Ultra-fast via Fireworks' },
-  { value: 'mixtral-8x7b-32768', label: 'Mixtral 8x7B', description: 'Great for longer context via Fireworks' },
-  { value: 'gemma2-9b-it', label: 'Gemma 2 9B', description: 'Google model via Fireworks' },
 ]
 
 export default function AIConfigPage() {
@@ -106,7 +104,7 @@ export default function AIConfigPage() {
         ...data,
         ai_temperature: data.ai_temperature ?? 0.7,
         ai_max_tokens: data.ai_max_tokens ?? 500,
-        ai_model: data.ai_model ?? 'llama-3.3-70b-versatile',
+        ai_model: data.ai_model ?? 'grok-3-mini',
         ai_handoff_keywords: data.ai_handoff_keywords ?? ['human', 'agent', 'person', 'real person', 'speak to someone', 'menneske', 'snakke med noen'],
         ai_greeting_message: data.ai_greeting_message ?? 'Hi! I\'m an AI assistant. How can I help you today? If you\'d like to speak with a human, just let me know!',
         ai_system_prompt: data.ai_system_prompt ?? 'You are a helpful customer support assistant. Be friendly, professional, and concise. Help visitors with their questions and guide them to the right resources.',
@@ -457,7 +455,7 @@ FAQ:
                   <div className="space-y-2">
                     <Label>AI Model</Label>
                     <Select
-                      value={config.ai_model || 'llama-3.3-70b-versatile'}
+                      value={config.ai_model || 'grok-3-mini'}
                       onValueChange={(value) => setConfig({ ...config, ai_model: value })}
                     >
                       <SelectTrigger>

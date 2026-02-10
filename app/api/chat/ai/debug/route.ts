@@ -9,8 +9,8 @@ const corsHeaders = {
 }
 
 const MODELS_TO_TEST = [
-  'xai/grok-beta',
-  'xai/grok-2-1212',
+  'xai/grok-3-mini',
+  'xai/grok-2',
 ]
 
 export async function GET() {
