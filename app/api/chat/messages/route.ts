@@ -16,7 +16,13 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const supabase = createPublicClient()
+    let supabase
+    try {
+      supabase = createPublicClient()
+    } catch (envError) {
+      console.error('Messages API - Supabase client creation failed:', envError)
+      return NextResponse.json({ error: 'Service configuration error' }, { status: 500, headers: corsHeaders })
+    }
 
     let query = supabase
       .from('chat_messages')
@@ -26,11 +32,15 @@ export async function GET(request: NextRequest) {
 
     // Only get messages after a certain ID for polling
     if (afterId) {
-      const { data: afterMessage } = await supabase
+      const { data: afterMessage, error: afterError } = await supabase
         .from('chat_messages')
         .select('created_at')
         .eq('id', afterId)
         .single()
+
+      if (afterError) {
+        console.error('Messages API - After message lookup error:', afterError.message)
+      }
 
       if (afterMessage) {
         query = query.gt('created_at', afterMessage.created_at)
@@ -40,13 +50,13 @@ export async function GET(request: NextRequest) {
     const { data: messages, error } = await query.limit(50)
 
     if (error) {
-      console.error('Messages fetch error:', error)
+      console.error('Messages fetch error:', error.message, error.code)
       return NextResponse.json({ error: 'Failed to fetch messages' }, { status: 500, headers: corsHeaders })
     }
 
     return NextResponse.json(messages || [], { headers: corsHeaders })
   } catch (error) {
-    console.error('Messages API error:', error)
+    console.error('Messages API error:', error instanceof Error ? error.message : error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500, headers: corsHeaders })
   }
 }
