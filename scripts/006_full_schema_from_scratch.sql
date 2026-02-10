@@ -54,7 +54,7 @@ CREATE TABLE IF NOT EXISTS public.chatbot_configs (
   ai_enabled BOOLEAN DEFAULT false,
   ai_system_prompt TEXT,
   ai_knowledge_base TEXT,
-  ai_model TEXT DEFAULT 'gpt-4o-mini',
+  ai_model TEXT DEFAULT 'grok-3-mini',
   ai_temperature NUMERIC DEFAULT 0.7,
   ai_max_tokens INTEGER DEFAULT 500,
   ai_auto_greet BOOLEAN DEFAULT false,
