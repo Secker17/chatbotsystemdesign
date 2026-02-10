@@ -1,35 +1,20 @@
-import { NextResponse, type NextRequest } from 'next/server'
+import { updateSession } from '@/lib/supabase/middleware'
+import { type NextRequest } from 'next/server'
 
-// Simple cookie-based auth check middleware
-// No external dependencies - only uses next/server
-export function middleware(request: NextRequest) {
-  const { pathname } = request.nextUrl
-
-  // Skip API routes entirely - they handle their own auth
-  if (pathname.startsWith('/api/')) {
-    return NextResponse.next()
-  }
-
-  // Skip static assets
-  if (pathname.startsWith('/_next/')) {
-    return NextResponse.next()
-  }
-
-  // Protect admin routes
-  if (pathname.startsWith('/admin')) {
-    const hasCustomAuth = request.cookies.has('sb-auth-token')
-    const hasSupabaseAuth = request.cookies.getAll().some(
-      (c) => c.name.startsWith('sb-') && c.name.endsWith('-auth-token')
-    )
-
-    if (!hasCustomAuth && !hasSupabaseAuth) {
-      return NextResponse.redirect(new URL('/auth/login', request.url))
-    }
-  }
-
-  return NextResponse.next()
+export async function middleware(request: NextRequest) {
+  return await updateSession(request)
 }
 
 export const config = {
-  matcher: ['/admin/:path*'],
+  matcher: [
+    /*
+     * Match all request paths except:
+     * - _next/static (static files)
+     * - _next/image (image optimization files)
+     * - favicon.ico (favicon file)
+     * - images - .svg, .png, .jpg, .jpeg, .gif, .webp
+     * - API widget routes (they handle their own CORS/auth)
+     */
+    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+  ],
 }

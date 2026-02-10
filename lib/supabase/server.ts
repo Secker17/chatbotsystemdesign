@@ -1,58 +1,29 @@
-import { createClient as createSupabaseClient } from '@supabase/supabase-js'
+import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 
-function extractToken(cookieValue: string): string | null {
-  try {
-    const parsed = JSON.parse(cookieValue)
-    if (Array.isArray(parsed) && parsed[0]) return parsed[0]
-    if (typeof parsed === 'string') return parsed
-    if (parsed?.access_token) return parsed.access_token
-    return null
-  } catch {
-    return cookieValue || null
-  }
-}
-
 export async function createClient() {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  const cookieStore = await cookies()
 
-  if (!supabaseUrl || !supabaseAnonKey) {
-    throw new Error('Missing Supabase environment variables')
-  }
-
-  let token: string | null = null
-
-  try {
-    const cookieStore = await cookies()
-
-    // Check custom auth cookie first
-    const customAuth = cookieStore.get('sb-auth-token')
-    if (customAuth?.value) {
-      token = customAuth.value
-    } else {
-      // Fallback to Supabase default auth cookie
-      const allCookies = cookieStore.getAll()
-      const authCookie = allCookies.find(
-        (c) => c.name.startsWith('sb-') && c.name.endsWith('-auth-token')
-      )
-      if (authCookie) {
-        token = extractToken(authCookie.value)
-      }
-    }
-  } catch {
-    // Cookies not available (e.g. during static generation)
-  }
-
-  const client = createSupabaseClient(supabaseUrl, supabaseAnonKey, {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false,
+  return createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll() {
+          return cookieStore.getAll()
+        },
+        setAll(cookiesToSet) {
+          try {
+            cookiesToSet.forEach(({ name, value, options }) =>
+              cookieStore.set(name, value, options),
+            )
+          } catch {
+            // The "setAll" method was called from a Server Component.
+            // This can be ignored if you have middleware refreshing
+            // user sessions.
+          }
+        },
+      },
     },
-    global: {
-      headers: token ? { Authorization: `Bearer ${token}` } : {},
-    },
-  })
-
-  return client
+  )
 }
