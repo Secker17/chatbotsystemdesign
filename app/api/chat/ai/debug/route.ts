@@ -10,7 +10,7 @@ const corsHeaders = {
 
 const MODELS_TO_TEST = [
   'openai/gpt-4o-mini',
-  'anthropic/claude-3-5-haiku-latest',
+  'openai/gpt-4.1-nano',
 ]
 
 export async function GET() {
