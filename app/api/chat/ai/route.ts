@@ -12,24 +12,47 @@ const corsHeaders = {
 }
 
 // Model mapping: user-facing model IDs to Vercel AI Gateway model strings
-// Using xAI models instead of OpenAI
+// Maps both current and legacy model IDs to valid gateway strings
 const MODEL_MAP: Record<string, string> = {
-  'grok-beta': 'xai/grok-beta',
-  'grok-2-1212': 'xai/grok-2-1212',
-  'grok-2-image': 'xai/grok-2-image',
-  'gpt-4o-mini': 'xai/grok-beta', // Fallback mapping
-  'gpt-4o': 'xai/grok-2-1212', // Fallback mapping
+  // xAI Grok models (primary)
+  'xai/grok-3-mini': 'xai/grok-3-mini',
+  'xai/grok-3': 'xai/grok-3',
+  'xai/grok-2': 'xai/grok-2',
+  // Short names for xAI
+  'grok-3-mini': 'xai/grok-3-mini',
+  'grok-3': 'xai/grok-3',
+  'grok-2': 'xai/grok-2',
+  // OpenAI models via AI Gateway
+  'gpt-4o-mini': 'openai/gpt-4o-mini',
+  'gpt-4o': 'openai/gpt-4o',
+  'gpt-4.1-mini': 'openai/gpt-4.1-mini',
+  'gpt-4.1-nano': 'openai/gpt-4.1-nano',
+  // Anthropic models via AI Gateway
+  'claude-3-5-haiku-latest': 'anthropic/claude-3-5-haiku-latest',
+  // Legacy mappings
+  'grok-beta': 'xai/grok-3-mini',
+  'grok-2-1212': 'xai/grok-2',
+  'grok-2-image': 'xai/grok-2',
+  // Fireworks models via AI Gateway
+  'llama-3.3-70b-versatile': 'fireworks/llama-v3p3-70b-instruct',
+  'llama-3.1-8b-instant': 'fireworks/llama-v3p1-8b-instruct',
+  'mixtral-8x7b-32768': 'fireworks/mixtral-8x7b-instruct',
+  'gemma2-9b-it': 'fireworks/gemma2-9b-it',
 }
 
-// Fallback chain for xAI models
+// Default model and fallback chain
+const DEFAULT_MODEL = 'xai/grok-3-mini'
 const FALLBACK_MODELS = [
-  'xai/grok-beta',
-  'xai/grok-2-1212',
+  'xai/grok-3-mini',
+  'xai/grok-2',
+  'openai/gpt-4o-mini',
 ]
 
 function resolveModel(modelId: string | null): string {
-  if (!modelId) return 'xai/grok-beta'
-  return MODEL_MAP[modelId] || modelId
+  if (!modelId) return DEFAULT_MODEL
+  // If it already has a provider prefix (contains /), check if it's in the map or use as-is
+  if (modelId.includes('/')) return MODEL_MAP[modelId] || modelId
+  return MODEL_MAP[modelId] || `xai/${modelId}`
 }
 
 export async function POST(request: NextRequest) {
@@ -337,20 +360,25 @@ Important rules:
       name: error instanceof Error ? error.name : 'Unknown',
     })
     
+    const errorLower = errorMessage.toLowerCase()
     const isConfigError =
-      errorMessage.includes('API key') ||
-      errorMessage.includes('gateway') ||
-      errorMessage.includes('unauthorized') ||
-      errorMessage.includes('401')
+      errorLower.includes('api key') ||
+      errorLower.includes('api_key') ||
+      errorLower.includes('gateway') ||
+      errorLower.includes('unauthorized') ||
+      errorLower.includes('401') ||
+      errorLower.includes('not found') ||
+      errorLower.includes('404') ||
+      errorLower.includes('model')
 
     const isRateLimit =
-      errorMessage.includes('rate') ||
-      errorMessage.includes('429') ||
-      errorMessage.includes('quota')
+      errorLower.includes('rate') ||
+      errorLower.includes('429') ||
+      errorLower.includes('quota')
 
     let userFacingError: string
     if (isConfigError) {
-      userFacingError = 'AI service is not properly configured. Please contact support.'
+      userFacingError = 'AI service encountered a configuration issue. Please try again shortly.'
     } else if (isRateLimit) {
       userFacingError = 'The AI service is currently busy. Please try again in a moment.'
     } else {
