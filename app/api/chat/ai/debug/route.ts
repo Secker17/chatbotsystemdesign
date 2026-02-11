@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { generateText } from 'ai'
+import { xai } from '@ai-sdk/xai'
 import { createPublicClient } from '@/lib/supabase/public'
 
 const corsHeaders = {
@@ -9,8 +10,8 @@ const corsHeaders = {
 }
 
 const MODELS_TO_TEST = [
-  'xai/grok-3-mini',
-  'xai/grok-2',
+  'grok-3-mini',
+  'grok-2',
 ]
 
 export async function GET() {
@@ -48,7 +49,7 @@ export async function GET() {
   for (const modelId of MODELS_TO_TEST) {
     try {
       const { text } = await generateText({
-        model: modelId,
+        model: xai(modelId),
         prompt: 'Say "hello" and nothing else.',
         maxOutputTokens: 10,
       })

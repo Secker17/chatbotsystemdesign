@@ -53,10 +53,6 @@ const AI_MODELS = [
   { value: 'grok-3-mini', label: 'Grok 3 Mini', description: 'Fast and capable (Recommended)' },
   { value: 'grok-3', label: 'Grok 3', description: 'Most powerful xAI model' },
   { value: 'grok-2', label: 'Grok 2', description: 'Reliable xAI model' },
-  { value: 'gpt-4o-mini', label: 'GPT-4o Mini', description: 'Fast OpenAI model' },
-  { value: 'gpt-4o', label: 'GPT-4o', description: 'Powerful OpenAI model' },
-  { value: 'gpt-4.1-mini', label: 'GPT-4.1 Mini', description: 'Latest small OpenAI model' },
-  { value: 'claude-3-5-haiku-latest', label: 'Claude 3.5 Haiku', description: 'Fast Anthropic model' },
 ]
 
 export default function AIConfigPage() {
