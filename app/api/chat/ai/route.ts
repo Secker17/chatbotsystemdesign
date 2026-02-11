@@ -1,4 +1,5 @@
 import { generateText } from 'ai'
+import { xai } from '@ai-sdk/xai'
 import { createPublicClient } from '@/lib/supabase/public'
 import { NextRequest, NextResponse } from 'next/server'
 import { getPlanLimits, type PlanId } from '@/lib/products'
@@ -11,48 +12,41 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'Content-Type',
 }
 
-// Model mapping: user-facing model IDs to Vercel AI Gateway model strings
-// Maps both current and legacy model IDs to valid gateway strings
+// Resolve user-facing model IDs to xAI model names
+// All models go through xAI since that's the configured provider
 const MODEL_MAP: Record<string, string> = {
-  // xAI Grok models (primary)
-  'xai/grok-3-mini': 'xai/grok-3-mini',
-  'xai/grok-3': 'xai/grok-3',
-  'xai/grok-2': 'xai/grok-2',
-  // Short names for xAI
-  'grok-3-mini': 'xai/grok-3-mini',
-  'grok-3': 'xai/grok-3',
-  'grok-2': 'xai/grok-2',
-  // OpenAI models via AI Gateway
-  'gpt-4o-mini': 'openai/gpt-4o-mini',
-  'gpt-4o': 'openai/gpt-4o',
-  'gpt-4.1-mini': 'openai/gpt-4.1-mini',
-  'gpt-4.1-nano': 'openai/gpt-4.1-nano',
-  // Anthropic models via AI Gateway
-  'claude-3-5-haiku-latest': 'anthropic/claude-3-5-haiku-latest',
-  // Legacy mappings
-  'grok-beta': 'xai/grok-3-mini',
-  'grok-2-1212': 'xai/grok-2',
-  'grok-2-image': 'xai/grok-2',
-  // Fireworks models via AI Gateway
-  'llama-3.3-70b-versatile': 'fireworks/llama-v3p3-70b-instruct',
-  'llama-3.1-8b-instant': 'fireworks/llama-v3p1-8b-instruct',
-  'mixtral-8x7b-32768': 'fireworks/mixtral-8x7b-instruct',
-  'gemma2-9b-it': 'fireworks/gemma2-9b-it',
+  // xAI Grok models
+  'grok-3-mini': 'grok-3-mini',
+  'grok-3': 'grok-3',
+  'grok-2': 'grok-2',
+  'xai/grok-3-mini': 'grok-3-mini',
+  'xai/grok-3': 'grok-3',
+  'xai/grok-2': 'grok-2',
+  // Legacy model name mappings
+  'grok-beta': 'grok-3-mini',
+  'grok-2-1212': 'grok-2',
+  'grok-2-image': 'grok-2',
+  // Map non-xAI model names to xAI equivalents (fallback)
+  'gpt-4o-mini': 'grok-3-mini',
+  'gpt-4o': 'grok-3',
+  'gpt-4.1-mini': 'grok-3-mini',
+  'gpt-4.1-nano': 'grok-3-mini',
+  'claude-3-5-haiku-latest': 'grok-3-mini',
+  'llama-3.3-70b-versatile': 'grok-3',
+  'llama-3.1-8b-instant': 'grok-3-mini',
+  'mixtral-8x7b-32768': 'grok-3-mini',
+  'gemma2-9b-it': 'grok-3-mini',
 }
 
-// Default model and fallback chain
-const DEFAULT_MODEL = 'xai/grok-3-mini'
-const FALLBACK_MODELS = [
-  'xai/grok-3-mini',
-  'xai/grok-2',
-  'openai/gpt-4o-mini',
-]
+// Default model and fallback chain (all xAI models)
+const DEFAULT_MODEL = 'grok-3-mini'
+const FALLBACK_MODELS = ['grok-3-mini', 'grok-2']
 
 function resolveModel(modelId: string | null): string {
   if (!modelId) return DEFAULT_MODEL
-  // If it already has a provider prefix (contains /), check if it's in the map or use as-is
-  if (modelId.includes('/')) return MODEL_MAP[modelId] || modelId
-  return MODEL_MAP[modelId] || `xai/${modelId}`
+  // Strip xai/ prefix if present
+  const cleaned = modelId.replace(/^xai\//, '')
+  return MODEL_MAP[modelId] || MODEL_MAP[cleaned] || cleaned
 }
 
 export async function POST(request: NextRequest) {
@@ -286,7 +280,7 @@ Important rules:
       try {
         console.log(`[v0] AI route - Trying model: "${modelId}"`)
         const result = await generateText({
-          model: modelId,
+          model: xai(modelId),
           system: systemPrompt,
           messages: conversationMessages,
           maxOutputTokens: config.ai_max_tokens || 500,

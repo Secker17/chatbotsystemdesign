@@ -1,40 +1,36 @@
 import { generateText } from 'ai'
+import { xai } from '@ai-sdk/xai'
 import { createClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
 
 export const maxDuration = 30
 
-// Model mapping: user-facing model IDs to Vercel AI Gateway model strings
+// Resolve user-facing model IDs to xAI model names
 const MODEL_MAP: Record<string, string> = {
-  // xAI Grok models (primary)
-  'xai/grok-3-mini': 'xai/grok-3-mini',
-  'xai/grok-3': 'xai/grok-3',
-  'xai/grok-2': 'xai/grok-2',
-  'grok-3-mini': 'xai/grok-3-mini',
-  'grok-3': 'xai/grok-3',
-  'grok-2': 'xai/grok-2',
-  // OpenAI models via AI Gateway
-  'gpt-4o-mini': 'openai/gpt-4o-mini',
-  'gpt-4o': 'openai/gpt-4o',
-  'gpt-4.1-mini': 'openai/gpt-4.1-mini',
-  'gpt-4.1-nano': 'openai/gpt-4.1-nano',
-  // Anthropic
-  'claude-3-5-haiku-latest': 'anthropic/claude-3-5-haiku-latest',
-  // Legacy mappings
-  'grok-beta': 'xai/grok-3-mini',
-  'grok-2-1212': 'xai/grok-2',
-  'grok-2-image': 'xai/grok-2',
-  // Fireworks
-  'llama-3.3-70b-versatile': 'fireworks/llama-v3p3-70b-instruct',
-  'llama-3.1-8b-instant': 'fireworks/llama-v3p1-8b-instruct',
-  'mixtral-8x7b-32768': 'fireworks/mixtral-8x7b-instruct',
-  'gemma2-9b-it': 'fireworks/gemma2-9b-it',
+  'grok-3-mini': 'grok-3-mini',
+  'grok-3': 'grok-3',
+  'grok-2': 'grok-2',
+  'xai/grok-3-mini': 'grok-3-mini',
+  'xai/grok-3': 'grok-3',
+  'xai/grok-2': 'grok-2',
+  'grok-beta': 'grok-3-mini',
+  'grok-2-1212': 'grok-2',
+  'grok-2-image': 'grok-2',
+  'gpt-4o-mini': 'grok-3-mini',
+  'gpt-4o': 'grok-3',
+  'gpt-4.1-mini': 'grok-3-mini',
+  'gpt-4.1-nano': 'grok-3-mini',
+  'claude-3-5-haiku-latest': 'grok-3-mini',
+  'llama-3.3-70b-versatile': 'grok-3',
+  'llama-3.1-8b-instant': 'grok-3-mini',
+  'mixtral-8x7b-32768': 'grok-3-mini',
+  'gemma2-9b-it': 'grok-3-mini',
 }
 
 function resolveModel(modelId: string | null): string {
-  if (!modelId) return 'xai/grok-3-mini'
-  if (modelId.includes('/')) return MODEL_MAP[modelId] || modelId
-  return MODEL_MAP[modelId] || `xai/${modelId}`
+  if (!modelId) return 'grok-3-mini'
+  const cleaned = modelId.replace(/^xai\//, '')
+  return MODEL_MAP[modelId] || MODEL_MAP[cleaned] || cleaned
 }
 
 export async function POST(request: NextRequest) {
@@ -60,7 +56,7 @@ export async function POST(request: NextRequest) {
     }\n\nCurrent date/time: ${new Date().toISOString()}`
 
     const { text } = await generateText({
-      model: resolvedModel,
+      model: xai(resolvedModel),
       system: fullPrompt,
       messages: [{ role: 'user', content: message }],
       maxOutputTokens: max_tokens || 500,
