@@ -53,76 +53,88 @@ interface AdminSidebarProps {
   } | null
 }
 
-const menuItems = [
+// Maps each menu item to the PlanLimits key that must be true for access
+// null means always accessible
+interface MenuItem {
+  title: string
+  icon: typeof LayoutDashboard
+  href: string
+  requiredFeature: string | null
+}
+
+const menuItems: MenuItem[] = [
   {
     title: 'Dashboard',
     icon: LayoutDashboard,
     href: '/admin',
-    requiredPlan: null,
+    requiredFeature: null,
   },
   {
     title: 'Conversations',
     icon: MessageSquare,
     href: '/admin/conversations',
-    requiredPlan: null,
+    requiredFeature: null,
   },
   {
     title: 'AI Assistant',
     icon: Bot,
     href: '/admin/ai',
-    requiredPlan: 'pro' as const,
+    requiredFeature: 'aiEnabled',
   },
   {
     title: 'Canned Responses',
     icon: MessagesSquare,
     href: '/admin/responses',
-    requiredPlan: 'pro' as const,
+    requiredFeature: 'cannedResponses',
   },
   {
     title: 'Appearance',
     icon: Palette,
     href: '/admin/appearance',
-    requiredPlan: null,
+    requiredFeature: null,
   },
   {
     title: 'Analytics',
     icon: BarChart3,
     href: '/admin/analytics',
-    requiredPlan: 'pro' as const,
+    requiredFeature: 'analyticsEnabled',
   },
   {
     title: 'Integration',
     icon: Code2,
     href: '/admin/integration',
-    requiredPlan: null,
+    requiredFeature: null,
   },
   {
     title: 'Settings',
     icon: Settings,
     href: '/admin/settings',
-    requiredPlan: null,
+    requiredFeature: null,
   },
 ]
-
-const PLAN_ORDER = { starter: 0, pro: 1, business: 2 } as const
 
 export function AdminSidebar({ user, profile }: AdminSidebarProps) {
   const pathname = usePathname()
   const router = useRouter()
   const [currentPlan, setCurrentPlan] = useState<string>('starter')
+  const [planLimits, setPlanLimits] = useState<Record<string, boolean | number | null> | null>(null)
 
   useEffect(() => {
     fetch('/api/plan')
       .then(r => r.json())
-      .then(d => setCurrentPlan(d.planId || 'starter'))
+      .then(d => {
+        setCurrentPlan(d.planId || 'starter')
+        setPlanLimits(d.limits || null)
+      })
       .catch(() => {})
   }, [])
 
-  const isFeatureLocked = (requiredPlan: string | null): boolean => {
-    if (!requiredPlan) return false
-    const current = PLAN_ORDER[currentPlan as keyof typeof PLAN_ORDER] ?? 0
-    const required = PLAN_ORDER[requiredPlan as keyof typeof PLAN_ORDER] ?? 0
-    return current < required
+  const isFeatureLocked = (requiredFeature: string | null): boolean => {
+    if (!requiredFeature) return false
+    if (!planLimits) return false // Don't lock while loading
+    const value = planLimits[requiredFeature]
+    if (typeof value === 'boolean') return !value
+    return false
   }
 
   const handleSignOut = async () => {
@@ -163,7 +175,7 @@ export function AdminSidebar({ user, profile }: AdminSidebarProps) {
           <SidebarGroupContent>
             <SidebarMenu>
               {menuItems.map((item) => {
-                const locked = isFeatureLocked(item.requiredPlan)
+                const locked = isFeatureLocked(item.requiredFeature)
                 return (
                   <SidebarMenuItem key={item.href}>
                     <SidebarMenuButton
