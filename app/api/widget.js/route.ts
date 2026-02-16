@@ -648,6 +648,95 @@ export async function GET() {
     return launcherIcons[style] || launcherIcons.chat;
   }
   
+  // Glass Orb animated launcher - creates a canvas-based particle orb
+  function initGlassOrb(container, primaryColor) {
+    container.style.overflow = 'hidden';
+    container.style.padding = '0';
+    container.style.background = 'transparent';
+    container.style.boxShadow = '0 0 30px rgba(100,150,255,0.4), 0 0 60px rgba(100,150,255,0.2)';
+    
+    const size = 60;
+    const canvas = document.createElement('canvas');
+    canvas.width = size;
+    canvas.height = size;
+    canvas.style.cssText = 'width:100%;height:100%;border-radius:50%;position:absolute;inset:0;';
+    
+    // Glass overlay
+    const glass = document.createElement('div');
+    glass.style.cssText = 'position:absolute;inset:0;border-radius:50%;pointer-events:none;z-index:1;' +
+      'background:radial-gradient(circle at 30% 30%,rgba(255,255,255,0.2) 0%,rgba(150,200,255,0.1) 30%,rgba(100,150,255,0.05) 60%,rgba(50,100,200,0.1) 100%);' +
+      'box-shadow:inset 0 0 20px rgba(255,255,255,0.1),inset 8px 8px 24px rgba(255,255,255,0.05);' +
+      'border:1px solid rgba(255,255,255,0.15);';
+    
+    const wrapper = container.querySelector('.vintra-icon-open');
+    wrapper.innerHTML = '';
+    wrapper.style.cssText = 'width:100%;height:100%;position:absolute;inset:0;';
+    wrapper.appendChild(canvas);
+    wrapper.appendChild(glass);
+    
+    const ctx = canvas.getContext('2d');
+    const cx = size / 2, cy = size / 2, orbR = size / 2;
+    
+    // Parse primary color to RGB
+    let pr = 80, pg = 150, pb = 255;
+    if (primaryColor) {
+      const m = primaryColor.match(/^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i);
+      if (m) { pr = parseInt(m[1],16); pg = parseInt(m[2],16); pb = parseInt(m[3],16); }
+    }
+    
+    const palette = [
+      { r: pr, g: pg, b: pb },
+      { r: Math.min(255,pr+20), g: Math.min(255,pg+30), b: Math.min(255,pb+10) },
+      { r: Math.min(255,pr+40), g: Math.min(255,pg+10), b: pb },
+      { r: Math.max(0,pr-20), g: Math.min(255,pg+20), b: Math.min(255,pb+30) },
+      { r: Math.min(255,pr+60), g: Math.max(0,pg-10), b: Math.min(255,pb+20) },
+    ];
+    
+    const particles = [];
+    const count = 200;
+    const minR = orbR * 0.06, maxR = orbR * 0.88;
+    
+    for (let i = 0; i < count; i++) {
+      particles.push({
+        baseR: minR + Math.random() * (maxR - minR),
+        angle: Math.random() * Math.PI * 2,
+        speed: (Math.random() * 0.012 + 0.004) * (Math.random() < 0.5 ? 1 : -1),
+        sz: Math.random() * 2.5 + 1.5,
+        ci: Math.floor(Math.random() * palette.length),
+      });
+    }
+    
+    let colorProgress = 0;
+    let animId;
+    
+    function animate() {
+      colorProgress += 0.003;
+      if (colorProgress >= 1) colorProgress = 0;
+      
+      ctx.clearRect(0, 0, size, size);
+      
+      particles.forEach(p => {
+        p.angle += p.speed;
+        const x = cx + Math.cos(p.angle) * p.baseR;
+        const y = cy + Math.sin(p.angle) * p.baseR;
+        const c = palette[p.ci];
+        
+        ctx.shadowBlur = 8;
+        ctx.shadowColor = 'rgba(' + c.r + ',' + c.g + ',' + c.b + ',0.15)';
+        ctx.fillStyle = 'rgba(' + c.r + ',' + c.g + ',' + c.b + ',0.25)';
+        ctx.beginPath();
+        ctx.arc(x, y, p.sz, 0, Math.PI * 2);
+        ctx.fill();
+      });
+      
+      ctx.shadowBlur = 0;
+      animId = requestAnimationFrame(animate);
+    }
+    
+    animate();
+    return () => { if (animId) cancelAnimationFrame(animId); };
+  }
+  
   // Create widget
   function createWidget() {
     const container = document.createElement('div');
@@ -1226,8 +1315,21 @@ export async function GET() {
       }
       
       // Apply launcher icon from avatar_url
-      // Supports: "icon:style" (preset), "data:..." (uploaded image), "svg:..." (custom SVG)
-      if (cfg.avatar_url && cfg.avatar_url.startsWith('data:')) {
+      // Supports: "icon:style" (preset), "data:..." (uploaded image), "svg:..." (custom SVG), "code:..." (custom HTML/JS)
+      if (cfg.avatar_url && cfg.avatar_url.startsWith('code:')) {
+        // Custom HTML/CSS/JS code - render in sandboxed iframe
+        const codeContent = cfg.avatar_url.substring(5);
+        launcher.style.overflow = 'hidden';
+        launcher.style.padding = '0';
+        launcherIconOpen.style.cssText = 'width:100%;height:100%;position:absolute;inset:0;display:flex;align-items:center;justify-content:center;';
+        const iframe = document.createElement('iframe');
+        iframe.sandbox = 'allow-scripts';
+        iframe.style.cssText = 'width:100%;height:100%;border:none;border-radius:50%;pointer-events:none;background:transparent;';
+        iframe.title = 'Custom launcher icon';
+        iframe.srcdoc = codeContent;
+        launcherIconOpen.innerHTML = '';
+        launcherIconOpen.appendChild(iframe);
+      } else if (cfg.avatar_url && cfg.avatar_url.startsWith('data:')) {
         // Uploaded image - render as <img> with white filter
         launcherIconOpen.innerHTML = '<img src="' + cfg.avatar_url + '" alt="" style="width:28px;height:28px;object-fit:contain;filter:brightness(0) invert(1);" />';
       } else if (cfg.avatar_url && cfg.avatar_url.startsWith('svg:')) {
@@ -1242,11 +1344,19 @@ export async function GET() {
           svgEl.style.fill = 'white';
         }
       } else {
-        // Preset icon
+        // Preset icon (including animated glass-orb)
         const iconStyle = (cfg.avatar_url && cfg.avatar_url.startsWith('icon:')) 
           ? cfg.avatar_url.replace('icon:', '') 
           : 'chat';
-        launcherIconOpen.innerHTML = getLauncherIcon(iconStyle);
+        
+        if (iconStyle === 'glass-orb') {
+          initGlassOrb(launcher, cfg.primary_color);
+          // Keep close icon visible above the orb
+          const closeIcon = launcher.querySelector('.vintra-icon-close');
+          if (closeIcon) closeIcon.style.zIndex = '2';
+        } else {
+          launcherIconOpen.innerHTML = getLauncherIcon(iconStyle);
+        }
       }
       
       // Curved text around launcher
