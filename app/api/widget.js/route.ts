@@ -75,8 +75,8 @@ export async function GET() {
     .vintra-launcher.is-open .vintra-icon-close { opacity: 1; transform: scale(1) rotate(0deg); }
     .vintra-unread-badge {
       position: absolute;
-      top: -5px;
-      right: -5px;
+      top: -6px;
+      right: -6px;
       min-width: 22px;
       height: 22px;
       padding: 0 6px;
@@ -89,9 +89,10 @@ export async function GET() {
       align-items: center;
       justify-content: center;
       border: 2.5px solid white;
-      z-index: 10;
-      box-shadow: 0 2px 8px rgba(239, 68, 68, 0.4);
+      z-index: 999999;
+      box-shadow: 0 2px 12px rgba(239, 68, 68, 0.5), 0 0 0 2px rgba(239, 68, 68, 0.15);
       animation: vintraBadgePop 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+      pointer-events: none;
     }
     .vintra-unread-badge.show {
       display: flex;
@@ -736,25 +737,25 @@ export async function GET() {
     return launcherIcons[style] || launcherIcons.chat;
   }
   
-  // Glass Orb animated launcher - creates a canvas-based particle orb
+  // Glass Orb animated launcher - faithful port of GlassOrbAvatar
   function initGlassOrb(container, primaryColor) {
     container.style.overflow = 'hidden';
     container.style.padding = '0';
     container.style.background = 'transparent';
-    container.style.boxShadow = '0 0 30px rgba(100,150,255,0.4), 0 0 60px rgba(100,150,255,0.2)';
+    container.style.boxShadow = '0 0 80px rgba(100,150,255,0.3), 0 0 120px rgba(100,150,255,0.2)';
     
-    const size = 60;
+    const sizePx = 60;
     const canvas = document.createElement('canvas');
-    canvas.width = size;
-    canvas.height = size;
-    canvas.style.cssText = 'width:100%;height:100%;border-radius:50%;position:absolute;inset:0;';
+    canvas.width = sizePx;
+    canvas.height = sizePx;
+    canvas.style.cssText = 'width:100%;height:100%;border-radius:50%;position:absolute;inset:0;background:none;';
     
-    // Glass overlay
+    // Glass overlay - matching reference exactly
     const glass = document.createElement('div');
-    glass.style.cssText = 'position:absolute;inset:0;border-radius:50%;pointer-events:none;z-index:1;' +
+    glass.style.cssText = 'position:absolute;inset:0;border-radius:50%;pointer-events:none;z-index:1;overflow:hidden;' +
       'background:radial-gradient(circle at 30% 30%,rgba(255,255,255,0.2) 0%,rgba(150,200,255,0.1) 30%,rgba(100,150,255,0.05) 60%,rgba(50,100,200,0.1) 100%);' +
-      'box-shadow:inset 0 0 20px rgba(255,255,255,0.1),inset 8px 8px 24px rgba(255,255,255,0.05);' +
-      'border:1px solid rgba(255,255,255,0.15);';
+      'box-shadow:inset 0 0 50px rgba(255,255,255,0.1),inset 20px 20px 60px rgba(255,255,255,0.05);' +
+      'border:2px solid rgba(255,255,255,0.15);';
     
     const wrapper = container.querySelector('.vintra-icon-open');
     wrapper.innerHTML = '';
@@ -763,58 +764,230 @@ export async function GET() {
     wrapper.appendChild(glass);
     
     const ctx = canvas.getContext('2d');
-    const cx = size / 2, cy = size / 2, orbR = size / 2;
     
-    // Parse primary color to RGB
-    let pr = 80, pg = 150, pb = 255;
-    if (primaryColor) {
-      const m = primaryColor.match(/^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i);
-      if (m) { pr = parseInt(m[1],16); pg = parseInt(m[2],16); pb = parseInt(m[3],16); }
-    }
+    // Physics constants
+    const centerX = sizePx / 2;
+    const centerY = sizePx / 2;
+    const orbRadius = sizePx / 2;
+    const minRadius = orbRadius * 0.06;
+    const maxRadius = orbRadius * 0.9;
+    const mouseRepelRadius = orbRadius * 0.25;
+    const maxPushStrength = orbRadius * 0.06;
+    const pullAngleRange = 0.9;
+    const maxPullAmount = orbRadius * 0.45;
+    const pullRingThickness = 300 * (sizePx / 400);
     
+    // Exact idle palette from reference
     const palette = [
-      { r: pr, g: pg, b: pb },
-      { r: Math.min(255,pr+20), g: Math.min(255,pg+30), b: Math.min(255,pb+10) },
-      { r: Math.min(255,pr+40), g: Math.min(255,pg+10), b: pb },
-      { r: Math.max(0,pr-20), g: Math.min(255,pg+20), b: Math.min(255,pb+30) },
-      { r: Math.min(255,pr+60), g: Math.max(0,pg-10), b: Math.min(255,pb+20) },
+      { r: 80, g: 150, b: 255 },
+      { r: 90, g: 170, b: 255 },
+      { r: 100, g: 190, b: 255 },
+      { r: 130, g: 170, b: 255 },
+      { r: 160, g: 150, b: 255 },
+      { r: 200, g: 130, b: 255 },
+      { r: 230, g: 120, b: 255 },
     ];
     
+    let colorIndex = 0;
+    let colorProgress = 0;
+    let mouseX = null;
+    let mouseY = null;
+    let explosions = [];
+    
+    function getCurrentColor(alpha, variant, offset) {
+      const ci = (colorIndex + (offset || 0)) % palette.length;
+      const current = palette[ci];
+      const next = palette[(ci + 1) % palette.length];
+      let r, g, b;
+      if (variant === 'pulled') {
+        r = Math.min(255, Math.floor(current.r * 1.2));
+        g = Math.min(255, Math.floor(current.g * 1.2));
+        b = Math.min(255, Math.floor(current.b * 1.2));
+      } else if (variant === 'pushed') {
+        r = 255; g = 35; b = 35;
+      } else {
+        r = Math.floor(current.r + (next.r - current.r) * colorProgress);
+        g = Math.floor(current.g + (next.g - current.g) * colorProgress);
+        b = Math.floor(current.b + (next.b - current.b) * colorProgress);
+      }
+      return 'rgba(' + r + ',' + g + ',' + b + ',' + alpha + ')';
+    }
+    
+    // Particles - faithful to reference (scaled for 60px)
+    const baseCount = 1400;
+    const count = Math.floor(baseCount * (sizePx / 500));
     const particles = [];
-    const count = 200;
-    const minR = orbR * 0.06, maxR = orbR * 0.88;
+    const sizeScale = sizePx / 500;
     
     for (let i = 0; i < count; i++) {
       particles.push({
-        baseR: minR + Math.random() * (maxR - minR),
+        baseRadius: minRadius + Math.random() * (maxRadius - minRadius),
         angle: Math.random() * Math.PI * 2,
-        speed: (Math.random() * 0.012 + 0.004) * (Math.random() < 0.5 ? 1 : -1),
-        sz: Math.random() * 2.5 + 1.5,
-        ci: Math.floor(Math.random() * palette.length),
+        speed: (Math.random() * 0.01 + 0.005) * (Math.random() < 0.5 ? 1 : -1),
+        size: (Math.random() * 4 + 3) * sizeScale,
+        radiusOffset: 0,
+        angleOffset: 0,
+        effect: 'none',
+        colorOffset: Math.floor(Math.random() * 9999),
       });
     }
     
-    let colorProgress = 0;
+    // Mouse tracking
+    function handleMouseMove(e) {
+      const rect = container.getBoundingClientRect();
+      mouseX = e.clientX - rect.left;
+      mouseY = e.clientY - rect.top;
+    }
+    
+    function handleMouseLeave() {
+      mouseX = null;
+      mouseY = null;
+    }
+    
+    function handleClick(e) {
+      const rect = container.getBoundingClientRect();
+      const clickX = e.clientX - rect.left;
+      const clickY = e.clientY - rect.top;
+      const dx = clickX - centerX;
+      const dy = clickY - centerY;
+      if (Math.sqrt(dx * dx + dy * dy) < orbRadius - 5) {
+        explosions.push({
+          x: clickX, y: clickY,
+          radius: orbRadius * 0.25,
+          strength: orbRadius * 0.08,
+          decay: 0.85,
+        });
+      }
+    }
+    
+    container.addEventListener('mousemove', handleMouseMove);
+    container.addEventListener('mouseleave', handleMouseLeave);
+    container.addEventListener('click', handleClick);
+    
     let animId;
     
     function animate() {
       colorProgress += 0.003;
-      if (colorProgress >= 1) colorProgress = 0;
+      if (colorProgress >= 1) {
+        colorProgress = 0;
+        colorIndex = (colorIndex + 1) % palette.length;
+      }
       
-      ctx.clearRect(0, 0, size, size);
+      ctx.clearRect(0, 0, sizePx, sizePx);
       
-      particles.forEach(p => {
+      // Update and clean explosions
+      explosions = explosions.filter(function(ex) {
+        ex.strength *= ex.decay;
+        return ex.strength > 0.3;
+      });
+      
+      particles.forEach(function(p) {
+        // Update particle
         p.angle += p.speed;
-        const x = cx + Math.cos(p.angle) * p.baseR;
-        const y = cy + Math.sin(p.angle) * p.baseR;
-        const c = palette[p.ci];
         
-        ctx.shadowBlur = 8;
-        ctx.shadowColor = 'rgba(' + c.r + ',' + c.g + ',' + c.b + ',0.15)';
-        ctx.fillStyle = 'rgba(' + c.r + ',' + c.g + ',' + c.b + ',0.25)';
+        var currentR = p.baseRadius + p.radiusOffset;
+        var currentA = p.angle + p.angleOffset;
+        var px = centerX + Math.cos(currentA) * currentR;
+        var py = centerY + Math.sin(currentA) * currentR;
+        
+        var targetRadOff = 0;
+        var targetAngOff = 0;
+        var effect = 'none';
+        
+        if (mouseX !== null && mouseY !== null) {
+          var mdx = mouseX - centerX;
+          var mdy = mouseY - centerY;
+          var distFromCenter = Math.sqrt(mdx * mdx + mdy * mdy);
+          
+          // Inside orb - push
+          if (distFromCenter < orbRadius - 5) {
+            var distToMouse = Math.sqrt(Math.pow(px - mouseX, 2) + Math.pow(py - mouseY, 2));
+            if (distToMouse < mouseRepelRadius) {
+              var pushAngle = Math.atan2(py - mouseY, px - mouseX);
+              var falloff = 1 - distToMouse / mouseRepelRadius;
+              var pushStr = falloff * falloff;
+              var pushDx = Math.cos(pushAngle) * maxPushStrength * pushStr;
+              var pushDy = Math.sin(pushAngle) * maxPushStrength * pushStr;
+              var newX = px + pushDx;
+              var newY = py + pushDy;
+              var newDx = newX - centerX;
+              var newDy = newY - centerY;
+              targetRadOff = Math.max(minRadius, Math.min(maxRadius, Math.sqrt(newDx * newDx + newDy * newDy))) - p.baseRadius;
+              targetAngOff = Math.atan2(newDy, newDx) - p.angle;
+              effect = 'pushed';
+            }
+          }
+          // Outside orb - pull
+          else if (distFromCenter >= orbRadius) {
+            var mouseAngle = Math.atan2(mdy, mdx);
+            var particleAngle = Math.atan2(py - centerY, px - centerX);
+            var angleDiff = Math.abs(mouseAngle - particleAngle);
+            if (angleDiff > Math.PI) angleDiff = 2 * Math.PI - angleDiff;
+            var radialFromBorder = distFromCenter - orbRadius;
+            if (angleDiff < pullAngleRange && radialFromBorder >= 0 && radialFromBorder <= pullRingThickness) {
+              var t = radialFromBorder / pullRingThickness;
+              var pullStr = Math.pow(1 - t, 1.5) * (1 - angleDiff / pullAngleRange);
+              targetRadOff = maxPullAmount * pullStr;
+              effect = 'pulled';
+            }
+          }
+        }
+        
+        // Explosions
+        explosions.forEach(function(ex) {
+          var distToEx = Math.sqrt(Math.pow(px - ex.x, 2) + Math.pow(py - ex.y, 2));
+          if (distToEx < ex.radius) {
+            var exAngle = Math.atan2(py - ex.y, px - ex.x);
+            var exFalloff = 1 - distToEx / ex.radius;
+            var exPush = exFalloff * exFalloff * ex.strength * 0.6;
+            var exNewX = px + Math.cos(exAngle) * exPush;
+            var exNewY = py + Math.sin(exAngle) * exPush;
+            var exDx = exNewX - centerX;
+            var exDy = exNewY - centerY;
+            targetRadOff = Math.max(minRadius, Math.min(maxRadius, Math.sqrt(exDx * exDx + exDy * exDy))) - p.baseRadius;
+            targetAngOff = Math.atan2(exDy, exDx) - p.angle;
+            effect = 'pushed';
+          }
+        });
+        
+        p.radiusOffset += (targetRadOff - p.radiusOffset) * 0.15;
+        p.angleOffset += (targetAngOff - p.angleOffset) * 0.15;
+        p.radiusOffset *= 0.95;
+        p.angleOffset *= 0.95;
+        p.effect = effect;
+        
+        // Draw particle
+        var drawR = p.baseRadius + p.radiusOffset;
+        var drawA = p.angle + p.angleOffset;
+        var x = centerX + Math.cos(drawA) * drawR;
+        var y = centerY + Math.sin(drawA) * drawR;
+        
+        var variant = p.effect;
+        var baseAlpha = 0.25;
+        var glowAlpha = 0.15;
+        if (variant === 'pushed') {
+          baseAlpha = Math.min(0.65, baseAlpha * 2.4);
+          glowAlpha = Math.min(0.55, glowAlpha * 3.0);
+        }
+        
+        var color = getCurrentColor(baseAlpha, variant, p.colorOffset);
+        var glowColor = getCurrentColor(glowAlpha, variant, p.colorOffset);
+        
+        ctx.shadowBlur = (variant === 'pushed' ? 32 : 20) * sizeScale;
+        ctx.shadowColor = glowColor;
+        ctx.fillStyle = color;
         ctx.beginPath();
-        ctx.arc(x, y, p.sz, 0, Math.PI * 2);
+        ctx.arc(x, y, p.size, 0, Math.PI * 2);
         ctx.fill();
+        
+        // Second glow layer
+        ctx.shadowBlur = 35 * sizeScale;
+        ctx.globalAlpha = 0.2;
+        ctx.fillStyle = glowColor;
+        ctx.beginPath();
+        ctx.arc(x, y, p.size + 3 * sizeScale, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.globalAlpha = 1;
       });
       
       ctx.shadowBlur = 0;
@@ -822,7 +995,12 @@ export async function GET() {
     }
     
     animate();
-    return () => { if (animId) cancelAnimationFrame(animId); };
+    return function() {
+      if (animId) cancelAnimationFrame(animId);
+      container.removeEventListener('mousemove', handleMouseMove);
+      container.removeEventListener('mouseleave', handleMouseLeave);
+      container.removeEventListener('click', handleClick);
+    };
   }
   
   // Helper: populate an avatar container based on icon config 
@@ -866,15 +1044,17 @@ export async function GET() {
   function initMiniGlassOrb(container, primaryColor, size) {
     container.innerHTML = '';
     container.style.background = 'transparent';
+    container.style.boxShadow = '0 0 ' + Math.max(6, size * 0.4) + 'px rgba(100,150,255,0.3)';
     
     const canvas = document.createElement('canvas');
     canvas.width = size;
     canvas.height = size;
-    canvas.style.cssText = 'width:100%;height:100%;border-radius:50%;position:absolute;inset:0;';
+    canvas.style.cssText = 'width:100%;height:100%;border-radius:50%;position:absolute;inset:0;background:none;';
     
     const glass = document.createElement('div');
     glass.style.cssText = 'position:absolute;inset:0;border-radius:50%;pointer-events:none;z-index:1;' +
-      'background:radial-gradient(circle at 30% 30%,rgba(255,255,255,0.25) 0%,rgba(150,200,255,0.1) 40%,transparent 70%);' +
+      'background:radial-gradient(circle at 30% 30%,rgba(255,255,255,0.2) 0%,rgba(150,200,255,0.1) 30%,rgba(100,150,255,0.05) 60%,rgba(50,100,200,0.1) 100%);' +
+      'box-shadow:inset 0 0 ' + Math.max(8, size * 0.5) + 'px rgba(255,255,255,0.1);' +
       'border:1px solid rgba(255,255,255,0.15);';
     
     container.appendChild(canvas);
@@ -882,45 +1062,69 @@ export async function GET() {
     
     const ctx = canvas.getContext('2d');
     const cx = size / 2, cy = size / 2;
+    const sizeScale = size / 500;
     
-    let pr = 80, pg2 = 150, pb = 255;
-    if (primaryColor) {
-      const m = primaryColor.match(/^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i);
-      if (m) { pr = parseInt(m[1],16); pg2 = parseInt(m[2],16); pb = parseInt(m[3],16); }
-    }
-    
+    // Same idle palette as reference
     const palette = [
-      { r: pr, g: pg2, b: pb },
-      { r: Math.min(255,pr+30), g: Math.min(255,pg2+20), b: Math.min(255,pb+10) },
-      { r: Math.max(0,pr-20), g: Math.min(255,pg2+30), b: Math.min(255,pb+20) },
+      { r: 80, g: 150, b: 255 },
+      { r: 90, g: 170, b: 255 },
+      { r: 100, g: 190, b: 255 },
+      { r: 130, g: 170, b: 255 },
+      { r: 160, g: 150, b: 255 },
+      { r: 200, g: 130, b: 255 },
+      { r: 230, g: 120, b: 255 },
     ];
     
+    let colorIndex = 0;
+    let colorProgress = 0;
+    
     const particles = [];
-    const count = Math.max(40, Math.floor(size * 2.5));
+    const count = Math.max(60, Math.floor(1400 * (size / 500)));
     for (let i = 0; i < count; i++) {
+      const orbR = size / 2;
       particles.push({
-        baseR: Math.random() * (size * 0.4) + size * 0.04,
+        baseR: orbR * 0.06 + Math.random() * (orbR * 0.84),
         angle: Math.random() * Math.PI * 2,
-        speed: (Math.random() * 0.015 + 0.005) * (Math.random() < 0.5 ? 1 : -1),
-        sz: Math.random() * (size * 0.06) + size * 0.03,
+        speed: (Math.random() * 0.01 + 0.005) * (Math.random() < 0.5 ? 1 : -1),
+        sz: (Math.random() * 4 + 3) * sizeScale,
         ci: Math.floor(Math.random() * palette.length),
       });
     }
     
     let animId;
     function animate() {
+      colorProgress += 0.003;
+      if (colorProgress >= 1) {
+        colorProgress = 0;
+        colorIndex = (colorIndex + 1) % palette.length;
+      }
+      
       ctx.clearRect(0, 0, size, size);
-      particles.forEach(p => {
+      particles.forEach(function(p) {
         p.angle += p.speed;
         const x = cx + Math.cos(p.angle) * p.baseR;
         const y = cy + Math.sin(p.angle) * p.baseR;
-        const c = palette[p.ci];
-        ctx.shadowBlur = 4;
-        ctx.shadowColor = 'rgba(' + c.r + ',' + c.g + ',' + c.b + ',0.2)';
-        ctx.fillStyle = 'rgba(' + c.r + ',' + c.g + ',' + c.b + ',0.3)';
+        const ci = (colorIndex + p.ci) % palette.length;
+        const c = palette[ci];
+        const next = palette[(ci + 1) % palette.length];
+        const r = Math.floor(c.r + (next.r - c.r) * colorProgress);
+        const g = Math.floor(c.g + (next.g - c.g) * colorProgress);
+        const b = Math.floor(c.b + (next.b - c.b) * colorProgress);
+        
+        ctx.shadowBlur = 20 * sizeScale;
+        ctx.shadowColor = 'rgba(' + r + ',' + g + ',' + b + ',0.15)';
+        ctx.fillStyle = 'rgba(' + r + ',' + g + ',' + b + ',0.25)';
         ctx.beginPath();
         ctx.arc(x, y, p.sz, 0, Math.PI * 2);
         ctx.fill();
+        
+        ctx.shadowBlur = 35 * sizeScale;
+        ctx.globalAlpha = 0.2;
+        ctx.fillStyle = 'rgba(' + r + ',' + g + ',' + b + ',0.15)';
+        ctx.beginPath();
+        ctx.arc(x, y, p.sz + 3 * sizeScale, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.globalAlpha = 1;
       });
       ctx.shadowBlur = 0;
       animId = requestAnimationFrame(animate);
@@ -1006,8 +1210,8 @@ export async function GET() {
           <button class="vintra-launcher">
             <span class="vintra-icon-open">\${launcherIcons.chat}</span>
             <span class="vintra-icon-close">\${icons.close}</span>
-            <span class="vintra-unread-badge">0</span>
           </button>
+          <span class="vintra-unread-badge">0</span>
         </div>
       </div>
     \`;
