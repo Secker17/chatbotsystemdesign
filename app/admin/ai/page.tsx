@@ -34,6 +34,7 @@ import {
   X,
 } from 'lucide-react'
 import { UpgradeBanner } from '@/components/admin/upgrade-banner'
+import { toast } from 'sonner'
 import type { PlanLimits } from '@/lib/products'
 
 interface AIConfig {
@@ -132,6 +133,9 @@ export default function AIConfigPage() {
 
     if (error) {
       console.error('Save error:', error)
+      toast.error('Failed to save AI configuration')
+    } else {
+      toast.success('AI configuration saved successfully')
     }
 
     setSaving(false)

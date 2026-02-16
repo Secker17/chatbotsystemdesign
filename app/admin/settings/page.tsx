@@ -8,7 +8,10 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import { Separator } from '@/components/ui/separator'
-import { Loader2, Save, User, Bell, Shield, Trash2 } from 'lucide-react'
+import { Badge } from '@/components/ui/badge'
+import { Loader2, Save, User, Bell, Shield, Trash2, CreditCard, Check, Crown } from 'lucide-react'
+import { toast } from 'sonner'
+import { PRODUCTS, type PlanId } from '@/lib/products'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -20,12 +23,21 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 
 interface Profile {
   id: string
   company_name: string | null
   email_notifications: boolean
   timezone: string | null
+  plan?: string
 }
 
 export default function SettingsPage() {
@@ -33,10 +45,31 @@ export default function SettingsPage() {
   const [email, setEmail] = useState('')
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [currentPlan, setCurrentPlan] = useState<PlanId>('starter')
+  const [switchingPlan, setSwitchingPlan] = useState<PlanId | null>(null)
+
+  // Password change state
+  const [passwordDialogOpen, setPasswordDialogOpen] = useState(false)
+  const [newPassword, setNewPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [changingPassword, setChangingPassword] = useState(false)
 
   useEffect(() => {
     loadProfile()
+    loadPlan()
   }, [])
+
+  const loadPlan = async () => {
+    try {
+      const res = await fetch('/api/plan')
+      if (res.ok) {
+        const data = await res.json()
+        setCurrentPlan(data.planId || 'starter')
+      }
+    } catch {
+      // Default to starter
+    }
+  }
 
   const loadProfile = async () => {
     const supabase = createClient()
@@ -62,7 +95,7 @@ export default function SettingsPage() {
     setSaving(true)
 
     const supabase = createClient()
-    await supabase
+    const { error } = await supabase
       .from('admin_profiles')
       .update({
         company_name: profile.company_name,
@@ -71,7 +104,60 @@ export default function SettingsPage() {
       })
       .eq('id', profile.id)
 
+    if (error) {
+      toast.error('Failed to save settings')
+    } else {
+      toast.success('Settings saved successfully')
+    }
     setSaving(false)
+  }
+
+  const handlePlanSwitch = async (planId: PlanId) => {
+    setSwitchingPlan(planId)
+    try {
+      const res = await fetch('/api/plan/update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ plan: planId }),
+      })
+
+      if (res.ok) {
+        setCurrentPlan(planId)
+        toast.success(`Switched to ${planId.charAt(0).toUpperCase() + planId.slice(1)} plan`)
+        // Reload the page to update sidebar and all plan-dependent features
+        window.location.reload()
+      } else {
+        toast.error('Failed to switch plan')
+      }
+    } catch {
+      toast.error('Failed to switch plan')
+    }
+    setSwitchingPlan(null)
+  }
+
+  const handleChangePassword = async () => {
+    if (newPassword.length < 6) {
+      toast.error('Password must be at least 6 characters')
+      return
+    }
+    if (newPassword !== confirmPassword) {
+      toast.error('Passwords do not match')
+      return
+    }
+
+    setChangingPassword(true)
+    const supabase = createClient()
+    const { error } = await supabase.auth.updateUser({ password: newPassword })
+
+    if (error) {
+      toast.error(error.message || 'Failed to change password')
+    } else {
+      toast.success('Password changed successfully')
+      setPasswordDialogOpen(false)
+      setNewPassword('')
+      setConfirmPassword('')
+    }
+    setChangingPassword(false)
   }
 
   if (loading) {
@@ -102,6 +188,86 @@ export default function SettingsPage() {
       </div>
 
       <div className="grid gap-6">
+        {/* Plan & Billing */}
+        <Card>
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <CreditCard className="h-5 w-5 text-muted-foreground" />
+              <CardTitle>Plan & Billing</CardTitle>
+            </div>
+            <CardDescription>
+              Manage your subscription plan
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid gap-4 sm:grid-cols-3">
+              {PRODUCTS.map((product) => {
+                const isActive = currentPlan === product.id
+                return (
+                  <div
+                    key={product.id}
+                    className={`relative rounded-lg border-2 p-4 transition-colors ${
+                      isActive
+                        ? 'border-primary bg-primary/5'
+                        : 'border-border hover:border-muted-foreground/30'
+                    }`}
+                  >
+                    {isActive && (
+                      <Badge className="absolute -top-2.5 right-3 gap-1">
+                        <Check className="h-3 w-3" />
+                        Current
+                      </Badge>
+                    )}
+                    {product.id === 'business' && !isActive && (
+                      <Badge variant="secondary" className="absolute -top-2.5 right-3 gap-1">
+                        <Crown className="h-3 w-3" />
+                        Full Access
+                      </Badge>
+                    )}
+                    <div className="mb-3">
+                      <h3 className="font-semibold text-foreground">{product.name}</h3>
+                      <p className="text-xs text-muted-foreground">{product.description}</p>
+                    </div>
+                    <div className="mb-3">
+                      <span className="text-2xl font-bold text-foreground">
+                        {product.priceInCents === 0 ? 'Free' : `$${product.priceInCents / 100}`}
+                      </span>
+                      {product.priceInCents > 0 && (
+                        <span className="text-sm text-muted-foreground">/mo</span>
+                      )}
+                    </div>
+                    <ul className="mb-4 space-y-1">
+                      {product.features.slice(0, 4).map((feature, i) => (
+                        <li key={i} className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                          <Check className="h-3 w-3 shrink-0 text-primary" />
+                          {feature}
+                        </li>
+                      ))}
+                      {product.features.length > 4 && (
+                        <li className="text-xs text-muted-foreground">
+                          +{product.features.length - 4} more
+                        </li>
+                      )}
+                    </ul>
+                    <Button
+                      variant={isActive ? 'outline' : product.id === 'business' ? 'default' : 'outline'}
+                      size="sm"
+                      className="w-full"
+                      disabled={isActive || switchingPlan !== null}
+                      onClick={() => handlePlanSwitch(product.id)}
+                    >
+                      {switchingPlan === product.id ? (
+                        <Loader2 className="mr-2 h-3 w-3 animate-spin" />
+                      ) : null}
+                      {isActive ? 'Current Plan' : `Switch to ${product.name}`}
+                    </Button>
+                  </div>
+                )
+              })}
+            </div>
+          </CardContent>
+        </Card>
+
         {/* Profile Settings */}
         <Card>
           <CardHeader>
@@ -207,10 +373,12 @@ export default function SettingsPage() {
               <div className="space-y-0.5">
                 <Label>Password</Label>
                 <p className="text-sm text-muted-foreground">
-                  Last changed 30 days ago
+                  Change your account password
                 </p>
               </div>
-              <Button variant="outline">Change Password</Button>
+              <Button variant="outline" onClick={() => setPasswordDialogOpen(true)}>
+                Change Password
+              </Button>
             </div>
             <Separator />
             <div className="flex items-center justify-between">
@@ -220,7 +388,9 @@ export default function SettingsPage() {
                   Add an extra layer of security
                 </p>
               </div>
-              <Button variant="outline">Enable 2FA</Button>
+              <Button variant="outline" disabled>
+                Coming Soon
+              </Button>
             </div>
           </CardContent>
         </Card>
@@ -268,6 +438,52 @@ export default function SettingsPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Password Change Dialog */}
+      <Dialog open={passwordDialogOpen} onOpenChange={setPasswordDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Change Password</DialogTitle>
+            <DialogDescription>
+              Enter your new password below. Must be at least 6 characters.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="new-password">New Password</Label>
+              <Input
+                id="new-password"
+                type="password"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                placeholder="Enter new password"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="confirm-password">Confirm Password</Label>
+              <Input
+                id="confirm-password"
+                type="password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                placeholder="Confirm new password"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPasswordDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleChangePassword}
+              disabled={changingPassword || !newPassword || !confirmPassword}
+            >
+              {changingPassword ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+              Change Password
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
