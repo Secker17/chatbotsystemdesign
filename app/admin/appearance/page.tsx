@@ -364,8 +364,8 @@ export default function AppearancePage() {
                       }`}
                     >
                       {'animated' in option && option.animated && (
-                        <span className="absolute -top-2 right-1 rounded-full bg-gradient-to-r from-violet-500 to-fuchsia-500 px-1.5 py-0.5 text-[9px] font-bold text-white">
-                          ANIMATED
+                        <span className="absolute -top-2 right-1 rounded-full bg-gradient-to-r from-amber-500 to-orange-500 px-1.5 py-0.5 text-[9px] font-bold text-white">
+                          EXPERIMENTAL
                         </span>
                       )}
                       <div

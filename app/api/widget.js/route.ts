@@ -314,12 +314,14 @@ export async function GET() {
       gap: 8px;
     }
     .vintra-message {
-      max-width: 85%;
+      max-width: 100%;
+      min-width: 40px;
       padding: 10px 14px;
       border-radius: 16px;
       font-size: 14px;
       line-height: 1.5;
       word-wrap: break-word;
+      overflow-wrap: break-word;
       white-space: pre-wrap;
     }
     .vintra-message.bot {
@@ -381,9 +383,11 @@ export async function GET() {
       display: flex;
       align-items: flex-end;
       gap: 8px;
+      max-width: 85%;
     }
     .vintra-msg-row.visitor {
       flex-direction: row-reverse;
+      margin-left: auto;
     }
     .vintra-msg-avatar {
       width: 28px;
@@ -813,8 +817,8 @@ export async function GET() {
       return 'rgba(' + r + ',' + g + ',' + b + ',' + alpha + ')';
     }
     
-    // Particles - faithful to reference (scaled for 60px)
-    const baseCount = 1400;
+    // Particles - optimized for 60px launcher
+    const baseCount = 400;
     const count = Math.floor(baseCount * (sizePx / 500));
     const particles = [];
     const sizeScale = sizePx / 500;
@@ -973,21 +977,12 @@ export async function GET() {
         var color = getCurrentColor(baseAlpha, variant, p.colorOffset);
         var glowColor = getCurrentColor(glowAlpha, variant, p.colorOffset);
         
-        ctx.shadowBlur = (variant === 'pushed' ? 32 : 20) * sizeScale;
+        ctx.shadowBlur = (variant === 'pushed' ? 16 : 8) * sizeScale;
         ctx.shadowColor = glowColor;
         ctx.fillStyle = color;
         ctx.beginPath();
         ctx.arc(x, y, p.size, 0, Math.PI * 2);
         ctx.fill();
-        
-        // Second glow layer
-        ctx.shadowBlur = 35 * sizeScale;
-        ctx.globalAlpha = 0.2;
-        ctx.fillStyle = glowColor;
-        ctx.beginPath();
-        ctx.arc(x, y, p.size + 3 * sizeScale, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.globalAlpha = 1;
       });
       
       ctx.shadowBlur = 0;
@@ -1079,7 +1074,7 @@ export async function GET() {
     let colorProgress = 0;
     
     const particles = [];
-    const count = Math.max(60, Math.floor(1400 * (size / 500)));
+    const count = Math.max(30, Math.floor(300 * (size / 500)));
     for (let i = 0; i < count; i++) {
       const orbR = size / 2;
       particles.push({
@@ -1111,20 +1106,12 @@ export async function GET() {
         const g = Math.floor(c.g + (next.g - c.g) * colorProgress);
         const b = Math.floor(c.b + (next.b - c.b) * colorProgress);
         
-        ctx.shadowBlur = 20 * sizeScale;
+        ctx.shadowBlur = 8 * sizeScale;
         ctx.shadowColor = 'rgba(' + r + ',' + g + ',' + b + ',0.15)';
-        ctx.fillStyle = 'rgba(' + r + ',' + g + ',' + b + ',0.25)';
+        ctx.fillStyle = 'rgba(' + r + ',' + g + ',' + b + ',0.3)';
         ctx.beginPath();
         ctx.arc(x, y, p.sz, 0, Math.PI * 2);
         ctx.fill();
-        
-        ctx.shadowBlur = 35 * sizeScale;
-        ctx.globalAlpha = 0.2;
-        ctx.fillStyle = 'rgba(' + r + ',' + g + ',' + b + ',0.15)';
-        ctx.beginPath();
-        ctx.arc(x, y, p.sz + 3 * sizeScale, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.globalAlpha = 1;
       });
       ctx.shadowBlur = 0;
       animId = requestAnimationFrame(animate);
