@@ -15,7 +15,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Loader2, Save, Bot, Clock, MessageCircle, Headset, MessageSquare, Heart, SmilePlus, Upload, Code, Lock, X, ImageIcon } from 'lucide-react'
+import { Loader2, Save, Bot, Clock, MessageCircle, Headset, MessageSquare, Heart, SmilePlus, Upload, Code, Lock, X, ImageIcon, Sparkles } from 'lucide-react'
 import { toast } from 'sonner'
 import type { PlanLimits } from '@/lib/products'
 
@@ -78,14 +78,16 @@ const ICON_OPTIONS = [
   { value: 'message', label: 'Message', icon: MessageSquare },
   { value: 'heart', label: 'Heart', icon: Heart },
   { value: 'robot', label: 'Robot', icon: Bot },
+  { value: 'glass-orb', label: 'Glass Orb', icon: Sparkles, animated: true },
 ] as const
 
-type IconMode = 'preset' | 'upload' | 'svg'
+type IconMode = 'preset' | 'upload' | 'svg' | 'code'
 
 function getIconMode(avatarUrl: string | null): IconMode {
   if (!avatarUrl) return 'preset'
   if (avatarUrl.startsWith('data:')) return 'upload'
   if (avatarUrl.startsWith('svg:')) return 'svg'
+  if (avatarUrl.startsWith('code:')) return 'code'
   return 'preset'
 }
 
@@ -355,12 +357,17 @@ export default function AppearancePage() {
                       key={option.value}
                       type="button"
                       onClick={() => setConfig({ ...config, avatar_url: `icon:${option.value}` })}
-                      className={`flex flex-col items-center gap-2 rounded-lg border-2 p-4 transition-all ${
+                      className={`relative flex flex-col items-center gap-2 rounded-lg border-2 p-4 transition-all ${
                         isSelected
                           ? 'border-primary bg-primary/5'
                           : 'border-border hover:border-muted-foreground/30 hover:bg-muted/50'
                       }`}
                     >
+                      {'animated' in option && option.animated && (
+                        <span className="absolute -top-2 right-1 rounded-full bg-gradient-to-r from-violet-500 to-fuchsia-500 px-1.5 py-0.5 text-[9px] font-bold text-white">
+                          ANIMATED
+                        </span>
+                      )}
                       <div
                         className="flex h-10 w-10 items-center justify-center rounded-full text-white"
                         style={{ backgroundColor: config.primary_color }}
@@ -482,7 +489,6 @@ export default function AppearancePage() {
                         onBlur={(e) => {
                           const val = e.target.value.trim()
                           if (!val) return
-                          // Basic SVG validation
                           if (!val.startsWith('<svg') || !val.includes('</svg>')) {
                             toast.error('Please enter valid SVG code starting with <svg> and ending with </svg>')
                             return
@@ -494,6 +500,61 @@ export default function AppearancePage() {
                           setConfig({ ...config, avatar_url: `svg:${val}` })
                           e.target.value = ''
                           toast.success('Custom SVG icon applied')
+                        }}
+                      />
+                    )}
+                  </div>
+
+                  {/* Custom HTML/JS Code */}
+                  <div className="space-y-2">
+                    <Label className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <Code className="h-3.5 w-3.5" />
+                      Custom Code (HTML / CSS / JS)
+                    </Label>
+                    <p className="text-[11px] leading-relaxed text-muted-foreground">
+                      Paste HTML/CSS/JS code for an animated or interactive launcher icon. The code runs inside an isolated iframe on the launcher button. Use vanilla JS (no React).
+                    </p>
+                    {getIconMode(config.avatar_url) === 'code' ? (
+                      <div className="flex items-center gap-3">
+                        <div
+                          className="relative flex h-14 w-14 items-center justify-center overflow-hidden rounded-full"
+                          style={{ backgroundColor: config.primary_color }}
+                        >
+                          <iframe
+                            srcDoc={config.avatar_url?.replace('code:', '') || ''}
+                            sandbox="allow-scripts"
+                            className="pointer-events-none h-full w-full rounded-full border-0"
+                            title="Custom icon preview"
+                            style={{ background: 'transparent' }}
+                          />
+                        </div>
+                        <div className="flex flex-col gap-1">
+                          <span className="text-xs font-medium text-foreground">Custom code active</span>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setConfig({ ...config, avatar_url: 'icon:chat' })}
+                          >
+                            <X className="mr-1 h-3 w-3" />
+                            Remove
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <Textarea
+                        placeholder={`<html>\n<style>\n  body { margin:0; background:transparent; }\n  canvas { width:100%; height:100%; }\n</style>\n<body>\n  <canvas id="c"></canvas>\n  <script>\n    // Your animation code here\n  </script>\n</body>\n</html>`}
+                        rows={6}
+                        className={`font-mono text-xs ${!planLimits?.fullCustomization ? 'pointer-events-none' : ''}`}
+                        onBlur={(e) => {
+                          const val = e.target.value.trim()
+                          if (!val) return
+                          if (val.length > 50000) {
+                            toast.error('Code is too long. Max 50KB.')
+                            return
+                          }
+                          setConfig({ ...config, avatar_url: `code:${val}` })
+                          e.target.value = ''
+                          toast.success('Custom code icon applied')
                         }}
                       />
                     )}
@@ -791,7 +852,21 @@ export default function AppearancePage() {
                             />
                           )
                         }
+                        if (mode === 'code') {
+                          return (
+                            <iframe
+                              srcDoc={config.avatar_url?.replace('code:', '') || ''}
+                              sandbox="allow-scripts"
+                              className="pointer-events-none h-full w-full rounded-full border-0"
+                              title="Custom icon"
+                              style={{ background: 'transparent', position: 'absolute', inset: 0 }}
+                            />
+                          )
+                        }
                         const style = getIconStyle(config.avatar_url)
+                        if (style === 'glass-orb') {
+                          return <Sparkles className="h-6 w-6 animate-pulse" />
+                        }
                         const found = ICON_OPTIONS.find(o => o.value === style)
                         const Icon = found ? found.icon : MessageCircle
                         return <Icon className="h-6 w-6" />
