@@ -56,6 +56,9 @@ const DAYS_OF_WEEK = [
 ] as const
 
 const TIMEZONES = [
+  { value: 'Europe/Oslo', label: 'Oslo (CET/CEST)' },
+  { value: 'Europe/Stockholm', label: 'Stockholm (CET/CEST)' },
+  { value: 'Europe/Helsinki', label: 'Helsinki (EET/EEST)' },
   { value: 'Europe/London', label: 'London (GMT/BST)' },
   { value: 'Europe/Paris', label: 'Paris (CET/CEST)' },
   { value: 'Europe/Berlin', label: 'Berlin (CET/CEST)' },
@@ -137,6 +140,7 @@ export default function AppearancePage() {
         business_hours: config.business_hours,
         business_hours_timezone: config.business_hours_timezone,
         outside_hours_message: config.outside_hours_message,
+        updated_at: new Date().toISOString(),
       })
       .eq('id', config.id)
 

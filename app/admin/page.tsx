@@ -194,7 +194,7 @@ export default async function AdminDashboard() {
           </div>
           {planId !== 'business' && (
             <Button asChild size="sm">
-              <Link href="/pricing">
+              <Link href="/admin/settings">
                 <Zap className="mr-2 h-4 w-4" />
                 Upgrade
               </Link>
