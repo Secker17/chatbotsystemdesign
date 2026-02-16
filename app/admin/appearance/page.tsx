@@ -16,6 +16,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Loader2, Save, Bot, Clock, MessageCircle } from 'lucide-react'
+import { toast } from 'sonner'
 import type { PlanLimits } from '@/lib/products'
 
 interface DaySchedule {
@@ -120,7 +121,7 @@ export default function AppearancePage() {
     setSaving(true)
 
     const supabase = createClient()
-    await supabase
+    const { error } = await supabase
       .from('chatbot_configs')
       .update({
         widget_title: config.widget_title,
@@ -138,6 +139,12 @@ export default function AppearancePage() {
         outside_hours_message: config.outside_hours_message,
       })
       .eq('id', config.id)
+
+    if (error) {
+      toast.error('Failed to save appearance settings')
+    } else {
+      toast.success('Appearance settings saved successfully')
+    }
 
     setSaving(false)
   }

@@ -26,6 +26,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { Loader2, Plus, MoreVertical, Pencil, Trash2, MessagesSquare, Search } from 'lucide-react'
+import { toast } from 'sonner'
 
 interface CannedResponse {
   id: string
@@ -118,7 +119,7 @@ export default function ResponsesPage() {
     if (!user) return
 
     if (editingResponse) {
-      await supabase
+      const { error } = await supabase
         .from('canned_responses')
         .update({
           title: formData.title,
@@ -127,13 +128,19 @@ export default function ResponsesPage() {
           category: formData.category || null,
         })
         .eq('id', editingResponse.id)
+
+      if (error) {
+        toast.error('Failed to update response')
+      } else {
+        toast.success('Response updated successfully')
+      }
     } else {
       if (!chatbotId) {
-        console.error('No chatbot ID found for this user')
+        toast.error('No chatbot configuration found')
         setSaving(false)
         return
       }
-      await supabase.from('canned_responses').insert({
+      const { error } = await supabase.from('canned_responses').insert({
         admin_id: user.id,
         chatbot_id: chatbotId,
         title: formData.title,
@@ -141,6 +148,12 @@ export default function ResponsesPage() {
         shortcut: formData.shortcut || null,
         category: formData.category || null,
       })
+
+      if (error) {
+        toast.error('Failed to create response')
+      } else {
+        toast.success('Response created successfully')
+      }
     }
 
     setDialogOpen(false)
@@ -150,7 +163,12 @@ export default function ResponsesPage() {
 
   const handleDelete = async (id: string) => {
     const supabase = createClient()
-    await supabase.from('canned_responses').delete().eq('id', id)
+    const { error } = await supabase.from('canned_responses').delete().eq('id', id)
+    if (error) {
+      toast.error('Failed to delete response')
+    } else {
+      toast.success('Response deleted')
+    }
     await loadResponses()
   }
 

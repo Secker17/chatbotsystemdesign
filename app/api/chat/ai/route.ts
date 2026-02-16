@@ -50,10 +50,8 @@ function resolveModel(modelId: string | null): string {
 }
 
 export async function POST(request: NextRequest) {
-  console.log('[v0] AI route - POST request received')
   try {
     const { session_id, content } = await request.json()
-    console.log('[v0] AI route - session_id:', session_id, 'content length:', content?.length)
 
     if (!session_id || !content) {
       return NextResponse.json(
@@ -103,13 +101,6 @@ export async function POST(request: NextRequest) {
         { status: 200, headers: corsHeaders }
       )
     }
-
-    console.log('[v0] AI route - Config loaded:', {
-      ai_enabled: config?.ai_enabled,
-      ai_model: config?.ai_model,
-      ai_max_tokens: config?.ai_max_tokens,
-      ai_temperature: config?.ai_temperature,
-    })
 
     if (!config || !config.ai_enabled) {
       return NextResponse.json(
@@ -260,16 +251,11 @@ Important rules:
     // Generate AI response using Vercel AI Gateway with model fallback
     const preferredModel = resolveModel(config.ai_model)
 
-    console.log('[v0] AI route - Config model:', config.ai_model, '-> Resolved:', preferredModel)
-
     // Build model list: preferred model first, then fallbacks
     const modelsToTry = [
       preferredModel,
       ...FALLBACK_MODELS.filter((m) => m !== preferredModel),
     ]
-
-    console.log('[v0] AI route - Models to try:', modelsToTry)
-    console.log('[v0] AI route - Message count:', conversationMessages.length)
 
     let text = ''
     let usage: { totalTokens?: number } | undefined
@@ -278,7 +264,6 @@ Important rules:
 
     for (const modelId of modelsToTry) {
       try {
-        console.log(`[v0] AI route - Trying model: "${modelId}"`)
         const result = await generateText({
           model: xai(modelId),
           system: systemPrompt,
@@ -290,21 +275,15 @@ Important rules:
         usage = result.usage
         usedModel = modelId
         lastError = null
-        console.log(`[v0] AI route - Success with model: "${modelId}", tokens: ${usage?.totalTokens}`)
         break
       } catch (modelError) {
         lastError = modelError instanceof Error ? modelError : new Error(String(modelError))
-        console.error(`[v0] AI route - Model "${modelId}" failed:`, lastError.message)
-        if (lastError.stack) {
-          console.error(`[v0] AI route - Stack:`, lastError.stack.split('\n').slice(0, 3).join('\n'))
-        }
         // Continue to try next model
       }
     }
 
     // If all models failed, throw the last error
     if (lastError) {
-      console.error('[v0] AI route - ALL models failed. Last error:', lastError.message)
       throw lastError
     }
 
@@ -368,12 +347,7 @@ Important rules:
     const errorMessage = error instanceof Error ? error.message : String(error)
     const errorStack = error instanceof Error ? error.stack : undefined
 
-    console.error('[v0] AI Chat API error:', {
-      message: errorMessage,
-      stack: errorStack?.split('\n').slice(0, 5).join('\n'),
-      name: error instanceof Error ? error.name : 'Unknown',
-      fullError: JSON.stringify(error, Object.getOwnPropertyNames(error instanceof Error ? error : {})),
-    })
+    console.error('AI Chat API error:', errorMessage)
     
     const errorLower = errorMessage.toLowerCase()
     const isConfigError =
