@@ -1166,8 +1166,8 @@ export async function GET() {
   // Initialize
   async function init() {
     try {
-      const configUrl = API_BASE + '/api/chat/config?chatbot_id=' + chatbotId;
-      const response = await fetch(configUrl);
+      const configUrl = API_BASE + '/api/chat/config?chatbot_id=' + chatbotId + '&t=' + Date.now();
+      const response = await fetch(configUrl, { cache: 'no-store' });
       
       const defaultConfig = {
         primary_color: '#14b8a6',
@@ -1219,7 +1219,7 @@ export async function GET() {
   return new NextResponse(widgetScript, {
     headers: {
       'Content-Type': 'application/javascript; charset=utf-8',
-      'Cache-Control': 'public, max-age=300',
+      'Cache-Control': 'no-cache, no-store, must-revalidate',
       'Access-Control-Allow-Origin': '*',
       'Access-Control-Allow-Methods': 'GET, OPTIONS',
       'Access-Control-Allow-Headers': 'Content-Type',

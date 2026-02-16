@@ -36,9 +36,9 @@ export default function WidgetPreviewPage() {
 
   useEffect(() => {
     if (chatbotId && !widgetLoaded) {
-      // Dynamically load the widget script
+      // Dynamically load the widget script with cache-busting
       const script = document.createElement('script')
-      script.src = '/api/widget.js'
+      script.src = `/api/widget.js?t=${Date.now()}`
       script.dataset.chatbotId = chatbotId
       script.async = true
       document.body.appendChild(script)
@@ -46,7 +46,7 @@ export default function WidgetPreviewPage() {
 
       return () => {
         // Cleanup widget on unmount
-        const widgetContainer = document.getElementById('vintra-chat-widget')
+        const widgetContainer = document.querySelector('.vintra-widget-container')
         if (widgetContainer) {
           widgetContainer.remove()
         }
