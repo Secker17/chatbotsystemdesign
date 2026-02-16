@@ -85,6 +85,7 @@ export default function ConversationsPage() {
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const channelRef = useRef<RealtimeChannel | null>(null)
   const selectedSessionRef = useRef<ChatSession | null>(null)
+  const typingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // Keep ref in sync with state
   useEffect(() => {
@@ -94,6 +95,26 @@ export default function ConversationsPage() {
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }
+
+  // Notify the widget that admin is typing
+  const notifyTyping = useCallback((sessionId: string) => {
+    if (typingTimerRef.current) clearTimeout(typingTimerRef.current)
+    
+    fetch('/api/chat/typing', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ session_id: sessionId, is_typing: true }),
+    }).catch(() => {})
+
+    // Auto-clear typing after 3 seconds of no input
+    typingTimerRef.current = setTimeout(() => {
+      fetch('/api/chat/typing', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ session_id: sessionId, is_typing: false }),
+      }).catch(() => {})
+    }, 3000)
+  }, [])
 
   // Initialize: get user and their chatbot IDs
   useEffect(() => {
@@ -299,6 +320,15 @@ export default function ConversationsPage() {
           status: 'active',
         })
         .eq('id', selectedSession.id)
+    }
+
+    // Clear typing indicator
+    if (selectedSession) {
+      fetch('/api/chat/typing', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ session_id: selectedSession.id, is_typing: false }),
+      }).catch(() => {})
     }
 
     setNewMessage('')
@@ -791,7 +821,12 @@ export default function ConversationsPage() {
                         : "Type your reply..."
                     }
                     value={newMessage}
-                    onChange={(e) => setNewMessage(e.target.value)}
+                    onChange={(e) => {
+                      setNewMessage(e.target.value)
+                      if (selectedSession && e.target.value.trim()) {
+                        notifyTyping(selectedSession.id)
+                      }
+                    }}
                     onKeyDown={(e) => {
                       if (e.key === 'Enter' && !e.shiftKey) {
                         e.preventDefault()
