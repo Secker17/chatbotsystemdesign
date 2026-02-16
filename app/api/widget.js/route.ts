@@ -56,18 +56,23 @@ export async function GET() {
       align-items: center;
       justify-content: center;
       box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
-      transition: transform 0.2s, box-shadow 0.2s;
+      transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.3s;
       position: relative;
     }
     .vintra-launcher:hover {
-      transform: scale(1.05);
+      transform: scale(1.08);
       box-shadow: 0 6px 25px rgba(0, 0, 0, 0.2);
     }
     .vintra-launcher svg {
       width: 28px;
       height: 28px;
       fill: white;
+      transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.2s;
     }
+    .vintra-launcher .vintra-icon-open { opacity: 1; transform: scale(1) rotate(0deg); }
+    .vintra-launcher .vintra-icon-close { position: absolute; opacity: 0; transform: scale(0.5) rotate(-90deg); }
+    .vintra-launcher.is-open .vintra-icon-open { opacity: 0; transform: scale(0.5) rotate(90deg); }
+    .vintra-launcher.is-open .vintra-icon-close { opacity: 1; transform: scale(1) rotate(0deg); }
     .vintra-unread-badge {
       position: absolute;
       top: -2px;
@@ -176,21 +181,22 @@ export async function GET() {
       background: #fff;
       border-radius: 16px;
       box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
-      display: none;
+      display: flex;
       flex-direction: column;
       overflow: hidden;
-      animation: vintraSlideUp 0.3s ease;
+      opacity: 0;
+      transform: translateY(16px) scale(0.96);
+      pointer-events: none;
+      transition: opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1), transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
     }
     .vintra-widget-container.position-left .vintra-chat-window {
       right: auto;
       left: 0;
     }
     .vintra-chat-window.open {
-      display: flex;
-    }
-    @keyframes vintraSlideUp {
-      from { opacity: 0; transform: translateY(10px); }
-      to { opacity: 1; transform: translateY(0); }
+      opacity: 1;
+      transform: translateY(0) scale(1);
+      pointer-events: auto;
     }
     .vintra-header {
       padding: 16px 20px;
@@ -342,9 +348,15 @@ export async function GET() {
       background: #f0f0f0;
       border-radius: 16px;
       border-bottom-left-radius: 4px;
+      margin-top: 4px;
     }
     .vintra-typing.show {
       display: block;
+    }
+    .vintra-typing-label {
+      font-size: 10px;
+      color: #999;
+      margin-bottom: 4px;
     }
     .vintra-typing-dots {
       display: flex;
@@ -362,6 +374,24 @@ export async function GET() {
     @keyframes vintraBounce {
       0%, 80%, 100% { transform: scale(0); }
       40% { transform: scale(1); }
+    }
+    .vintra-human-typing {
+      display: none;
+      align-self: flex-start;
+      padding: 12px 16px;
+      background: #e8f5e9;
+      border-radius: 16px;
+      border-bottom-left-radius: 4px;
+      margin-top: 4px;
+    }
+    .vintra-human-typing.show {
+      display: block;
+    }
+    .vintra-human-typing .vintra-typing-label {
+      color: #4caf50;
+    }
+    .vintra-human-typing .vintra-typing-dots span {
+      background: #4caf50;
     }
     .vintra-input-area {
       padding: 12px 16px;
@@ -592,17 +622,31 @@ export async function GET() {
   let isSending = false;
   let unreadCount = 0;
   let isOffline = false;
+  let humanTypingTimeout = null;
   
-  // Icons
-  const icons = {
+  // Icon SVGs for different launcher styles
+  const launcherIcons = {
     chat: '<svg viewBox="0 0 24 24"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H6l-2 2V4h16v12z"/></svg>',
-    close: '<svg viewBox="0 0 24 24" width="16" height="16"><path fill="currentColor" d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>',
+    headset: '<svg viewBox="0 0 24 24"><path d="M12 1c-4.97 0-9 4.03-9 9v7c0 1.66 1.34 3 3 3h3v-8H5v-2c0-3.87 3.13-7 7-7s7 3.13 7 7v2h-4v8h3c1.66 0 3-1.34 3-3v-7c0-4.97-4.03-9-9-9z"/></svg>',
+    support: '<svg viewBox="0 0 24 24"><path d="M21 12.22C21 6.73 16.74 3 12 3c-4.69 0-9 3.65-9 9.28-.6.34-1 .98-1 1.72v2c0 1.1.9 2 2 2h1v-6.1c0-3.87 3.13-7 7-7s7 3.13 7 7V19h-8v2h8c1.1 0 2-.9 2-2v-1.22c.59-.31 1-.92 1-1.64v-2.3c0-.7-.41-1.31-1-1.62z"/><circle cx="9" cy="13" r="1"/><circle cx="15" cy="13" r="1"/><path d="M18 11.03C17.52 8.18 15.04 6 12.05 6c-3.03 0-6.29 2.51-6.03 6.45a8.075 8.075 0 0 0 4.86-5.89c1.31 2.63 4 4.44 7.12 4.47z"/></svg>',
+    message: '<svg viewBox="0 0 24 24"><path d="M20 2H4c-1.1 0-1.99.9-1.99 2L2 22l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zM6 9h12v2H6V9zm8 5H6v-2h8v2zm4-6H6V6h12v2z"/></svg>',
+    heart: '<svg viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>',
+    robot: '<svg viewBox="0 0 24 24"><path d="M12 2a2 2 0 0 1 2 2c0 .74-.4 1.39-1 1.73V7h1a7 7 0 0 1 7 7h1a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1h-1.07A7.001 7.001 0 0 1 7.07 19H6a1 1 0 0 1-1-1v-3a1 1 0 0 1 1-1h1a7 7 0 0 1 7-7h1V5.73c-.6-.34-1-.99-1-1.73a2 2 0 0 1 2-2zM9.5 14a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3zm5 0a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3z"/></svg>',
+  };
+  
+  // Other icons
+  const icons = {
+    close: '<svg viewBox="0 0 24 24" width="18" height="18"><path fill="currentColor" d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>',
     send: '<svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>',
     bot: '<svg viewBox="0 0 24 24"><path d="M12 2a2 2 0 0 1 2 2c0 .74-.4 1.39-1 1.73V7h1a7 7 0 0 1 7 7h1a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1h-1.07A7.001 7.001 0 0 1 7.07 19H6a1 1 0 0 1-1-1v-3a1 1 0 0 1 1-1h1a7 7 0 0 1 7-7h1V5.73c-.6-.34-1-.99-1-1.73a2 2 0 0 1 2-2zM9.5 14a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3zm5 0a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3z"/></svg>',
     user: '<svg viewBox="0 0 24 24" width="12" height="12"><path fill="currentColor" d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z"/></svg>',
     sparkle: '<svg viewBox="0 0 24 24" width="12" height="12"><path fill="currentColor" d="M12 2L9.19 8.63 2 9.24l5.46 4.73L5.82 21 12 17.27 18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2z"/></svg>',
     handoff: '<svg viewBox="0 0 24 24" width="14" height="14"><path fill="currentColor" d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg>'
   };
+  
+  function getLauncherIcon(style) {
+    return launcherIcons[style] || launcherIcons.chat;
+  }
   
   // Create widget
   function createWidget() {
@@ -638,6 +682,13 @@ export async function GET() {
         </div>
         <div class="vintra-messages" style="display: none;"></div>
         <div class="vintra-typing">
+          <div class="vintra-typing-label">AI is thinking...</div>
+          <div class="vintra-typing-dots">
+            <span></span><span></span><span></span>
+          </div>
+        </div>
+        <div class="vintra-human-typing">
+          <div class="vintra-typing-label">Agent is typing...</div>
           <div class="vintra-typing-dots">
             <span></span><span></span><span></span>
           </div>
@@ -667,7 +718,8 @@ export async function GET() {
             </text>
           </svg>
           <button class="vintra-launcher">
-            \${icons.chat}
+            <span class="vintra-icon-open">\${launcherIcons.chat}</span>
+            <span class="vintra-icon-close">\${icons.close}</span>
             <span class="vintra-unread-badge">0</span>
           </button>
         </div>
@@ -677,6 +729,7 @@ export async function GET() {
     
     // Elements
     const launcher = container.querySelector('.vintra-launcher');
+    const launcherIconOpen = container.querySelector('.vintra-icon-open');
     const chatWindow = container.querySelector('.vintra-chat-window');
     const closeBtn = container.querySelector('.vintra-close');
     const messagesContainer = container.querySelector('.vintra-messages');
@@ -691,6 +744,7 @@ export async function GET() {
     const header = container.querySelector('.vintra-header');
     const title = container.querySelector('.vintra-title');
     const typingIndicator = container.querySelector('.vintra-typing');
+    const humanTypingIndicator = container.querySelector('.vintra-human-typing');
     const statusDot = container.querySelector('.vintra-status-dot');
     const statusText = container.querySelector('.vintra-status-text');
     const handoffBanner = container.querySelector('.vintra-handoff-banner');
@@ -703,8 +757,8 @@ export async function GET() {
     const offlineOverlay = container.querySelector('.vintra-offline-overlay');
     const offlineMsg = container.querySelector('.vintra-offline-msg');
     
-    // Event handlers
-    launcher.addEventListener('click', () => toggleChat(true));
+    // Event handlers - launcher toggles open/close
+    launcher.addEventListener('click', () => toggleChat(!isOpen));
     closeBtn.addEventListener('click', () => toggleChat(false));
     sendBtn.addEventListener('click', sendMessage);
     input.addEventListener('keypress', (e) => {
@@ -728,6 +782,8 @@ export async function GET() {
     function toggleChat(open) {
       isOpen = open;
       chatWindow.classList.toggle('open', open);
+      launcher.classList.toggle('is-open', open);
+      
       if (open) {
         unreadCount = 0;
         unreadBadge.classList.remove('show');
@@ -775,6 +831,14 @@ export async function GET() {
         statusText.textContent = 'Online';
         handoffBtn.classList.remove('show');
         handoffBanner.classList.remove('show');
+      }
+    }
+    
+    // Show human typing indicator
+    function showHumanTyping(show) {
+      humanTypingIndicator.classList.toggle('show', show);
+      if (show) {
+        messagesContainer.scrollTop = messagesContainer.scrollHeight;
       }
     }
     
@@ -834,8 +898,9 @@ export async function GET() {
         
         input.focus();
         
-        // Start polling for messages
+        // Start polling for messages and typing
         pollMessages();
+        pollTyping();
       } catch (error) {
         console.error('VintraStudio: Failed to start chat', error);
         startBtn.disabled = false;
@@ -981,6 +1046,7 @@ export async function GET() {
     
     let lastMessageId = null;
     let pollInterval = null;
+    let typingPollInterval = null;
     
     async function pollMessages() {
       if (!sessionId || !hasStartedChat) return;
@@ -993,8 +1059,6 @@ export async function GET() {
         
         if (Array.isArray(messages)) {
           messages.forEach(msg => {
-            // Only show messages from others (admin/bot) - skip visitor messages (already shown)
-            // Also skip bot messages if we already showed them via AI response
             if (msg.sender_type === 'admin') {
               // Human agent replied - update status
               if (isWaitingForHuman) {
@@ -1003,10 +1067,9 @@ export async function GET() {
                 addSystemMessage('A human agent has joined the conversation.');
                 saveSession();
               }
+              showHumanTyping(false);
               addMessage(msg.content, 'admin', false);
             }
-            // Only show bot messages that came from external (not the ones we added inline)
-            // We track by checking if this is a new bot message from polling
             lastMessageId = msg.id;
           });
         }
@@ -1015,6 +1078,28 @@ export async function GET() {
       }
       
       pollInterval = setTimeout(pollMessages, 3000);
+    }
+    
+    // Poll for admin typing status
+    async function pollTyping() {
+      if (!sessionId || !hasStartedChat) return;
+      
+      try {
+        const url = API_BASE + '/api/chat/typing?session_id=' + sessionId;
+        const response = await fetch(url);
+        if (response.ok) {
+          const data = await response.json();
+          if (data.is_typing) {
+            showHumanTyping(true);
+            clearTimeout(humanTypingTimeout);
+            humanTypingTimeout = setTimeout(() => showHumanTyping(false), 4000);
+          }
+        }
+      } catch (e) {
+        // Silently ignore typing poll errors
+      }
+      
+      typingPollInterval = setTimeout(pollTyping, 2000);
     }
     
     // Restore a saved session on page load
@@ -1077,8 +1162,9 @@ export async function GET() {
           });
         }
         
-        // Start polling for new messages
+        // Start polling for new messages and typing
         pollMessages();
+        pollTyping();
         return true;
       } catch (e) {
         console.error('VintraStudio: Failed to restore session', e);
@@ -1090,7 +1176,7 @@ export async function GET() {
     // Apply config
     function checkBusinessHours(cfg) {
       if (!cfg.business_hours_enabled || !cfg.business_hours) {
-        return true; // No business hours configured = always online
+        return true;
       }
       
       const tz = cfg.business_hours_timezone || 'UTC';
@@ -1138,6 +1224,12 @@ export async function GET() {
       if (cfg.position === 'bottom-left') {
         container.classList.add('position-left');
       }
+      
+      // Apply launcher icon from avatar_url (format: "icon:style")
+      const iconStyle = (cfg.avatar_url && cfg.avatar_url.startsWith('icon:')) 
+        ? cfg.avatar_url.replace('icon:', '') 
+        : 'chat';
+      launcherIconOpen.innerHTML = getLauncherIcon(iconStyle);
       
       // Curved text around launcher
       if (cfg.launcher_text_enabled && cfg.launcher_text) {

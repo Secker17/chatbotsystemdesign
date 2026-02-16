@@ -15,7 +15,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Loader2, Save, Bot, Clock, MessageCircle } from 'lucide-react'
+import { Loader2, Save, Bot, Clock, MessageCircle, Headset, MessageSquare, Heart, SmilePlus } from 'lucide-react'
 import { toast } from 'sonner'
 import type { PlanLimits } from '@/lib/products'
 
@@ -70,6 +70,22 @@ const TIMEZONES = [
   { value: 'Asia/Shanghai', label: 'Shanghai (CST)' },
   { value: 'Australia/Sydney', label: 'Sydney (AEST/AEDT)' },
 ]
+
+const ICON_OPTIONS = [
+  { value: 'chat', label: 'Chat Bubble', icon: MessageCircle },
+  { value: 'headset', label: 'Headset', icon: Headset },
+  { value: 'support', label: 'Support', icon: SmilePlus },
+  { value: 'message', label: 'Message', icon: MessageSquare },
+  { value: 'heart', label: 'Heart', icon: Heart },
+  { value: 'robot', label: 'Robot', icon: Bot },
+] as const
+
+function getIconStyle(avatarUrl: string | null): string {
+  if (avatarUrl && avatarUrl.startsWith('icon:')) {
+    return avatarUrl.replace('icon:', '')
+  }
+  return 'chat'
+}
 
 interface ChatbotConfig {
   id: string
@@ -131,6 +147,7 @@ export default function AppearancePage() {
         welcome_message: config.welcome_message,
         primary_color: config.primary_color,
         position: config.position,
+        avatar_url: config.avatar_url,
         show_branding: config.show_branding,
         offline_message: config.offline_message,
         placeholder_text: config.placeholder_text,
@@ -303,6 +320,48 @@ export default function AppearancePage() {
                   onCheckedChange={(checked) => setConfig({ ...config, show_branding: checked })}
                   disabled={!planLimits?.removeBranding}
                 />
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <div className="flex items-center gap-2">
+                <Bot className="h-5 w-5 text-muted-foreground" />
+                <CardTitle>Launcher Icon</CardTitle>
+              </div>
+              <CardDescription>
+                Choose the icon style for your chat launcher button
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-3 gap-3">
+                {ICON_OPTIONS.map((option) => {
+                  const isSelected = getIconStyle(config.avatar_url) === option.value
+                  const IconComponent = option.icon
+                  return (
+                    <button
+                      key={option.value}
+                      type="button"
+                      onClick={() => setConfig({ ...config, avatar_url: `icon:${option.value}` })}
+                      className={`flex flex-col items-center gap-2 rounded-lg border-2 p-4 transition-all ${
+                        isSelected
+                          ? 'border-primary bg-primary/5'
+                          : 'border-border hover:border-muted-foreground/30 hover:bg-muted/50'
+                      }`}
+                    >
+                      <div
+                        className="flex h-10 w-10 items-center justify-center rounded-full text-white"
+                        style={{ backgroundColor: config.primary_color }}
+                      >
+                        <IconComponent className="h-5 w-5" />
+                      </div>
+                      <span className={`text-xs font-medium ${isSelected ? 'text-primary' : 'text-muted-foreground'}`}>
+                        {option.label}
+                      </span>
+                    </button>
+                  )
+                })}
               </div>
             </CardContent>
           </Card>
@@ -574,7 +633,12 @@ export default function AppearancePage() {
                       className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full text-white shadow-lg"
                       style={{ backgroundColor: config.primary_color }}
                     >
-                      <MessageCircle className="h-6 w-6" />
+                      {(() => {
+                        const style = getIconStyle(config.avatar_url)
+                        const found = ICON_OPTIONS.find(o => o.value === style)
+                        const Icon = found ? found.icon : MessageCircle
+                        return <Icon className="h-6 w-6" />
+                      })()}
                     </div>
                   </div>
                 </div>
