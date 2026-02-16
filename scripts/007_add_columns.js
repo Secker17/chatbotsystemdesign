@@ -1,32 +1,41 @@
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
+const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+async function run() {
+  console.log('Supabase URL:', SUPABASE_URL ? 'SET' : 'MISSING');
+  console.log('Supabase Key:', SUPABASE_KEY ? 'SET (' + SUPABASE_KEY.substring(0,10) + '...)' : 'MISSING');
 
-const supabase = createClient(supabaseUrl, supabaseKey)
+  // Check chatbot_configs columns
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/chatbot_configs?select=*&limit=1`, {
+    headers: {
+      'apikey': SUPABASE_KEY,
+      'Authorization': `Bearer ${SUPABASE_KEY}`,
+    },
+  });
+  const data = await res.json();
+  if (Array.isArray(data) && data.length > 0) {
+    const cols = Object.keys(data[0]);
+    console.log('chatbot_configs columns:', cols.join(', '));
+    console.log('Has icon_style:', cols.includes('icon_style'));
+  } else {
+    console.log('chatbot_configs result:', JSON.stringify(data).substring(0, 200));
+  }
 
-// Test if icon_style column already exists by selecting it
-const { error: testError } = await supabase
-  .from('chatbot_configs')
-  .select('icon_style')
-  .limit(1)
-
-if (testError && testError.message.includes('icon_style')) {
-  console.log('icon_style column does not exist yet - needs manual migration')
-} else {
-  console.log('icon_style column already exists or accessible')
+  // Check chat_sessions columns
+  const res2 = await fetch(`${SUPABASE_URL}/rest/v1/chat_sessions?select=*&limit=1`, {
+    headers: {
+      'apikey': SUPABASE_KEY,
+      'Authorization': `Bearer ${SUPABASE_KEY}`,
+    },
+  });
+  const data2 = await res2.json();
+  if (Array.isArray(data2) && data2.length > 0) {
+    const cols2 = Object.keys(data2[0]);
+    console.log('chat_sessions columns:', cols2.join(', '));
+    console.log('Has admin_is_typing:', cols2.includes('admin_is_typing'));
+  } else {
+    console.log('chat_sessions result:', JSON.stringify(data2).substring(0, 200));
+  }
 }
 
-// Test if admin_is_typing column exists
-const { error: testError2 } = await supabase
-  .from('chat_sessions')
-  .select('admin_is_typing')
-  .limit(1)
-
-if (testError2 && testError2.message.includes('admin_is_typing')) {
-  console.log('admin_is_typing column does not exist yet - needs manual migration')
-} else {
-  console.log('admin_is_typing column already exists or accessible')
-}
-
-console.log('Done checking columns')
+run().catch(console.error);
