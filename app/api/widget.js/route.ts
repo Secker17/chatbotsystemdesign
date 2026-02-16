@@ -962,7 +962,7 @@ export async function GET() {
         </div>
         <div class="vintra-messages" style="display: none;"></div>
         <div class="vintra-typing">
-          <div class="vintra-typing-avatar vintra-msg-avatar" style="background:var(--vintra-primary, #14b8a6)">${icons.bot}</div>
+          <div class="vintra-typing-avatar vintra-msg-avatar" style="background:var(--vintra-primary, #14b8a6)"></div>
           <div class="vintra-typing-bubble">
             <div class="vintra-typing-label">AI is thinking...</div>
             <div class="vintra-typing-dots">
@@ -971,7 +971,7 @@ export async function GET() {
           </div>
         </div>
         <div class="vintra-human-typing">
-          <div class="vintra-msg-avatar" style="background:#4caf50">${icons.user}</div>
+          <div class="vintra-human-typing-avatar vintra-msg-avatar" style="background:#4caf50"></div>
           <div class="vintra-typing-bubble">
             <div class="vintra-typing-label">Agent is typing...</div>
             <div class="vintra-typing-dots">
@@ -1031,6 +1031,13 @@ export async function GET() {
     const title = container.querySelector('.vintra-title');
     const typingIndicator = container.querySelector('.vintra-typing');
     const humanTypingIndicator = container.querySelector('.vintra-human-typing');
+    
+    // Populate typing indicator avatars after DOM creation
+    const aiTypingAvatar = container.querySelector('.vintra-typing-avatar');
+    if (aiTypingAvatar) aiTypingAvatar.innerHTML = icons.bot;
+    const humanTypingAvatar = container.querySelector('.vintra-human-typing-avatar');
+    if (humanTypingAvatar) humanTypingAvatar.innerHTML = icons.user;
+    
     const statusDot = container.querySelector('.vintra-status-dot');
     const statusText = container.querySelector('.vintra-status-text');
     const handoffBanner = container.querySelector('.vintra-handoff-banner');
