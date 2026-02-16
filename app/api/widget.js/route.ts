@@ -1225,11 +1225,29 @@ export async function GET() {
         container.classList.add('position-left');
       }
       
-      // Apply launcher icon from avatar_url (format: "icon:style")
-      const iconStyle = (cfg.avatar_url && cfg.avatar_url.startsWith('icon:')) 
-        ? cfg.avatar_url.replace('icon:', '') 
-        : 'chat';
-      launcherIconOpen.innerHTML = getLauncherIcon(iconStyle);
+      // Apply launcher icon from avatar_url
+      // Supports: "icon:style" (preset), "data:..." (uploaded image), "svg:..." (custom SVG)
+      if (cfg.avatar_url && cfg.avatar_url.startsWith('data:')) {
+        // Uploaded image - render as <img> with white filter
+        launcherIconOpen.innerHTML = '<img src="' + cfg.avatar_url + '" alt="" style="width:28px;height:28px;object-fit:contain;filter:brightness(0) invert(1);" />';
+      } else if (cfg.avatar_url && cfg.avatar_url.startsWith('svg:')) {
+        // Custom SVG code
+        const svgCode = cfg.avatar_url.replace('svg:', '');
+        launcherIconOpen.innerHTML = svgCode;
+        // Ensure the SVG fills white and fits
+        const svgEl = launcherIconOpen.querySelector('svg');
+        if (svgEl) {
+          svgEl.setAttribute('width', '28');
+          svgEl.setAttribute('height', '28');
+          svgEl.style.fill = 'white';
+        }
+      } else {
+        // Preset icon
+        const iconStyle = (cfg.avatar_url && cfg.avatar_url.startsWith('icon:')) 
+          ? cfg.avatar_url.replace('icon:', '') 
+          : 'chat';
+        launcherIconOpen.innerHTML = getLauncherIcon(iconStyle);
+      }
       
       // Curved text around launcher
       if (cfg.launcher_text_enabled && cfg.launcher_text) {

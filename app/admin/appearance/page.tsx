@@ -15,7 +15,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Loader2, Save, Bot, Clock, MessageCircle, Headset, MessageSquare, Heart, SmilePlus } from 'lucide-react'
+import { Loader2, Save, Bot, Clock, MessageCircle, Headset, MessageSquare, Heart, SmilePlus, Upload, Code, Lock, X, ImageIcon } from 'lucide-react'
 import { toast } from 'sonner'
 import type { PlanLimits } from '@/lib/products'
 
@@ -79,6 +79,15 @@ const ICON_OPTIONS = [
   { value: 'heart', label: 'Heart', icon: Heart },
   { value: 'robot', label: 'Robot', icon: Bot },
 ] as const
+
+type IconMode = 'preset' | 'upload' | 'svg'
+
+function getIconMode(avatarUrl: string | null): IconMode {
+  if (!avatarUrl) return 'preset'
+  if (avatarUrl.startsWith('data:')) return 'upload'
+  if (avatarUrl.startsWith('svg:')) return 'svg'
+  return 'preset'
+}
 
 function getIconStyle(avatarUrl: string | null): string {
   if (avatarUrl && avatarUrl.startsWith('icon:')) {
@@ -334,10 +343,12 @@ export default function AppearancePage() {
                 Choose the icon style for your chat launcher button
               </CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="space-y-5">
+              {/* Preset icons */}
               <div className="grid grid-cols-3 gap-3">
                 {ICON_OPTIONS.map((option) => {
-                  const isSelected = getIconStyle(config.avatar_url) === option.value
+                  const mode = getIconMode(config.avatar_url)
+                  const isSelected = mode === 'preset' && getIconStyle(config.avatar_url) === option.value
                   const IconComponent = option.icon
                   return (
                     <button
@@ -362,6 +373,132 @@ export default function AppearancePage() {
                     </button>
                   )
                 })}
+              </div>
+
+              {/* Custom icon - Pro+ only */}
+              <div className="relative rounded-lg border-2 border-dashed border-border p-4">
+                {!planLimits?.fullCustomization && (
+                  <div className="absolute inset-0 z-10 flex items-center justify-center rounded-lg bg-background/80 backdrop-blur-[1px]">
+                    <div className="flex items-center gap-2 rounded-full bg-muted px-4 py-2 text-sm font-medium text-muted-foreground">
+                      <Lock className="h-4 w-4" />
+                      Pro plan required
+                    </div>
+                  </div>
+                )}
+                <div className="space-y-4">
+                  <p className="text-sm font-medium text-foreground">Custom Icon</p>
+
+                  {/* Upload image */}
+                  <div className="space-y-2">
+                    <Label className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <Upload className="h-3.5 w-3.5" />
+                      Upload Image
+                    </Label>
+                    {getIconMode(config.avatar_url) === 'upload' ? (
+                      <div className="flex items-center gap-3">
+                        <div
+                          className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-full"
+                          style={{ backgroundColor: config.primary_color }}
+                        >
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={config.avatar_url || ''}
+                            alt="Custom icon"
+                            className="h-7 w-7 object-contain"
+                            style={{ filter: 'brightness(0) invert(1)' }}
+                          />
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setConfig({ ...config, avatar_url: 'icon:chat' })}
+                        >
+                          <X className="mr-1 h-3 w-3" />
+                          Remove
+                        </Button>
+                      </div>
+                    ) : (
+                      <label
+                        className={`flex cursor-pointer items-center gap-3 rounded-lg border border-border bg-muted/30 px-4 py-3 transition-colors hover:bg-muted/60 ${
+                          !planLimits?.fullCustomization ? 'pointer-events-none' : ''
+                        }`}
+                      >
+                        <ImageIcon className="h-5 w-5 text-muted-foreground" />
+                        <span className="text-sm text-muted-foreground">
+                          Choose an image (PNG, SVG, max 64KB)
+                        </span>
+                        <input
+                          type="file"
+                          accept="image/png,image/svg+xml,image/jpeg,image/webp"
+                          className="hidden"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0]
+                            if (!file) return
+                            if (file.size > 65536) {
+                              toast.error('Image is too large. Max size is 64KB.')
+                              return
+                            }
+                            const reader = new FileReader()
+                            reader.onload = () => {
+                              const result = reader.result as string
+                              setConfig({ ...config, avatar_url: result })
+                              toast.success('Custom icon uploaded')
+                            }
+                            reader.readAsDataURL(file)
+                            e.target.value = ''
+                          }}
+                        />
+                      </label>
+                    )}
+                  </div>
+
+                  {/* Custom SVG code */}
+                  <div className="space-y-2">
+                    <Label className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <Code className="h-3.5 w-3.5" />
+                      Custom SVG Code
+                    </Label>
+                    {getIconMode(config.avatar_url) === 'svg' ? (
+                      <div className="flex items-center gap-3">
+                        <div
+                          className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-full text-white [&_svg]:h-6 [&_svg]:w-6 [&_svg]:fill-white"
+                          style={{ backgroundColor: config.primary_color }}
+                          dangerouslySetInnerHTML={{ __html: config.avatar_url?.replace('svg:', '') || '' }}
+                        />
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setConfig({ ...config, avatar_url: 'icon:chat' })}
+                        >
+                          <X className="mr-1 h-3 w-3" />
+                          Remove
+                        </Button>
+                      </div>
+                    ) : (
+                      <Textarea
+                        placeholder={'<svg viewBox="0 0 24 24"><path d="..."/></svg>'}
+                        rows={3}
+                        className={`font-mono text-xs ${!planLimits?.fullCustomization ? 'pointer-events-none' : ''}`}
+                        onBlur={(e) => {
+                          const val = e.target.value.trim()
+                          if (!val) return
+                          // Basic SVG validation
+                          if (!val.startsWith('<svg') || !val.includes('</svg>')) {
+                            toast.error('Please enter valid SVG code starting with <svg> and ending with </svg>')
+                            return
+                          }
+                          if (val.length > 4096) {
+                            toast.error('SVG code is too long. Max 4KB.')
+                            return
+                          }
+                          setConfig({ ...config, avatar_url: `svg:${val}` })
+                          e.target.value = ''
+                          toast.success('Custom SVG icon applied')
+                        }}
+                      />
+                    )}
+                  </div>
+                </div>
               </div>
             </CardContent>
           </Card>
@@ -634,6 +771,26 @@ export default function AppearancePage() {
                       style={{ backgroundColor: config.primary_color }}
                     >
                       {(() => {
+                        const mode = getIconMode(config.avatar_url)
+                        if (mode === 'upload') {
+                          return (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                              src={config.avatar_url || ''}
+                              alt="Custom icon"
+                              className="h-7 w-7 object-contain"
+                              style={{ filter: 'brightness(0) invert(1)' }}
+                            />
+                          )
+                        }
+                        if (mode === 'svg') {
+                          return (
+                            <span
+                              className="flex h-6 w-6 items-center justify-center [&_svg]:h-6 [&_svg]:w-6 [&_svg]:fill-white"
+                              dangerouslySetInnerHTML={{ __html: config.avatar_url?.replace('svg:', '') || '' }}
+                            />
+                          )
+                        }
                         const style = getIconStyle(config.avatar_url)
                         const found = ICON_OPTIONS.find(o => o.value === style)
                         const Icon = found ? found.icon : MessageCircle
