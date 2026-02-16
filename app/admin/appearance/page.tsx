@@ -493,11 +493,22 @@ export default function AppearancePage() {
 
                   {/* Messages */}
                   <div className="h-64 space-y-3 bg-background p-4">
-                    <div 
-                      className="max-w-[80%] rounded-lg rounded-tl-none p-3 text-sm text-white"
-                      style={{ backgroundColor: config.primary_color }}
-                    >
-                      {config.welcome_message}
+                    {/* Bot message - gray bubble like real widget */}
+                    <div className="flex flex-col items-start gap-1">
+                      <span className="text-[11px] text-muted-foreground">AI Assistant</span>
+                      <div className="max-w-[80%] rounded-2xl rounded-bl-sm bg-[#f0f0f0] p-3 text-sm text-[#333]">
+                        {config.welcome_message}
+                      </div>
+                    </div>
+                    {/* Visitor message - uses primary color */}
+                    <div className="flex flex-col items-end gap-1">
+                      <span className="text-[11px] text-muted-foreground">You</span>
+                      <div 
+                        className="max-w-[80%] rounded-2xl rounded-br-sm p-3 text-sm text-white"
+                        style={{ backgroundColor: config.primary_color }}
+                      >
+                        Hi, I need some help!
+                      </div>
                     </div>
                   </div>
 

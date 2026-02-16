@@ -1,5 +1,4 @@
 import { generateText } from 'ai'
-import { xai } from '@ai-sdk/xai'
 import { createPublicClient } from '@/lib/supabase/public'
 import { NextRequest, NextResponse } from 'next/server'
 import { getPlanLimits, type PlanId } from '@/lib/products'
@@ -12,41 +11,39 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'Content-Type',
 }
 
-// Resolve user-facing model IDs to xAI model names
-// All models go through xAI since that's the configured provider
+// Resolve user-facing model IDs to Vercel AI Gateway model strings
+// Format: "provider/model-name" e.g. "xai/grok-3-mini"
 const MODEL_MAP: Record<string, string> = {
   // xAI Grok models
-  'grok-3-mini': 'grok-3-mini',
-  'grok-3': 'grok-3',
-  'grok-2': 'grok-2',
-  'xai/grok-3-mini': 'grok-3-mini',
-  'xai/grok-3': 'grok-3',
-  'xai/grok-2': 'grok-2',
+  'grok-3-mini': 'xai/grok-3-mini',
+  'grok-3': 'xai/grok-3',
+  'grok-2': 'xai/grok-2',
+  'xai/grok-3-mini': 'xai/grok-3-mini',
+  'xai/grok-3': 'xai/grok-3',
+  'xai/grok-2': 'xai/grok-2',
   // Legacy model name mappings
-  'grok-beta': 'grok-3-mini',
-  'grok-2-1212': 'grok-2',
-  'grok-2-image': 'grok-2',
+  'grok-beta': 'xai/grok-3-mini',
+  'grok-2-1212': 'xai/grok-2',
+  'grok-2-image': 'xai/grok-2',
   // Map non-xAI model names to xAI equivalents (fallback)
-  'gpt-4o-mini': 'grok-3-mini',
-  'gpt-4o': 'grok-3',
-  'gpt-4.1-mini': 'grok-3-mini',
-  'gpt-4.1-nano': 'grok-3-mini',
-  'claude-3-5-haiku-latest': 'grok-3-mini',
-  'llama-3.3-70b-versatile': 'grok-3',
-  'llama-3.1-8b-instant': 'grok-3-mini',
-  'mixtral-8x7b-32768': 'grok-3-mini',
-  'gemma2-9b-it': 'grok-3-mini',
+  'gpt-4o-mini': 'xai/grok-3-mini',
+  'gpt-4o': 'xai/grok-3',
+  'gpt-4.1-mini': 'xai/grok-3-mini',
+  'gpt-4.1-nano': 'xai/grok-3-mini',
+  'claude-3-5-haiku-latest': 'xai/grok-3-mini',
+  'llama-3.3-70b-versatile': 'xai/grok-3',
+  'llama-3.1-8b-instant': 'xai/grok-3-mini',
+  'mixtral-8x7b-32768': 'xai/grok-3-mini',
+  'gemma2-9b-it': 'xai/grok-3-mini',
 }
 
-// Default model and fallback chain (all xAI models)
-const DEFAULT_MODEL = 'grok-3-mini'
-const FALLBACK_MODELS = ['grok-3-mini', 'grok-2']
+// Default model and fallback chain (Vercel AI Gateway format)
+const DEFAULT_MODEL = 'xai/grok-3-mini'
+const FALLBACK_MODELS = ['xai/grok-3-mini', 'xai/grok-2']
 
 function resolveModel(modelId: string | null): string {
   if (!modelId) return DEFAULT_MODEL
-  // Strip xai/ prefix if present
-  const cleaned = modelId.replace(/^xai\//, '')
-  return MODEL_MAP[modelId] || MODEL_MAP[cleaned] || cleaned
+  return MODEL_MAP[modelId] || MODEL_MAP[modelId.replace(/^xai\//, '')] || `xai/${modelId.replace(/^xai\//, '')}`
 }
 
 export async function POST(request: NextRequest) {
@@ -265,7 +262,7 @@ Important rules:
     for (const modelId of modelsToTry) {
       try {
         const result = await generateText({
-          model: xai(modelId),
+          model: modelId,
           system: systemPrompt,
           messages: conversationMessages,
           maxOutputTokens: config.ai_max_tokens || 500,
