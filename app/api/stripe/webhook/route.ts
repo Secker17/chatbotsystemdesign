@@ -7,19 +7,21 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!)
 export async function POST(request: NextRequest) {
   const body = await request.text()
   const sig = request.headers.get('stripe-signature')
+  const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET
 
   if (!sig) {
     return NextResponse.json({ error: 'Missing signature' }, { status: 400 })
   }
 
+  if (!webhookSecret) {
+    console.error('STRIPE_WEBHOOK_SECRET is not set. Please add it to your environment variables.')
+    return NextResponse.json({ error: 'Webhook secret not configured' }, { status: 500 })
+  }
+
   let event: Stripe.Event
 
   try {
-    event = stripe.webhooks.constructEvent(
-      body,
-      sig,
-      process.env.STRIPE_WEBHOOK_SECRET!
-    )
+    event = stripe.webhooks.constructEvent(body, sig, webhookSecret)
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Unknown error'
     console.error('Webhook signature verification failed:', message)
@@ -35,18 +37,22 @@ export async function POST(request: NextRequest) {
         const customerId = session.customer as string
         const subscriptionId = session.subscription as string
         const userId = session.metadata?.user_id
+        const planId = session.metadata?.plan_id
 
         if (!userId) {
           console.error('No user_id in checkout session metadata')
           break
         }
 
-        // Determine plan from the price amount
-        let plan = 'starter'
-        if (session.amount_total === 2900) {
-          plan = 'pro'
-        } else if (session.amount_total === 9900) {
-          plan = 'business'
+        // Use plan_id from metadata (set during checkout creation)
+        // Fallback to amount-based detection for legacy sessions
+        let plan = planId || 'starter'
+        if (!planId) {
+          if (session.amount_total === 2900) {
+            plan = 'pro'
+          } else if (session.amount_total === 9900) {
+            plan = 'business'
+          }
         }
 
         await supabase
@@ -82,13 +88,17 @@ export async function POST(request: NextRequest) {
           const periodEnd = new Date(subscription.current_period_end * 1000).toISOString()
           const periodStart = new Date(subscription.current_period_start * 1000).toISOString()
 
-          // Determine plan from subscription items price
-          let plan = 'starter'
-          const priceAmount = subscription.items.data[0]?.price?.unit_amount
-          if (priceAmount === 2900) {
-            plan = 'pro'
-          } else if (priceAmount === 9900) {
-            plan = 'business'
+          // Use plan_id from subscription metadata (set during checkout creation)
+          // Fallback to price-based detection for legacy subscriptions
+          const metaPlan = subscription.metadata?.plan_id
+          let plan = metaPlan || 'starter'
+          if (!metaPlan) {
+            const priceAmount = subscription.items.data[0]?.price?.unit_amount
+            if (priceAmount === 2900) {
+              plan = 'pro'
+            } else if (priceAmount === 9900) {
+              plan = 'business'
+            }
           }
 
           await supabase
