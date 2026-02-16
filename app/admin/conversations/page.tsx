@@ -41,6 +41,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
+import { toast } from 'sonner'
 import type { RealtimeChannel } from '@supabase/supabase-js'
 
 interface ChatSession {
@@ -288,7 +289,7 @@ export default function ConversationsPage() {
     })
 
     if (error) {
-      console.error('Send message error:', error)
+      toast.error('Failed to send message')
     } else {
       await supabase
         .from('chat_sessions')
@@ -306,7 +307,7 @@ export default function ConversationsPage() {
 
   const handleTakeOver = async (sessionId: string) => {
     const supabase = createClient()
-    await supabase
+    const { error } = await supabase
       .from('chat_sessions')
       .update({ 
         is_bot_active: false,
@@ -314,6 +315,11 @@ export default function ConversationsPage() {
         updated_at: new Date().toISOString(),
       })
       .eq('id', sessionId)
+
+    if (error) {
+      toast.error('Failed to take over conversation')
+      return
+    }
 
     // Send a system message to let the visitor know
     await supabase.from('chat_messages').insert({
@@ -324,12 +330,13 @@ export default function ConversationsPage() {
       sender_id: userId,
     })
 
+    toast.success('You are now handling this conversation')
     await loadSessions()
   }
 
   const handleReactivateBot = async (sessionId: string) => {
     const supabase = createClient()
-    await supabase
+    const { error } = await supabase
       .from('chat_sessions')
       .update({ 
         is_bot_active: true,
@@ -337,6 +344,12 @@ export default function ConversationsPage() {
         updated_at: new Date().toISOString(),
       })
       .eq('id', sessionId)
+    
+    if (error) {
+      toast.error('Failed to reactivate AI')
+    } else {
+      toast.success('AI is now handling this conversation')
+    }
     await loadSessions()
   }
 
@@ -347,7 +360,10 @@ export default function ConversationsPage() {
       .update({ status: 'closed', ended_at: new Date().toISOString(), is_bot_active: false })
       .eq('id', sessionId)
     
-    if (!error) {
+    if (error) {
+      toast.error('Failed to archive conversation')
+    } else {
+      toast.success('Conversation archived')
       await loadSessions()
     }
   }
@@ -366,7 +382,7 @@ export default function ConversationsPage() {
       .eq('session_id', sessionId)
 
     if (msgError) {
-      console.error('Failed to delete messages:', msgError)
+      toast.error('Failed to delete conversation')
       await loadSessions()
       return
     }
@@ -377,7 +393,9 @@ export default function ConversationsPage() {
       .eq('id', sessionId)
 
     if (sessionError) {
-      console.error('Failed to delete session:', sessionError)
+      toast.error('Failed to delete conversation')
+    } else {
+      toast.success('Conversation deleted')
     }
 
     await loadSessions()

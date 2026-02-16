@@ -26,7 +26,7 @@ export function UpgradeBanner({ feature, description, requiredPlan, currentPlan 
           </p>
         </div>
         <Button asChild className="shrink-0">
-          <Link href="/pricing">
+          <Link href="/admin/settings">
             Upgrade to {requiredPlan === 'pro' ? 'Pro' : 'Business'}
             <ArrowRight className="ml-2 h-4 w-4" />
           </Link>

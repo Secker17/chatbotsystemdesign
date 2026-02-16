@@ -240,7 +240,7 @@ export function AdminSidebar({ user, profile }: AdminSidebarProps) {
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild>
-                  <Link href="/pricing">
+                  <Link href="/admin/settings">
                     <CreditCard className="mr-2 h-4 w-4" />
                     Upgrade Plan
                   </Link>
