@@ -75,22 +75,30 @@ export async function GET() {
     .vintra-launcher.is-open .vintra-icon-close { opacity: 1; transform: scale(1) rotate(0deg); }
     .vintra-unread-badge {
       position: absolute;
-      top: -2px;
-      right: -2px;
-      width: 20px;
-      height: 20px;
+      top: -5px;
+      right: -5px;
+      min-width: 22px;
+      height: 22px;
+      padding: 0 6px;
       background: #ef4444;
-      border-radius: 50%;
+      border-radius: 11px;
       color: white;
       font-size: 11px;
       font-weight: 700;
       display: none;
       align-items: center;
       justify-content: center;
-      border: 2px solid white;
+      border: 2.5px solid white;
+      z-index: 10;
+      box-shadow: 0 2px 8px rgba(239, 68, 68, 0.4);
+      animation: vintraBadgePop 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
     }
     .vintra-unread-badge.show {
       display: flex;
+    }
+    @keyframes vintraBadgePop {
+      0% { transform: scale(0); }
+      100% { transform: scale(1); }
     }
     .vintra-launcher-row {
       display: flex;
@@ -215,11 +223,35 @@ export async function GET() {
       align-items: center;
       justify-content: center;
       flex-shrink: 0;
+      overflow: hidden;
+      position: relative;
     }
     .vintra-header-avatar svg {
       width: 24px;
       height: 24px;
       fill: white;
+    }
+    .vintra-header-avatar img {
+      width: 26px;
+      height: 26px;
+      object-fit: contain;
+      filter: brightness(0) invert(1);
+    }
+    .vintra-header-avatar iframe {
+      width: 100%;
+      height: 100%;
+      border: none;
+      border-radius: 50%;
+      pointer-events: none;
+      position: absolute;
+      inset: 0;
+    }
+    .vintra-header-avatar canvas {
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+      position: absolute;
+      inset: 0;
     }
     .vintra-header-info h4 {
       margin: 0;
@@ -318,13 +350,16 @@ export async function GET() {
     .vintra-msg-label {
       font-size: 11px;
       color: #999;
-      margin-bottom: 3px;
+      margin-bottom: 2px;
+      margin-left: 36px;
       display: flex;
       align-items: center;
       gap: 4px;
     }
     .vintra-msg-label.right {
       justify-content: flex-end;
+      margin-left: 0;
+      margin-right: 0;
     }
     .vintra-msg-label svg {
       width: 12px;
@@ -341,17 +376,69 @@ export async function GET() {
     .vintra-msg-group.bot, .vintra-msg-group.admin {
       align-items: flex-start;
     }
+    .vintra-msg-row {
+      display: flex;
+      align-items: flex-end;
+      gap: 8px;
+    }
+    .vintra-msg-row.visitor {
+      flex-direction: row-reverse;
+    }
+    .vintra-msg-avatar {
+      width: 28px;
+      height: 28px;
+      min-width: 28px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      position: relative;
+      flex-shrink: 0;
+    }
+    .vintra-msg-avatar svg {
+      width: 16px;
+      height: 16px;
+      fill: white;
+    }
+    .vintra-msg-avatar img {
+      width: 18px;
+      height: 18px;
+      object-fit: contain;
+      filter: brightness(0) invert(1);
+    }
+    .vintra-msg-avatar iframe {
+      width: 100%;
+      height: 100%;
+      border: none;
+      border-radius: 50%;
+      pointer-events: none;
+      position: absolute;
+      inset: 0;
+    }
+    .vintra-msg-avatar canvas {
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+      position: absolute;
+      inset: 0;
+    }
     .vintra-typing {
       display: none;
       align-self: flex-start;
+      margin-top: 4px;
+      align-items: flex-end;
+      gap: 8px;
+      margin-left: 0;
+    }
+    .vintra-typing.show {
+      display: flex;
+    }
+    .vintra-typing-bubble {
       padding: 12px 16px;
       background: #f0f0f0;
       border-radius: 16px;
       border-bottom-left-radius: 4px;
-      margin-top: 4px;
-    }
-    .vintra-typing.show {
-      display: block;
     }
     .vintra-typing-label {
       font-size: 10px;
@@ -363,8 +450,8 @@ export async function GET() {
       gap: 4px;
     }
     .vintra-typing-dots span {
-      width: 8px;
-      height: 8px;
+      width: 7px;
+      height: 7px;
       background: #999;
       border-radius: 50%;
       animation: vintraBounce 1.4s infinite ease-in-out both;
@@ -378,14 +465,15 @@ export async function GET() {
     .vintra-human-typing {
       display: none;
       align-self: flex-start;
-      padding: 12px 16px;
-      background: #e8f5e9;
-      border-radius: 16px;
-      border-bottom-left-radius: 4px;
       margin-top: 4px;
+      align-items: flex-end;
+      gap: 8px;
     }
     .vintra-human-typing.show {
-      display: block;
+      display: flex;
+    }
+    .vintra-human-typing .vintra-typing-bubble {
+      background: #e8f5e9;
     }
     .vintra-human-typing .vintra-typing-label {
       color: #4caf50;
@@ -737,6 +825,109 @@ export async function GET() {
     return () => { if (animId) cancelAnimationFrame(animId); };
   }
   
+  // Helper: populate an avatar container based on icon config 
+  function setAvatarContent(el, cfg, size) {
+    if (!cfg || !cfg.avatar_url) {
+      el.innerHTML = icons.bot;
+      return;
+    }
+    const av = cfg.avatar_url;
+    if (av.startsWith('code:')) {
+      el.innerHTML = '';
+      const iframe = document.createElement('iframe');
+      iframe.sandbox = 'allow-scripts';
+      iframe.style.cssText = 'width:100%;height:100%;border:none;border-radius:50%;pointer-events:none;background:transparent;position:absolute;inset:0;';
+      iframe.srcdoc = av.substring(5);
+      el.appendChild(iframe);
+    } else if (av.startsWith('data:')) {
+      el.innerHTML = '<img src="' + av + '" alt="" />';
+    } else if (av.startsWith('svg:')) {
+      const svgCode = av.replace('svg:', '');
+      el.innerHTML = svgCode;
+      const svgEl = el.querySelector('svg');
+      if (svgEl) {
+        svgEl.setAttribute('width', String(size || 24));
+        svgEl.setAttribute('height', String(size || 24));
+        svgEl.style.fill = 'white';
+      }
+    } else if (av.startsWith('icon:')) {
+      const style = av.replace('icon:', '');
+      if (style === 'glass-orb') {
+        initMiniGlassOrb(el, cfg.primary_color, size || 28);
+      } else {
+        el.innerHTML = launcherIcons[style] || icons.bot;
+      }
+    } else {
+      el.innerHTML = icons.bot;
+    }
+  }
+  
+  // Mini glass orb for avatars in header and messages
+  function initMiniGlassOrb(container, primaryColor, size) {
+    container.innerHTML = '';
+    container.style.background = 'transparent';
+    
+    const canvas = document.createElement('canvas');
+    canvas.width = size;
+    canvas.height = size;
+    canvas.style.cssText = 'width:100%;height:100%;border-radius:50%;position:absolute;inset:0;';
+    
+    const glass = document.createElement('div');
+    glass.style.cssText = 'position:absolute;inset:0;border-radius:50%;pointer-events:none;z-index:1;' +
+      'background:radial-gradient(circle at 30% 30%,rgba(255,255,255,0.25) 0%,rgba(150,200,255,0.1) 40%,transparent 70%);' +
+      'border:1px solid rgba(255,255,255,0.15);';
+    
+    container.appendChild(canvas);
+    container.appendChild(glass);
+    
+    const ctx = canvas.getContext('2d');
+    const cx = size / 2, cy = size / 2;
+    
+    let pr = 80, pg2 = 150, pb = 255;
+    if (primaryColor) {
+      const m = primaryColor.match(/^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i);
+      if (m) { pr = parseInt(m[1],16); pg2 = parseInt(m[2],16); pb = parseInt(m[3],16); }
+    }
+    
+    const palette = [
+      { r: pr, g: pg2, b: pb },
+      { r: Math.min(255,pr+30), g: Math.min(255,pg2+20), b: Math.min(255,pb+10) },
+      { r: Math.max(0,pr-20), g: Math.min(255,pg2+30), b: Math.min(255,pb+20) },
+    ];
+    
+    const particles = [];
+    const count = Math.max(40, Math.floor(size * 2.5));
+    for (let i = 0; i < count; i++) {
+      particles.push({
+        baseR: Math.random() * (size * 0.4) + size * 0.04,
+        angle: Math.random() * Math.PI * 2,
+        speed: (Math.random() * 0.015 + 0.005) * (Math.random() < 0.5 ? 1 : -1),
+        sz: Math.random() * (size * 0.06) + size * 0.03,
+        ci: Math.floor(Math.random() * palette.length),
+      });
+    }
+    
+    let animId;
+    function animate() {
+      ctx.clearRect(0, 0, size, size);
+      particles.forEach(p => {
+        p.angle += p.speed;
+        const x = cx + Math.cos(p.angle) * p.baseR;
+        const y = cy + Math.sin(p.angle) * p.baseR;
+        const c = palette[p.ci];
+        ctx.shadowBlur = 4;
+        ctx.shadowColor = 'rgba(' + c.r + ',' + c.g + ',' + c.b + ',0.2)';
+        ctx.fillStyle = 'rgba(' + c.r + ',' + c.g + ',' + c.b + ',0.3)';
+        ctx.beginPath();
+        ctx.arc(x, y, p.sz, 0, Math.PI * 2);
+        ctx.fill();
+      });
+      ctx.shadowBlur = 0;
+      animId = requestAnimationFrame(animate);
+    }
+    animate();
+  }
+
   // Create widget
   function createWidget() {
     const container = document.createElement('div');
@@ -771,15 +962,21 @@ export async function GET() {
         </div>
         <div class="vintra-messages" style="display: none;"></div>
         <div class="vintra-typing">
-          <div class="vintra-typing-label">AI is thinking...</div>
-          <div class="vintra-typing-dots">
-            <span></span><span></span><span></span>
+          <div class="vintra-typing-avatar vintra-msg-avatar" style="background:var(--vintra-primary, #14b8a6)">${icons.bot}</div>
+          <div class="vintra-typing-bubble">
+            <div class="vintra-typing-label">AI is thinking...</div>
+            <div class="vintra-typing-dots">
+              <span></span><span></span><span></span>
+            </div>
           </div>
         </div>
         <div class="vintra-human-typing">
-          <div class="vintra-typing-label">Agent is typing...</div>
-          <div class="vintra-typing-dots">
-            <span></span><span></span><span></span>
+          <div class="vintra-msg-avatar" style="background:#4caf50">${icons.user}</div>
+          <div class="vintra-typing-bubble">
+            <div class="vintra-typing-label">Agent is typing...</div>
+            <div class="vintra-typing-dots">
+              <span></span><span></span><span></span>
+            </div>
           </div>
         </div>
         <div class="vintra-quick-actions">
@@ -1107,13 +1304,32 @@ export async function GET() {
         group.appendChild(label);
       }
       
+      // Message row with avatar
+      const row = document.createElement('div');
+      row.className = 'vintra-msg-row ' + type;
+      
+      // Add avatar for bot/admin messages
+      if (type === 'bot' || type === 'admin') {
+        const avatar = document.createElement('div');
+        avatar.className = 'vintra-msg-avatar';
+        if (type === 'admin') {
+          avatar.style.background = '#4caf50';
+          avatar.innerHTML = icons.user;
+        } else {
+          avatar.style.background = config?.primary_color || '#14b8a6';
+          setAvatarContent(avatar, config, 16);
+        }
+        row.appendChild(avatar);
+      }
+      
       const message = document.createElement('div');
       message.className = 'vintra-message ' + type;
       message.textContent = content;
       if (type === 'visitor' && config?.primary_color) {
         message.style.background = config.primary_color;
       }
-      group.appendChild(message);
+      row.appendChild(message);
+      group.appendChild(row);
       messagesContainer.appendChild(group);
       messagesContainer.scrollTop = messagesContainer.scrollHeight;
       
@@ -1312,6 +1528,22 @@ export async function GET() {
       
       if (cfg.position === 'bottom-left') {
         container.classList.add('position-left');
+      }
+      
+      // Apply icon to header avatar
+      const headerAvatar = container.querySelector('.vintra-header-avatar');
+      if (headerAvatar) {
+        setAvatarContent(headerAvatar, cfg, 24);
+        if (cfg.avatar_url && (cfg.avatar_url.startsWith('icon:glass-orb') || cfg.avatar_url.startsWith('code:'))) {
+          headerAvatar.style.background = 'rgba(255,255,255,0.1)';
+        }
+      }
+      
+      // Apply icon to typing indicator avatar
+      const typingAvatar = container.querySelector('.vintra-typing-avatar');
+      if (typingAvatar) {
+        typingAvatar.style.background = cfg.primary_color || '#14b8a6';
+        setAvatarContent(typingAvatar, cfg, 16);
       }
       
       // Apply launcher icon from avatar_url
