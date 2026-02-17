@@ -13,12 +13,13 @@ const VINTRA_LOGO = "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/vin
 
 export default function PricingPage() {
   const [currentPlan, setCurrentPlan] = useState<string | null>(null)
+  const [isLoggedIn, setIsLoggedIn] = useState(false)
 
   useEffect(() => {
     fetch('/api/plan')
       .then(r => { if (r.ok) return r.json(); throw new Error('not logged in') })
-      .then(d => setCurrentPlan(d.planId))
-      .catch(() => setCurrentPlan(null))
+      .then(d => { setCurrentPlan(d.planId); setIsLoggedIn(true) })
+      .catch(() => { setCurrentPlan(null); setIsLoggedIn(false) })
   }, [])
   return (
     <div className="min-h-screen bg-background">
@@ -41,9 +42,15 @@ export default function PricingPage() {
                 Back
               </Button>
             </Link>
-            <Link href="/auth/login">
-              <Button variant="outline" size="sm">Sign In</Button>
-            </Link>
+            {isLoggedIn ? (
+              <Link href="/admin">
+                <Button variant="outline" size="sm">Dashboard</Button>
+              </Link>
+            ) : (
+              <Link href="/auth/login">
+                <Button variant="outline" size="sm">Sign In</Button>
+              </Link>
+            )}
           </div>
         </div>
       </header>
@@ -105,13 +112,20 @@ export default function PricingPage() {
                       Current Plan
                     </Button>
                   ) : (
-                    <Link href={product.priceInCents === 0 ? '/auth/sign-up' : `/checkout/${product.id}`} className="w-full">
+                    <Link 
+                      href={
+                        product.priceInCents === 0
+                          ? (isLoggedIn ? '/admin' : '/auth/sign-up')
+                          : (isLoggedIn ? `/checkout/${product.id}` : `/auth/login?redirect=/checkout/${product.id}`)
+                      } 
+                      className="w-full"
+                    >
                       <Button 
                         className="w-full" 
                         variant={product.popular ? 'default' : 'outline'}
                       >
                         {product.priceInCents === 0
-                          ? (currentPlan ? 'Downgrade' : 'Get Started Free')
+                          ? (currentPlan ? 'Downgrade' : (isLoggedIn ? 'Go to Dashboard' : 'Get Started Free'))
                           : (currentPlan ? 'Upgrade' : 'Subscribe')}
                       </Button>
                     </Link>
