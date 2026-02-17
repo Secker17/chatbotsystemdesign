@@ -15,10 +15,13 @@ import {
   Globe
 } from 'lucide-react'
 import { PRODUCTS, formatPrice } from '@/lib/products'
+import { createClient } from '@/lib/supabase/server'
 
 const VINTRA_LOGO = "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/vintratext-skOk2ureyF4j9EWL7jotcLG1aD5kpr.png"
 
-export default function LandingPage() {
+export default async function LandingPage() {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
   return (
     <div className="min-h-screen bg-background">
       {/* Navigation */}
@@ -47,12 +50,20 @@ export default function LandingPage() {
             </Link>
           </nav>
           <div className="flex items-center gap-3">
-            <Link href="/auth/login">
-              <Button variant="ghost" size="sm">Sign In</Button>
-            </Link>
-            <Link href="/auth/sign-up">
-              <Button size="sm">Get Started</Button>
-            </Link>
+            {user ? (
+              <Link href="/admin">
+                <Button size="sm">Dashboard</Button>
+              </Link>
+            ) : (
+              <>
+                <Link href="/auth/login">
+                  <Button variant="ghost" size="sm">Sign In</Button>
+                </Link>
+                <Link href="/auth/sign-up">
+                  <Button size="sm">Get Started</Button>
+                </Link>
+              </>
+            )}
           </div>
         </div>
       </header>
@@ -265,12 +276,21 @@ export default function LandingPage() {
                   </ul>
                 </CardContent>
                 <div className="p-6 pt-0">
-                  <Link href={product.priceInCents === 0 ? '/auth/sign-up' : `/checkout/${product.id}`} className="block">
+                  <Link 
+                    href={
+                      product.priceInCents === 0 
+                        ? (user ? '/admin' : '/auth/sign-up')
+                        : (user ? `/checkout/${product.id}` : `/auth/login?redirect=/checkout/${product.id}`)
+                    } 
+                    className="block"
+                  >
                     <Button 
                       className="w-full" 
                       variant={product.popular ? 'default' : 'outline'}
                     >
-                      {product.priceInCents === 0 ? 'Get Started Free' : 'Subscribe'}
+                      {product.priceInCents === 0 
+                        ? (user ? 'Go to Dashboard' : 'Get Started Free') 
+                        : 'Subscribe'}
                     </Button>
                   </Link>
                 </div>
@@ -296,9 +316,9 @@ export default function LandingPage() {
             Start building your chatbot today. Free to get started, no credit card required.
           </p>
           <div className="mt-8 flex flex-col items-center justify-center gap-4 sm:flex-row">
-            <Link href="/auth/sign-up">
+            <Link href={user ? '/admin' : '/auth/sign-up'}>
               <Button size="lg" variant="secondary" className="gap-2">
-                Get Started Free
+                {user ? 'Go to Dashboard' : 'Get Started Free'}
                 <ArrowRight className="h-4 w-4" />
               </Button>
             </Link>
