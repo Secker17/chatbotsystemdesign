@@ -18,6 +18,8 @@ import {
 import { Loader2, Save, Bot, Clock, MessageCircle, Headset, MessageSquare, Heart, SmilePlus, Upload, Code, Lock, X, ImageIcon, Sparkles } from 'lucide-react'
 import { toast } from 'sonner'
 import type { PlanLimits } from '@/lib/products'
+import ColorPicker, { DEFAULT_COLOR_CATEGORIES } from '@/components/color-picker'
+import AdminThemePicker from '@/components/admin-theme-picker'
 
 interface DaySchedule {
   enabled: boolean
@@ -130,6 +132,37 @@ export default function AppearancePage() {
   }, [])
 
   const loadConfig = async () => {
+    // Check if Supabase is configured
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+    const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+    
+    if (!supabaseUrl || !supabaseKey) {
+      // Use mock data in development mode
+      const mockConfig = {
+        id: 'dev-chatbot',
+        admin_id: 'dev-user',
+        widget_title: 'Chat with us',
+        welcome_message: 'Hi! How can we help you today?',
+        primary_color: '#eab308',
+        position: 'bottom-right',
+        avatar_url: null,
+        show_branding: true,
+        offline_message: 'We are currently offline. Leave a message!',
+        placeholder_text: 'Type your message...',
+        launcher_text: null,
+        launcher_text_enabled: false,
+        business_hours_enabled: false,
+        business_hours: DEFAULT_BUSINESS_HOURS,
+        business_hours_timezone: 'Europe/Oslo',
+        outside_hours_message: null,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      }
+      setConfig(mockConfig)
+      setLoading(false)
+      return
+    }
+
     const supabase = createClient()
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
@@ -148,6 +181,18 @@ export default function AppearancePage() {
 
   const handleSave = async () => {
     if (!config) return
+    
+    // Check if Supabase is configured
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+    const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+    
+    if (!supabaseUrl || !supabaseKey) {
+      // In dev mode, just show success but don't actually save
+      toast.success('Appearance settings saved (Development Mode - not actually saved)')
+      setSaving(false)
+      return
+    }
+    
     setSaving(true)
 
     const supabase = createClient()
@@ -222,13 +267,16 @@ export default function AppearancePage() {
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
-        {/* Settings */}
+        {/* Admin Panel Theme */}
+        <AdminThemePicker />
+
+        {/* Chatbot Settings */}
         <div className="space-y-6">
           <Card>
             <CardHeader>
               <CardTitle>Basic Settings</CardTitle>
               <CardDescription>
-                Configure the basic appearance of your chat widget
+                Configure basic appearance of your chat widget
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -277,28 +325,10 @@ export default function AppearancePage() {
             <CardHeader>
               <CardTitle>Style & Position</CardTitle>
               <CardDescription>
-                Adjust the visual style and positioning
+                Adjust visual style and positioning
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="color">Primary Color</Label>
-                <div className="flex gap-3">
-                  <Input
-                    id="color"
-                    type="color"
-                    value={config.primary_color}
-                    onChange={(e) => setConfig({ ...config, primary_color: e.target.value })}
-                    className="h-10 w-16 cursor-pointer p-1"
-                  />
-                  <Input
-                    value={config.primary_color}
-                    onChange={(e) => setConfig({ ...config, primary_color: e.target.value })}
-                    placeholder="#14b8a6"
-                    className="flex-1 font-mono"
-                  />
-                </div>
-              </div>
               <div className="space-y-2">
                 <Label htmlFor="position">Widget Position</Label>
                 <Select
@@ -306,11 +336,13 @@ export default function AppearancePage() {
                   onValueChange={(value) => setConfig({ ...config, position: value })}
                 >
                   <SelectTrigger>
-                    <SelectValue />
+                    <SelectValue placeholder="Select position" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="bottom-right">Bottom Right</SelectItem>
                     <SelectItem value="bottom-left">Bottom Left</SelectItem>
+                    <SelectItem value="bottom-right">Bottom Right</SelectItem>
+                    <SelectItem value="top-left">Top Left</SelectItem>
+                    <SelectItem value="top-right">Top Right</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

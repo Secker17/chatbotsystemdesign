@@ -30,8 +30,29 @@ function LoginForm() {
   const searchParams = useSearchParams()
   const redirectTo = searchParams.get('redirect')
 
+  // Check if Supabase is configured
+  const [isDevMode, setIsDevMode] = useState(false)
+  
+  React.useEffect(() => {
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+    const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+    setIsDevMode(!supabaseUrl || !supabaseKey)
+    
+    // If in dev mode, redirect directly to admin
+    if (!supabaseUrl || !supabaseKey) {
+      router.push(redirectTo || '/admin')
+    }
+  }, [router, redirectTo])
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
+    
+    // Prevent login in dev mode
+    if (isDevMode) {
+      setError('Login er deaktivert i development mode. Gå direkte til /admin')
+      return
+    }
+    
     setIsLoading(true)
     setError(null)
 
@@ -96,6 +117,17 @@ function LoginForm() {
             'Sign In'
           )}
         </Button>
+        
+        {isDevMode && (
+          <Button 
+            type="button" 
+            variant="outline" 
+            className="h-11 w-full"
+            onClick={() => router.push('/admin')}
+          >
+            Gå til Admin (Dev Mode)
+          </Button>
+        )}
       </div>
       <div className="mt-6 text-center text-sm text-muted-foreground">
         Don&apos;t have an account?{' '}

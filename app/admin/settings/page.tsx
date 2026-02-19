@@ -72,6 +72,28 @@ export default function SettingsPage() {
   }
 
   const loadProfile = async () => {
+    // Check if Supabase is configured
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+    const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+    
+    if (!supabaseUrl || !supabaseKey) {
+      // Use mock data in development mode
+      const mockProfile = {
+        id: 'dev-profile',
+        user_id: 'dev-user',
+        full_name: 'Development User',
+        company_name: null,
+        avatar_url: null,
+        plan: 'free',
+        email_notifications: false,
+        timezone: null
+      }
+      setProfile(mockProfile)
+      setEmail('dev@example.com')
+      setLoading(false)
+      return
+    }
+
     const supabase = createClient()
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
@@ -92,6 +114,17 @@ export default function SettingsPage() {
 
   const handleSave = async () => {
     if (!profile) return
+    
+    // Check if Supabase is configured
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+    const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+    
+    if (!supabaseUrl || !supabaseKey) {
+      // In dev mode, just show success but don't actually save
+      toast.success('Settings saved (Development Mode - not actually saved)')
+      return
+    }
+    
     setSaving(true)
 
     const supabase = createClient()
@@ -142,6 +175,20 @@ export default function SettingsPage() {
     }
     if (newPassword !== confirmPassword) {
       toast.error('Passwords do not match')
+      return
+    }
+
+    // Check if Supabase is configured
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+    const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+    
+    if (!supabaseUrl || !supabaseKey) {
+      // In dev mode, just show success but don't actually change
+      toast.success('Password changed (Development Mode - not actually changed)')
+      setPasswordDialogOpen(false)
+      setNewPassword('')
+      setConfirmPassword('')
+      setChangingPassword(false)
       return
     }
 

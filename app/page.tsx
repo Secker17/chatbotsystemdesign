@@ -39,6 +39,9 @@ export default async function LandingPage() {
             />
           </Link>
           <nav className="hidden items-center gap-6 md:flex">
+            <Link href="/chat-demo" className="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground">
+              Demo
+            </Link>
             <Link href="#features" className="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground">
               Features
             </Link>
@@ -90,6 +93,12 @@ export default async function LandingPage() {
                 <ArrowRight className="h-4 w-4" />
               </Button>
             </Link>
+            <Link href="/chat-demo">
+              <Button variant="outline" size="lg" className="gap-2">
+                <MessageSquare className="h-4 w-4" />
+                Try Live Demo
+              </Button>
+            </Link>
             <Link href="#integration">
               <Button variant="outline" size="lg" className="gap-2 bg-transparent">
                 <Code2 className="h-4 w-4" />
@@ -133,6 +142,11 @@ export default async function LandingPage() {
                 icon: MessageSquare,
                 title: 'Real-time Chat',
                 description: 'Instant messaging with typing indicators, read receipts, and seamless conversation flow.',
+              },
+              {
+                icon: Palette,
+                title: 'Glass Orb Avatars',
+                description: 'Beautiful animated avatars with particle physics, multiple themes, and interactive effects.',
               },
               {
                 icon: Palette,
