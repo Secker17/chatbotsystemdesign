@@ -6,7 +6,10 @@ export async function GET() {
     const supabase = createPublicClient()
 
     // Find the chatbot config flagged as the landing widget
-    const { data, error } = await supabase
+    let data: Record<string, unknown> | null = null
+
+    // Try with all columns first
+    const { data: fullData, error: fullError } = await supabase
       .from('chatbot_configs')
       .select(
         'id, widget_title, welcome_message, primary_color, position, avatar_url, show_branding, placeholder_text, ai_enabled, launcher_text, launcher_text_enabled, is_landing_widget, landing_widget_enabled, quick_replies, greeting_message, greeting_subtext'
@@ -15,8 +18,29 @@ export async function GET() {
       .limit(1)
       .single()
 
-    if (error || !data) {
-      // Return sensible defaults if no landing widget is configured
+    if (!fullError && fullData) {
+      data = fullData
+    } else {
+      // Fallback: columns may not exist yet, try without them
+      const { data: fallbackData } = await supabase
+        .from('chatbot_configs')
+        .select('id, widget_title, welcome_message, primary_color, position, avatar_url, show_branding, placeholder_text, ai_enabled, launcher_text, launcher_text_enabled')
+        .limit(1)
+        .single()
+
+      if (fallbackData) {
+        data = {
+          ...fallbackData,
+          is_landing_widget: true,
+          landing_widget_enabled: true,
+          quick_replies: [],
+          greeting_message: 'Hi there!',
+          greeting_subtext: 'How can I help you today?',
+        }
+      }
+    }
+
+    if (!data) {
       return NextResponse.json({
         enabled: false,
         chatbot_id: null,
