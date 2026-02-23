@@ -15,7 +15,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Loader2, Save, Bot, Clock, MessageCircle, Headset, MessageSquare, Heart, SmilePlus, Upload, Code, Lock, X, ImageIcon, Sparkles } from 'lucide-react'
+import { Loader2, Save, Bot, Clock, MessageCircle, Headset, MessageSquare, Heart, SmilePlus, Upload, Code, Lock, X, ImageIcon, Sparkles, Globe, Plus, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import type { PlanLimits } from '@/lib/products'
 import ColorPicker, { DEFAULT_COLOR_CATEGORIES } from '@/components/color-picker'
@@ -116,6 +116,12 @@ interface ChatbotConfig {
   business_hours: BusinessHours | null
   business_hours_timezone: string | null
   outside_hours_message: string | null
+  // Landing widget fields
+  is_landing_widget: boolean
+  landing_widget_enabled: boolean
+  quick_replies: string[] | null
+  greeting_message: string | null
+  greeting_subtext: string | null
 }
 
 export default function AppearancePage() {
@@ -213,6 +219,10 @@ export default function AppearancePage() {
         business_hours: config.business_hours,
         business_hours_timezone: config.business_hours_timezone,
         outside_hours_message: config.outside_hours_message,
+        landing_widget_enabled: config.landing_widget_enabled,
+        quick_replies: config.quick_replies,
+        greeting_message: config.greeting_message,
+        greeting_subtext: config.greeting_subtext,
         updated_at: new Date().toISOString(),
       })
       .eq('id', config.id)
@@ -632,6 +642,138 @@ export default function AppearancePage() {
               )}
             </CardContent>
           </Card>
+
+          {/* Landing Page Widget - Only shown for Vintra / landing widget owner */}
+          {config.is_landing_widget && (
+            <Card className="border-primary/20 bg-primary/[0.02]">
+              <CardHeader>
+                <div className="flex items-center gap-2">
+                  <Globe className="h-5 w-5 text-primary" />
+                  <CardTitle>Landing Page Widget</CardTitle>
+                </div>
+                <CardDescription>
+                  Control the chat widget shown on the main landing page (vintra.studio). This section is only visible because your chatbot is the designated landing page widget.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-5">
+                {/* Enable / Disable */}
+                <div className="flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <Label>Enable Landing Widget</Label>
+                    <p className="text-xs text-muted-foreground">
+                      Show the chat widget on the public landing page
+                    </p>
+                  </div>
+                  <Switch
+                    checked={config.landing_widget_enabled}
+                    onCheckedChange={(checked) =>
+                      setConfig({ ...config, landing_widget_enabled: checked })
+                    }
+                  />
+                </div>
+
+                {config.landing_widget_enabled && (
+                  <>
+                    {/* Greeting bubble */}
+                    <div className="space-y-3 rounded-lg border border-border/50 bg-card p-4">
+                      <p className="text-sm font-medium text-foreground">Greeting Bubble</p>
+                      <p className="text-xs text-muted-foreground">
+                        The greeting bubble appears after 2 seconds to invite visitors to chat.
+                      </p>
+                      <div className="space-y-2">
+                        <Label htmlFor="greeting-message">Greeting Title</Label>
+                        <Input
+                          id="greeting-message"
+                          value={config.greeting_message || ''}
+                          onChange={(e) =>
+                            setConfig({ ...config, greeting_message: e.target.value })
+                          }
+                          placeholder="Hi there!"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="greeting-subtext">Greeting Subtext</Label>
+                        <Input
+                          id="greeting-subtext"
+                          value={config.greeting_subtext || ''}
+                          onChange={(e) =>
+                            setConfig({ ...config, greeting_subtext: e.target.value })
+                          }
+                          placeholder="How can I help you today?"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Quick Replies */}
+                    <div className="space-y-3 rounded-lg border border-border/50 bg-card p-4">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-sm font-medium text-foreground">Quick Replies</p>
+                          <p className="text-xs text-muted-foreground">
+                            Suggested replies shown to visitors when the chat is empty.
+                          </p>
+                        </div>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            const current = config.quick_replies || []
+                            if (current.length >= 6) {
+                              toast.error('Maximum 6 quick replies allowed')
+                              return
+                            }
+                            setConfig({
+                              ...config,
+                              quick_replies: [...current, ''],
+                            })
+                          }}
+                          disabled={(config.quick_replies?.length || 0) >= 6}
+                        >
+                          <Plus className="mr-1 h-3.5 w-3.5" />
+                          Add
+                        </Button>
+                      </div>
+                      <div className="space-y-2">
+                        {(config.quick_replies || []).map((reply, index) => (
+                          <div key={index} className="flex items-center gap-2">
+                            <Input
+                              value={reply}
+                              onChange={(e) => {
+                                const updated = [...(config.quick_replies || [])]
+                                updated[index] = e.target.value
+                                setConfig({ ...config, quick_replies: updated })
+                              }}
+                              placeholder={`Quick reply ${index + 1}`}
+                              className="flex-1"
+                            />
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="h-9 w-9 p-0 text-muted-foreground hover:text-destructive"
+                              onClick={() => {
+                                const updated = [...(config.quick_replies || [])]
+                                updated.splice(index, 1)
+                                setConfig({ ...config, quick_replies: updated })
+                              }}
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          </div>
+                        ))}
+                        {(!config.quick_replies || config.quick_replies.length === 0) && (
+                          <p className="text-xs italic text-muted-foreground py-2">
+                            No quick replies configured. Default suggestions will be shown.
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  </>
+                )}
+              </CardContent>
+            </Card>
+          )}
 
           <Card>
             <CardHeader>
