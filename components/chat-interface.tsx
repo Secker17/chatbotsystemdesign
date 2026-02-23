@@ -264,27 +264,6 @@ export default function ChatInterface({
 
       {/* Chat Button */}
       {!isOpen && (
-        <div className="relative flex flex-col items-center">
-          {/* Curved Launcher Text */}
-          {launcherTextEnabled && launcherText && (
-            <div className="mb-1 animate-fade-up pointer-events-none" style={{ animationDelay: '300ms' }}>
-              <svg width="120" height="40" viewBox="0 0 120 40" className="drop-shadow-sm">
-                <defs>
-                  <path id="launcherArc" d="M 10 35 Q 60 0 110 35" fill="none" />
-                </defs>
-                <text
-                  className="fill-foreground"
-                  fontSize="11"
-                  fontWeight="500"
-                  letterSpacing="0.5"
-                >
-                  <textPath href="#launcherArc" startOffset="50%" textAnchor="middle">
-                    {launcherText}
-                  </textPath>
-                </text>
-              </svg>
-            </div>
-          )}
         <button
           onClick={handleToggle}
           className="group relative h-14 w-14 rounded-full shadow-lg transition-all duration-300 hover:scale-110 hover:shadow-xl active:scale-95 animate-fab-in"
@@ -321,7 +300,6 @@ export default function ChatInterface({
             style={{ backgroundColor: primaryColor }}
           />
         </button>
-        </div>
       )}
 
       {/* Chat Window */}
