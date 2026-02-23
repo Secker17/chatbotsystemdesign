@@ -1,13 +1,18 @@
 import pg from 'pg';
 
-const connectionString = process.env.POSTGRES_URL;
+// Disable SSL verification for Supabase pooled connections
+process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
+
+const connectionString = process.env.POSTGRES_URL || process.env.DATABASE_URL;
 
 if (!connectionString) {
-  console.error('POSTGRES_URL is not set');
+  console.error('POSTGRES_URL / DATABASE_URL is not set');
   process.exit(1);
 }
 
-const client = new pg.Client({ connectionString, ssl: { rejectUnauthorized: false } });
+console.log('Using connection string:', connectionString.replace(/:[^@]+@/, ':***@'));
+
+const client = new pg.Client({ connectionString });
 
 async function run() {
   await client.connect();
