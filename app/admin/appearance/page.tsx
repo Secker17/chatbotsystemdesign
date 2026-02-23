@@ -269,8 +269,6 @@ export default function AppearancePage() {
         show_branding: config.show_branding,
         offline_message: config.offline_message,
         placeholder_text: config.placeholder_text,
-        launcher_text: config.launcher_text,
-        launcher_text_enabled: config.launcher_text_enabled,
         business_hours_enabled: config.business_hours_enabled,
         business_hours: config.business_hours,
         business_hours_timezone: config.business_hours_timezone,
@@ -703,36 +701,31 @@ export default function AppearancePage() {
             <CardHeader>
               <div className="flex items-center gap-2">
                 <MessageCircle className="h-5 w-5 text-muted-foreground" />
-                <CardTitle>Launcher Text</CardTitle>
+                <CardTitle>Greeting Bubble</CardTitle>
               </div>
               <CardDescription>
-                Show a &quot;Talk to us&quot; label next to the chat button
+                A popup bubble that appears above the chat button to invite visitors to chat
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div className="space-y-0.5">
-                  <Label>Enable Launcher Text</Label>
-                  <p className="text-xs text-muted-foreground">
-                    Display text next to the chat bubble
-                  </p>
-                </div>
-                <Switch
-                  checked={config.launcher_text_enabled}
-                  onCheckedChange={(checked) => setConfig({ ...config, launcher_text_enabled: checked })}
+              <div className="space-y-2">
+                <Label htmlFor="greeting-msg">Greeting Title</Label>
+                <Input
+                  id="greeting-msg"
+                  value={config.greeting_message || ''}
+                  onChange={(e) => setConfig({ ...config, greeting_message: e.target.value })}
+                  placeholder="Hi there!"
                 />
               </div>
-              {config.launcher_text_enabled && (
-                <div className="space-y-2">
-                  <Label htmlFor="launcher-text">Launcher Text</Label>
-                  <Input
-                    id="launcher-text"
-                    value={config.launcher_text || ''}
-                    onChange={(e) => setConfig({ ...config, launcher_text: e.target.value })}
-                    placeholder="Talk to us"
-                  />
-                </div>
-              )}
+              <div className="space-y-2">
+                <Label htmlFor="greeting-sub">Greeting Subtext</Label>
+                <Input
+                  id="greeting-sub"
+                  value={config.greeting_subtext || ''}
+                  onChange={(e) => setConfig({ ...config, greeting_subtext: e.target.value })}
+                  placeholder="How can I help you today?"
+                />
+              </div>
             </CardContent>
           </Card>
 
@@ -745,7 +738,7 @@ export default function AppearancePage() {
                   <CardTitle>Landing Page Widget</CardTitle>
                 </div>
                 <CardDescription>
-                  Control the chat widget shown on the main landing page (vintra.studio). This section is only visible because your chatbot is the designated landing page widget.
+                  Control the chat widget shown on the main landing page. This section is only visible because your chatbot is the designated landing page widget.
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-5">
@@ -767,34 +760,67 @@ export default function AppearancePage() {
 
                 {config.landing_widget_enabled && (
                   <>
-                    {/* Greeting bubble */}
+                    {/* Landing Widget Color */}
                     <div className="space-y-3 rounded-lg border border-border/50 bg-card p-4">
-                      <p className="text-sm font-medium text-foreground">Greeting Bubble</p>
+                      <p className="text-sm font-medium text-foreground">Widget Color</p>
                       <p className="text-xs text-muted-foreground">
-                        The greeting bubble appears after 2 seconds to invite visitors to chat.
+                        Primary color used for the landing page chat button, header, and message bubbles.
                       </p>
+                      <ColorPicker
+                        value={config.primary_color}
+                        onChange={(color) => setConfig({ ...config, primary_color: color })}
+                        categories={DEFAULT_COLOR_CATEGORIES}
+                      />
+                    </div>
+
+                    {/* Landing Widget Title & Welcome */}
+                    <div className="space-y-3 rounded-lg border border-border/50 bg-card p-4">
+                      <p className="text-sm font-medium text-foreground">Widget Text</p>
                       <div className="space-y-2">
-                        <Label htmlFor="greeting-message">Greeting Title</Label>
+                        <Label htmlFor="landing-title">Header Title</Label>
                         <Input
-                          id="greeting-message"
-                          value={config.greeting_message || ''}
-                          onChange={(e) =>
-                            setConfig({ ...config, greeting_message: e.target.value })
-                          }
-                          placeholder="Hi there!"
+                          id="landing-title"
+                          value={config.widget_title}
+                          onChange={(e) => setConfig({ ...config, widget_title: e.target.value })}
+                          placeholder="Chat Support"
                         />
                       </div>
                       <div className="space-y-2">
-                        <Label htmlFor="greeting-subtext">Greeting Subtext</Label>
-                        <Input
-                          id="greeting-subtext"
-                          value={config.greeting_subtext || ''}
-                          onChange={(e) =>
-                            setConfig({ ...config, greeting_subtext: e.target.value })
-                          }
-                          placeholder="How can I help you today?"
+                        <Label htmlFor="landing-welcome">Welcome Message</Label>
+                        <Textarea
+                          id="landing-welcome"
+                          value={config.welcome_message}
+                          onChange={(e) => setConfig({ ...config, welcome_message: e.target.value })}
+                          placeholder="Ask me anything about our platform..."
+                          rows={2}
                         />
                       </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="landing-placeholder">Input Placeholder</Label>
+                        <Input
+                          id="landing-placeholder"
+                          value={config.placeholder_text}
+                          onChange={(e) => setConfig({ ...config, placeholder_text: e.target.value })}
+                          placeholder="Type your message..."
+                        />
+                      </div>
+                    </div>
+
+                    {/* Position */}
+                    <div className="space-y-3 rounded-lg border border-border/50 bg-card p-4">
+                      <p className="text-sm font-medium text-foreground">Position</p>
+                      <Select
+                        value={config.position}
+                        onValueChange={(value) => setConfig({ ...config, position: value })}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select position" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="bottom-left">Bottom Left</SelectItem>
+                          <SelectItem value="bottom-right">Bottom Right</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </div>
 
                     {/* Quick Replies */}
@@ -861,6 +887,20 @@ export default function AppearancePage() {
                           </p>
                         )}
                       </div>
+                    </div>
+
+                    {/* Branding toggle */}
+                    <div className="flex items-center justify-between rounded-lg border border-border/50 bg-card p-4">
+                      <div className="space-y-0.5">
+                        <Label>Show Branding</Label>
+                        <p className="text-xs text-muted-foreground">
+                          Display &quot;Powered by Vintra&quot; in widget
+                        </p>
+                      </div>
+                      <Switch
+                        checked={config.show_branding}
+                        onCheckedChange={(checked) => setConfig({ ...config, show_branding: checked })}
+                      />
                     </div>
                   </>
                 )}
@@ -1064,36 +1104,22 @@ export default function AppearancePage() {
                 </div>
 
                 {/* Launcher Button */}
-                <div className={`flex flex-col ${config.position === 'bottom-left' ? 'items-start' : 'items-end'}`}>
+                <div className={`flex flex-col ${config.position === 'bottom-left' ? 'items-start' : 'items-end'} gap-2`}>
+                  {/* Greeting Bubble Preview */}
+                  {(config.greeting_message || config.greeting_subtext) && (
+                    <div className="max-w-[220px]">
+                      <div className="relative rounded-xl bg-card border border-border/60 px-3 py-2 shadow-lg">
+                        {config.greeting_message && (
+                          <p className="text-xs font-medium text-foreground">{config.greeting_message}</p>
+                        )}
+                        {config.greeting_subtext && (
+                          <p className="text-[10px] text-muted-foreground mt-0.5">{config.greeting_subtext}</p>
+                        )}
+                        <div className={`absolute -bottom-1.5 ${config.position === 'bottom-left' ? 'left-4' : 'right-4'} w-3 h-3 bg-card border-b border-r border-border/60 rotate-45`} />
+                      </div>
+                    </div>
+                  )}
                   <div className="relative inline-flex items-center justify-center">
-                    {config.launcher_text_enabled && config.launcher_text && (
-                      <svg
-                        className="absolute -top-7 left-1/2 -translate-x-1/2"
-                        width="160"
-                        height="75"
-                        viewBox="0 0 200 100"
-                        xmlns="http://www.w3.org/2000/svg"
-                      >
-                        <defs>
-                          <path id="preview-curve" d="M 10,95 Q 100,-15 190,95" fill="none"/>
-                        </defs>
-                        <text>
-                          <textPath
-                            href="#preview-curve"
-                            startOffset="50%"
-                            textAnchor="middle"
-                            style={{
-                              fontSize: '18px',
-                              fontWeight: 800,
-                              fill: config.primary_color,
-                              letterSpacing: '0.8px',
-                            }}
-                          >
-                            {config.launcher_text}
-                          </textPath>
-                        </text>
-                      </svg>
-                    )}
                     <div 
                       className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full text-white shadow-lg"
                       style={{ backgroundColor: config.primary_color }}

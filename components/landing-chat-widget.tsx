@@ -15,8 +15,6 @@ interface LandingConfig {
     show_branding: boolean
     placeholder_text: string
     ai_enabled: boolean
-    launcher_text: string
-    launcher_text_enabled: boolean
     quick_replies: string[]
     greeting_message: string
     greeting_subtext: string
@@ -70,8 +68,6 @@ export function LandingChatWidget() {
       welcomeMessage={cfg.welcome_message}
       placeholderText={cfg.placeholder_text}
       showBranding={cfg.show_branding}
-      launcherText={cfg.launcher_text}
-      launcherTextEnabled={cfg.launcher_text_enabled}
       quickReplies={cfg.quick_replies}
       greetingMessage={cfg.greeting_message}
       greetingSubtext={cfg.greeting_subtext}
