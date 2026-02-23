@@ -32,9 +32,19 @@ interface ChatInterfaceProps {
   position?: 'bottom-right' | 'bottom-left'
   isOpen?: boolean
   onToggle?: () => void
+  // Configurable from admin panel
+  widgetTitle?: string
+  welcomeMessage?: string
+  placeholderText?: string
+  showBranding?: boolean
+  launcherText?: string
+  launcherTextEnabled?: boolean
+  quickReplies?: string[]
+  greetingMessage?: string
+  greetingSubtext?: string
 }
 
-const QUICK_REPLIES = [
+const DEFAULT_QUICK_REPLIES = [
   'What features do you offer?',
   'Tell me about pricing',
   'How does the AI work?',
@@ -48,7 +58,17 @@ export default function ChatInterface({
   position = 'bottom-right',
   isOpen: controlledIsOpen,
   onToggle,
+  widgetTitle = 'Chat Support',
+  welcomeMessage = 'Ask me anything about our platform, features, or pricing.',
+  placeholderText = 'Type your message...',
+  showBranding = true,
+  launcherText = 'Talk to us',
+  launcherTextEnabled = true,
+  quickReplies,
+  greetingMessage = 'Hi there!',
+  greetingSubtext = 'How can I help you today?',
 }: ChatInterfaceProps) {
+  const activeQuickReplies = quickReplies && quickReplies.length > 0 ? quickReplies : DEFAULT_QUICK_REPLIES
   const [isInternalOpen, setIsInternalOpen] = useState(false)
   const [messages, setMessages] = useState<Message[]>([])
   const [inputValue, setInputValue] = useState('')
@@ -234,8 +254,8 @@ export default function ChatInterface({
             >
               <X className="h-3 w-3" />
             </button>
-            <p className="text-sm text-foreground font-medium">Hi there!</p>
-            <p className="text-xs text-muted-foreground mt-0.5">How can I help you today?</p>
+            <p className="text-sm text-foreground font-medium">{greetingMessage}</p>
+            <p className="text-xs text-muted-foreground mt-0.5">{greetingSubtext}</p>
             {/* Speech bubble tail */}
             <div className="absolute -bottom-2 right-6 w-4 h-4 bg-card border-b border-r border-border/60 rotate-45" />
           </div>
@@ -312,7 +332,7 @@ export default function ChatInterface({
                 </div>
               )}
               <div>
-                <h3 className="text-sm font-semibold text-primary-foreground">Chat Support</h3>
+                <h3 className="text-sm font-semibold text-primary-foreground">{widgetTitle}</h3>
                 <div className="flex items-center gap-1.5">
                   <span className="h-1.5 w-1.5 rounded-full bg-green-400 animate-pulse" />
                   <span className="text-xs text-primary-foreground/80">Online</span>
@@ -373,7 +393,7 @@ export default function ChatInterface({
                         <p className="text-sm font-medium text-foreground">Welcome!</p>
                       </div>
                       <p className="text-xs text-muted-foreground text-center max-w-[220px]">
-                        Ask me anything about our platform, features, or pricing.
+                        {welcomeMessage}
                       </p>
                     </div>
                   )}
@@ -469,7 +489,7 @@ export default function ChatInterface({
               {/* Quick Replies */}
               {messages.length === 0 && (
                 <div className="px-4 pb-2 flex flex-wrap gap-1.5 animate-fade-up" style={{ animationDelay: '200ms' }}>
-                  {QUICK_REPLIES.map((reply) => (
+                  {activeQuickReplies.map((reply) => (
                     <button
                       key={reply}
                       onClick={() => handleSendMessage(reply)}
@@ -492,7 +512,7 @@ export default function ChatInterface({
                     value={inputValue}
                     onChange={(e) => setInputValue(e.target.value)}
                     onKeyDown={handleKeyDown}
-                    placeholder="Type your message..."
+                    placeholder={placeholderText}
                     disabled={isTyping}
                     className="flex-1 rounded-xl border-border/50 bg-muted/50 text-sm placeholder:text-muted-foreground/50
                                focus-visible:ring-1 focus-visible:ring-primary/50 focus-visible:border-primary/30"
@@ -509,9 +529,11 @@ export default function ChatInterface({
                     <Send className={`h-4 w-4 ${!inputValue.trim() || isTyping ? 'text-muted-foreground' : ''}`} />
                   </button>
                 </div>
-                <p className="text-[10px] text-muted-foreground/40 text-center mt-2">
-                  Powered by Vintra
-                </p>
+                {showBranding && (
+                  <p className="text-[10px] text-muted-foreground/40 text-center mt-2">
+                    Powered by Vintra
+                  </p>
+                )}
               </div>
             </>
           )}
