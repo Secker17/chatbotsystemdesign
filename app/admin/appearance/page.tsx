@@ -125,10 +125,17 @@ interface ChatbotConfig {
 }
 
 export default function AppearancePage() {
-  const [config, setConfig] = useState<ChatbotConfig | null>(null)
+  const [configs, setConfigs] = useState<ChatbotConfig[]>([])
+  const [activeConfigIndex, setActiveConfigIndex] = useState(0)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [planLimits, setPlanLimits] = useState<PlanLimits | null>(null)
+
+  const config = configs[activeConfigIndex] ?? null
+
+  const setConfig = (updated: ChatbotConfig) => {
+    setConfigs(prev => prev.map((c, i) => i === activeConfigIndex ? updated : c))
+  }
 
   useEffect(() => {
     loadConfig()
@@ -144,27 +151,53 @@ export default function AppearancePage() {
     
     if (!supabaseUrl || !supabaseKey) {
       // Use mock data in development mode
-      const mockConfig = {
-        id: 'dev-chatbot',
-        admin_id: 'dev-user',
-        widget_title: 'Chat with us',
-        welcome_message: 'Hi! How can we help you today?',
-        primary_color: '#eab308',
-        position: 'bottom-right',
-        avatar_url: null,
-        show_branding: true,
-        offline_message: 'We are currently offline. Leave a message!',
-        placeholder_text: 'Type your message...',
-        launcher_text: null,
-        launcher_text_enabled: false,
-        business_hours_enabled: false,
-        business_hours: DEFAULT_BUSINESS_HOURS,
-        business_hours_timezone: 'Europe/Oslo',
-        outside_hours_message: null,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      }
-      setConfig(mockConfig)
+      const mockConfigs: ChatbotConfig[] = [
+        {
+          id: 'dev-chatbot-landing',
+          widget_title: 'Chat with us',
+          welcome_message: 'Hi! How can we help you today?',
+          primary_color: '#eab308',
+          position: 'bottom-right',
+          avatar_url: null,
+          show_branding: true,
+          offline_message: 'We are currently offline. Leave a message!',
+          placeholder_text: 'Type your message...',
+          launcher_text: 'Talk to us',
+          launcher_text_enabled: true,
+          business_hours_enabled: false,
+          business_hours: DEFAULT_BUSINESS_HOURS,
+          business_hours_timezone: 'Europe/Oslo',
+          outside_hours_message: null,
+          is_landing_widget: true,
+          landing_widget_enabled: true,
+          quick_replies: ['What features do you offer?', 'Tell me about pricing'],
+          greeting_message: 'Hi there!',
+          greeting_subtext: 'How can I help you today?',
+        },
+        {
+          id: 'dev-chatbot-demo',
+          widget_title: 'Chat Demo Bot',
+          welcome_message: 'Welcome to the demo!',
+          primary_color: '#6366f1',
+          position: 'bottom-right',
+          avatar_url: null,
+          show_branding: true,
+          offline_message: 'We are currently offline.',
+          placeholder_text: 'Type your message...',
+          launcher_text: 'Chat with us',
+          launcher_text_enabled: true,
+          business_hours_enabled: false,
+          business_hours: DEFAULT_BUSINESS_HOURS,
+          business_hours_timezone: 'Europe/Oslo',
+          outside_hours_message: null,
+          is_landing_widget: false,
+          landing_widget_enabled: false,
+          quick_replies: ['Show me a demo', 'What can you do?'],
+          greeting_message: 'Welcome!',
+          greeting_subtext: 'Try out our features here.',
+        },
+      ]
+      setConfigs(mockConfigs)
       setLoading(false)
       return
     }
@@ -177,10 +210,10 @@ export default function AppearancePage() {
       .from('chatbot_configs')
       .select('*')
       .eq('admin_id', user.id)
-      .single()
+      .order('is_landing_widget', { ascending: false })
 
-    if (data) {
-      setConfig(data)
+    if (data && data.length > 0) {
+      setConfigs(data)
     }
     setLoading(false)
   }
@@ -275,6 +308,43 @@ export default function AppearancePage() {
           Save Changes
         </Button>
       </div>
+
+      {/* Multi-Chatbot Selector */}
+      {configs.length > 1 && (
+        <div className="flex items-center gap-2 rounded-xl border border-border bg-muted/30 p-1.5">
+          {configs.map((c, i) => (
+            <button
+              key={c.id}
+              onClick={() => setActiveConfigIndex(i)}
+              className={`
+                flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium transition-all duration-200
+                ${i === activeConfigIndex
+                  ? 'bg-card text-foreground shadow-sm border border-border/60'
+                  : 'text-muted-foreground hover:text-foreground hover:bg-card/50'
+                }
+              `}
+            >
+              <span
+                className="h-3 w-3 rounded-full shrink-0 ring-1 ring-border/30"
+                style={{ backgroundColor: c.primary_color }}
+              />
+              <span>{c.widget_title || 'Untitled'}</span>
+              {c.is_landing_widget && (
+                <span className="ml-1 inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">
+                  <Globe className="h-3 w-3" />
+                  Landing
+                </span>
+              )}
+              {!c.is_landing_widget && (
+                <span className="ml-1 inline-flex items-center rounded-full bg-indigo-500/10 px-2 py-0.5 text-[10px] font-semibold text-indigo-600 dark:text-indigo-400">
+                  <MessageSquare className="h-3 w-3 mr-0.5" />
+                  Demo
+                </span>
+              )}
+            </button>
+          ))}
+        </div>
+      )}
 
       <div className="grid gap-6 lg:grid-cols-2">
         {/* Admin Panel Theme */}
