@@ -98,13 +98,15 @@ export default async function AdminLayout({
       .single()
     profile = profileData
 
-    // Fetch chatbot config
+    // Fetch chatbot config (first one - user may have multiple)
     const { data: chatbotData } = await supabase
       .from('chatbot_configs')
       .select('*')
       .eq('admin_id', user.id)
-      .single()
-    chatbot = chatbotData
+      .order('is_landing_widget', { ascending: false })
+      .limit(1)
+
+    chatbot = chatbotData?.[0] ?? null
   } catch (e) {
     // If it's a redirect, rethrow it
     if (e && typeof e === 'object' && 'digest' in e) throw e

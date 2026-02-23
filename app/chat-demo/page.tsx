@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import ChatInterface from '@/components/chat-interface'
 import GlassOrbAvatar from '@/components/glass-orb-avatar'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -8,10 +8,34 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 
+interface DemoConfig {
+  enabled: boolean
+  chatbotId?: string
+  widgetTitle?: string
+  welcomeMessage?: string
+  primaryColor?: string
+  position?: string
+  showBranding?: boolean
+  placeholderText?: string
+  launcherText?: string
+  launcherTextEnabled?: boolean
+  quickReplies?: string[]
+  greetingMessage?: string
+  greetingSubtext?: string
+}
+
 export default function ChatDemoPage() {
   const [isTyping, setIsTyping] = useState(false)
   const [isBotTyping, setIsBotTyping] = useState(false)
   const [skin, setSkin] = useState<'default' | 'juleskin'>('default')
+  const [demoConfig, setDemoConfig] = useState<DemoConfig | null>(null)
+
+  useEffect(() => {
+    fetch('/api/chat/demo-config')
+      .then(r => r.json())
+      .then(data => setDemoConfig(data))
+      .catch(() => setDemoConfig({ enabled: false }))
+  }, [])
 
   const simulateTyping = (sender: 'user' | 'bot') => {
     if (sender === 'user') {
@@ -283,10 +307,19 @@ export default function ChatDemoPage() {
             </Card>
 
             <ChatInterface
-              chatbotId="demo-chatbot"
-              primaryColor="#3b82f6"
+              chatbotId={demoConfig?.chatbotId || 'demo-chatbot'}
+              primaryColor={demoConfig?.primaryColor || '#3b82f6'}
               avatarStyle={skin === 'juleskin' ? 'glass-orb' : 'glass-orb'}
-              position="bottom-right"
+              position={(demoConfig?.position as 'bottom-right' | 'bottom-left') || 'bottom-right'}
+              widgetTitle={demoConfig?.widgetTitle}
+              welcomeMessage={demoConfig?.welcomeMessage}
+              placeholderText={demoConfig?.placeholderText}
+              showBranding={demoConfig?.showBranding}
+              launcherText={demoConfig?.launcherText || undefined}
+              launcherTextEnabled={demoConfig?.launcherTextEnabled}
+              quickReplies={demoConfig?.quickReplies}
+              greetingMessage={demoConfig?.greetingMessage}
+              greetingSubtext={demoConfig?.greetingSubtext}
             />
           </TabsContent>
         </Tabs>

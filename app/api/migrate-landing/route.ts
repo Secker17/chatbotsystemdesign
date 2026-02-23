@@ -101,6 +101,53 @@ ALTER TABLE public.chatbot_configs ADD COLUMN IF NOT EXISTS greeting_subtext TEX
         error: configError?.message || 'No chatbot config found for vintrastudio@gmail.com',
       })
     }
+    // Step 3: Ensure Vintra has a SECOND chatbot config for the chat-demo page
+    const { data: allConfigs } = await supabase
+      .from('chatbot_configs')
+      .select('id, is_landing_widget')
+      .eq('admin_id', vintraUser.id)
+
+    const hasNonLanding = allConfigs?.some((c) => !c.is_landing_widget)
+
+    if (!hasNonLanding) {
+      const { data: newConfig, error: insertError } = await supabase
+        .from('chatbot_configs')
+        .insert({
+          admin_id: vintraUser.id,
+          widget_title: 'Chat Demo Bot',
+          welcome_message: 'Welcome to the demo! Try out our chat features here.',
+          primary_color: '#6366f1',
+          position: 'bottom-right',
+          avatar_url: null,
+          show_branding: true,
+          offline_message: 'We are currently offline. Leave a message!',
+          placeholder_text: 'Type your message...',
+          launcher_text: 'Chat with us',
+          launcher_text_enabled: true,
+          is_landing_widget: false,
+          landing_widget_enabled: false,
+          quick_replies: [
+            'Show me a demo',
+            'What can you do?',
+            'Tell me about your features',
+          ],
+          greeting_message: 'Welcome!',
+          greeting_subtext: 'Try out our chat features here.',
+        })
+        .select('id')
+        .single()
+
+      results.push({
+        step: 'Create second chatbot config (Chat Demo Bot)',
+        status: insertError ? 'ERROR' : 'OK',
+        error: insertError?.message,
+      })
+    } else {
+      results.push({
+        step: 'Second chatbot config already exists',
+        status: 'OK',
+      })
+    }
   } else {
     results.push({
       step: 'Find Vintra user',
@@ -110,7 +157,7 @@ ALTER TABLE public.chatbot_configs ADD COLUMN IF NOT EXISTS greeting_subtext TEX
   }
 
   return NextResponse.json({
-    message: 'Landing widget migration complete',
+    message: 'Landing widget migration complete (with dual chatbot)',
     results,
   })
 }
