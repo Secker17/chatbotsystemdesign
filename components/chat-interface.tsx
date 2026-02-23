@@ -69,6 +69,8 @@ export default function ChatInterface({
   greetingSubtext = 'How can I help you today?',
 }: ChatInterfaceProps) {
   const activeQuickReplies = quickReplies && quickReplies.length > 0 ? quickReplies : DEFAULT_QUICK_REPLIES
+  const isLiveMode = !!chatbotId && chatbotId !== 'demo-chatbot'
+
   const [isInternalOpen, setIsInternalOpen] = useState(false)
   const [messages, setMessages] = useState<Message[]>([])
   const [inputValue, setInputValue] = useState('')
@@ -81,10 +83,14 @@ export default function ChatInterface({
   const [isAnimatingClose, setIsAnimatingClose] = useState(false)
   const [showGreeting, setShowGreeting] = useState(false)
   const [greetingDismissed, setGreetingDismissed] = useState(false)
+  const [sessionId, setSessionId] = useState<string | null>(null)
+  const [lastMessageCount, setLastMessageCount] = useState(0)
   
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const messagesContainerRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const sessionCreatingRef = useRef(false)
 
   const isControlled = controlledIsOpen !== undefined
   const isOpen = isControlled ? controlledIsOpen : isInternalOpen
@@ -126,6 +132,76 @@ export default function ChatInterface({
     container.addEventListener('scroll', handleScroll)
     return () => container.removeEventListener('scroll', handleScroll)
   }, [])
+
+  // Create a live session when the chat opens for the first time in live mode
+  const ensureLiveSession = useCallback(async () => {
+    if (!isLiveMode || sessionId || sessionCreatingRef.current) return null
+    sessionCreatingRef.current = true
+    try {
+      const res = await fetch('/api/chat/session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ chatbot_id: chatbotId }),
+      })
+      if (res.ok) {
+        const data = await res.json()
+        setSessionId(data.session_id)
+        return data.session_id
+      }
+    } catch (err) {
+      console.error('Failed to create session:', err)
+    } finally {
+      sessionCreatingRef.current = false
+    }
+    return null
+  }, [isLiveMode, sessionId, chatbotId])
+
+  // Poll for new messages from admin/bot in live mode
+  useEffect(() => {
+    if (!isLiveMode || !sessionId) return
+
+    const poll = async () => {
+      try {
+        const res = await fetch(`/api/chat/messages?session_id=${sessionId}&after=${lastMessageCount}`)
+        if (res.ok) {
+          const data = await res.json()
+          if (data.messages && data.messages.length > 0) {
+            const newMsgs: Message[] = data.messages
+              .filter((m: { sender_type: string }) => m.sender_type === 'admin' || m.sender_type === 'bot')
+              .map((m: { id: string; content: string; sender_type: string; created_at: string }) => ({
+                id: m.id,
+                content: m.content,
+                sender: 'bot' as const,
+                timestamp: new Date(m.created_at),
+                reaction: null,
+              }))
+            
+            if (newMsgs.length > 0) {
+              setMessages(prev => {
+                const existingIds = new Set(prev.map(p => p.id))
+                const truly = newMsgs.filter(m => !existingIds.has(m.id))
+                if (truly.length === 0) return prev
+                return [...prev, ...truly]
+              })
+              if (!isOpen) {
+                setUnreadCount(prev => prev + newMsgs.length)
+              }
+            }
+            setLastMessageCount(data.total)
+          }
+        }
+      } catch {
+        // silent
+      }
+    }
+
+    pollRef.current = setInterval(poll, 2500)
+    poll() // initial fetch
+
+    return () => {
+      if (pollRef.current) clearInterval(pollRef.current)
+    }
+  }, [isLiveMode, sessionId, lastMessageCount, isOpen])
 
   const handleToggle = () => {
     if (isOpen) {
@@ -175,27 +251,66 @@ export default function ChatInterface({
     setIsBotTyping(true)
 
     try {
-      const response = await fetch('/api/chat/demo', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: text, chatbotId }),
-      })
-
-      if (response.ok) {
-        const data = await response.json()
-        const botMessage: Message = {
-          id: (Date.now() + 1).toString(),
-          content: data.response || 'Thanks for your message! I\'ll get back to you soon.',
-          sender: 'bot',
-          timestamp: new Date(),
-          reaction: null,
+      if (isLiveMode) {
+        // --- LIVE MODE: real DB session ---
+        let sid = sessionId
+        if (!sid) {
+          sid = await ensureLiveSession()
         }
-        setMessages(prev => [...prev, botMessage])
-        if (!isOpen) {
-          setUnreadCount(prev => prev + 1)
+        if (!sid) throw new Error('Could not create session')
+
+        // Send visitor message to DB
+        const res = await fetch('/api/chat/message', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            session_id: sid,
+            content: text,
+            sender_type: 'visitor',
+          }),
+        })
+
+        if (!res.ok) throw new Error('Failed to send message')
+
+        // In live mode, the bot/admin reply comes via polling -- no immediate bot response
+        // But we still try the AI endpoint for an auto-reply
+        try {
+          const aiRes = await fetch('/api/chat/ai-reply', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ session_id: sid, message: text }),
+          })
+          // AI reply, if any, will be inserted to DB and picked up by polling
+          if (!aiRes.ok) {
+            // No AI available -- that's fine, admin will reply manually
+          }
+        } catch {
+          // AI endpoint doesn't exist or failed - fine, admin replies manually
         }
       } else {
-        throw new Error('Failed to send message')
+        // --- DEMO MODE: fake responses ---
+        const response = await fetch('/api/chat/demo', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ message: text, chatbotId }),
+        })
+
+        if (response.ok) {
+          const data = await response.json()
+          const botMessage: Message = {
+            id: (Date.now() + 1).toString(),
+            content: data.response || 'Thanks for your message! I\'ll get back to you soon.',
+            sender: 'bot',
+            timestamp: new Date(),
+            reaction: null,
+          }
+          setMessages(prev => [...prev, botMessage])
+          if (!isOpen) {
+            setUnreadCount(prev => prev + 1)
+          }
+        } else {
+          throw new Error('Failed to send message')
+        }
       }
     } catch (error) {
       console.error('Error sending message:', error)

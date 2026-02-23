@@ -206,14 +206,37 @@ export default function AppearancePage() {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
 
-    const { data } = await supabase
+    // First try to fetch with all columns
+    let { data, error } = await supabase
       .from('chatbot_configs')
       .select('*')
       .eq('admin_id', user.id)
-      .order('is_landing_widget', { ascending: false })
+
+    if (error) {
+      // Fallback: fetch only core columns if new columns don't exist yet
+      const fallback = await supabase
+        .from('chatbot_configs')
+        .select('id, widget_title, welcome_message, primary_color, position, avatar_url, show_branding, offline_message, placeholder_text, launcher_text, launcher_text_enabled, business_hours_enabled, business_hours, business_hours_timezone, outside_hours_message')
+        .eq('admin_id', user.id)
+
+      data = (fallback.data || []).map((c) => ({
+        ...c,
+        is_landing_widget: false,
+        landing_widget_enabled: false,
+        quick_replies: null,
+        greeting_message: 'Hi there!',
+        greeting_subtext: 'How can I help you today?',
+      })) as ChatbotConfig[]
+    }
 
     if (data && data.length > 0) {
-      setConfigs(data)
+      // Sort: landing widget first
+      const sorted = [...data].sort((a, b) => {
+        if (a.is_landing_widget && !b.is_landing_widget) return -1
+        if (!a.is_landing_widget && b.is_landing_widget) return 1
+        return 0
+      })
+      setConfigs(sorted)
     }
     setLoading(false)
   }
