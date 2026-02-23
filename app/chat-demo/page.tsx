@@ -17,8 +17,6 @@ interface DemoConfig {
   position?: string
   showBranding?: boolean
   placeholderText?: string
-  launcherText?: string
-  launcherTextEnabled?: boolean
   quickReplies?: string[]
   greetingMessage?: string
   greetingSubtext?: string
@@ -315,8 +313,7 @@ export default function ChatDemoPage() {
               welcomeMessage={demoConfig?.welcomeMessage}
               placeholderText={demoConfig?.placeholderText}
               showBranding={demoConfig?.showBranding}
-              launcherText={demoConfig?.launcherText || undefined}
-              launcherTextEnabled={demoConfig?.launcherTextEnabled}
+
               quickReplies={demoConfig?.quickReplies}
               greetingMessage={demoConfig?.greetingMessage}
               greetingSubtext={demoConfig?.greetingSubtext}

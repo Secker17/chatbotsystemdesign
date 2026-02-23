@@ -37,8 +37,6 @@ interface ChatInterfaceProps {
   welcomeMessage?: string
   placeholderText?: string
   showBranding?: boolean
-  launcherText?: string
-  launcherTextEnabled?: boolean
   quickReplies?: string[]
   greetingMessage?: string
   greetingSubtext?: string
@@ -62,8 +60,6 @@ export default function ChatInterface({
   welcomeMessage = 'Ask me anything about our platform, features, or pricing.',
   placeholderText = 'Type your message...',
   showBranding = true,
-  launcherText = 'Talk to us',
-  launcherTextEnabled = true,
   quickReplies,
   greetingMessage = 'Hi there!',
   greetingSubtext = 'How can I help you today?',
