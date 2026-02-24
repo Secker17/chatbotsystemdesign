@@ -81,6 +81,7 @@ export default function ChatInterface({
   const [greetingDismissed, setGreetingDismissed] = useState(false)
   const [sessionId, setSessionId] = useState<string | null>(null)
   const [lastMessageCount, setLastMessageCount] = useState(0)
+  const [demoConversationId] = useState(() => `demo-${Date.now()}-${Math.random().toString(36).slice(2)}`)
   
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const messagesContainerRef = useRef<HTMLDivElement>(null)
@@ -175,9 +176,33 @@ export default function ChatInterface({
             if (newMsgs.length > 0) {
               setMessages(prev => {
                 const existingIds = new Set(prev.map(p => p.id))
-                const truly = newMsgs.filter(m => !existingIds.has(m.id))
-                if (truly.length === 0) return prev
-                return [...prev, ...truly]
+                // Also track content of AI messages shown immediately (they have temp IDs like "ai-...")
+                const existingAiContent = new Set(
+                  prev.filter(p => p.id.startsWith('ai-') && p.sender === 'bot').map(p => p.content)
+                )
+                const truly = newMsgs.filter(m => {
+                  if (existingIds.has(m.id)) return false
+                  // Skip if this content was already shown from an immediate AI response
+                  if (m.sender === 'bot' && existingAiContent.has(m.content)) {
+                    // Replace the temp AI message with the real DB message
+                    return false
+                  }
+                  return true
+                })
+                // Replace temp AI messages with real DB messages (to get correct IDs)
+                const updatedPrev = prev.map(p => {
+                  if (p.id.startsWith('ai-') && p.sender === 'bot') {
+                    const realMsg = newMsgs.find(m => m.content === p.content && m.sender === 'bot')
+                    if (realMsg) return { ...p, id: realMsg.id }
+                  }
+                  return p
+                })
+                if (truly.length === 0) {
+                  // Still update IDs even if no new messages
+                  const idsChanged = updatedPrev.some((p, i) => p.id !== prev[i].id)
+                  return idsChanged ? updatedPrev : prev
+                }
+                return [...updatedPrev, ...truly]
               })
               if (!isOpen) {
                 setUnreadCount(prev => prev + newMsgs.length)
@@ -268,27 +293,38 @@ export default function ChatInterface({
 
         if (!res.ok) throw new Error('Failed to send message')
 
-        // In live mode, the bot/admin reply comes via polling -- no immediate bot response
-        // But we still try the AI endpoint for an auto-reply
+        // Request AI auto-reply via the correct endpoint
         try {
-          const aiRes = await fetch('/api/chat/ai-reply', {
+          const aiRes = await fetch('/api/chat/ai', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ session_id: sid, message: text }),
+            body: JSON.stringify({ session_id: sid, content: text }),
           })
-          // AI reply, if any, will be inserted to DB and picked up by polling
-          if (!aiRes.ok) {
-            // No AI available -- that's fine, admin will reply manually
+
+          if (aiRes.ok) {
+            const aiData = await aiRes.json()
+            // If the AI returned a reply, show it immediately instead of waiting for polling
+            if (aiData.reply) {
+              const botMessage: Message = {
+                id: `ai-${Date.now()}`,
+                content: aiData.reply,
+                sender: 'bot',
+                timestamp: new Date(),
+                reaction: null,
+              }
+              setMessages(prev => [...prev, botMessage])
+            }
           }
+          // If AI call fails or bot is not active, admin will reply manually via polling
         } catch {
-          // AI endpoint doesn't exist or failed - fine, admin replies manually
+          // AI endpoint failed - admin replies manually
         }
       } else {
-        // --- DEMO MODE: fake responses ---
+        // --- DEMO MODE: use AI with static fallback ---
         const response = await fetch('/api/chat/demo', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ message: text, chatbotId }),
+          body: JSON.stringify({ message: text, chatbotId, conversationId: demoConversationId }),
         })
 
         if (response.ok) {
