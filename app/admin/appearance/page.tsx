@@ -739,6 +739,7 @@ export default function AppearancePage() {
               </div>
 
               {config.greeting_enabled && (
+              <>
               <div className="space-y-2">
                 <Label htmlFor="greeting-msg">Greeting Title</Label>
                 <Input
@@ -757,6 +758,7 @@ export default function AppearancePage() {
                   placeholder="How can I help you today?"
                 />
               </div>
+              </>
               )}
             </CardContent>
           </Card>
