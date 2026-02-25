@@ -1,746 +1,669 @@
-import { useEffect, useRef, useState, useMemo } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 
-const GlassOrbAvatar = ({
+type Skin = 'default' | 'juleskin';
+type ColorState = 'idle' | 'typing' | 'listening' | 'maintenance';
+
+type RGB = { r: number; g: number; b: number };
+type Point = { x: number; y: number };
+type RuneTarget = { tx: number; ty: number };
+
+type Sender = 'user' | 'bot' | string;
+
+export interface GlassOrbAvatarProps {
+  sender?: Sender;
+  isTyping?: boolean;
+  maintenance?: boolean;
+  style?: React.CSSProperties;
+  className?: string;
+  size?: number;
+  skin?: Skin;
+  selected?: boolean;
+}
+
+type GoldDot = {
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+
+  ringAngle: number;
+  ringRadius: number;
+  ringSpeed: number;
+
+  runeIndex: number;
+};
+
+type Snowflake = {
+  x: number;
+  y: number;
+  r: number;
+  s: number;
+};
+
+const GlassOrbAvatar: React.FC<GlassOrbAvatarProps> = ({
   sender,
   isTyping,
   maintenance = false,
   style,
   className,
   size = 40,
-  skin = 'default', // 'default' | 'juleskin'
+  skin = 'default',
+  selected = false,
 }) => {
-  const canvasRef = useRef(null);
-  const containerRef = useRef(null);
-  const animationRef = useRef(null);
+  const [isHovered, setIsHovered] = useState<boolean>(false); // only for React if you need it elsewhere
+  const mouseRef = useRef<{ x: number | null; y: number | null }>({ x: null, y: null });
+  const hoveredRef = useRef<boolean>(false);
+  const colorStateRef = useRef<ColorState>('idle');
+  const skinRef = useRef<Skin>(skin);
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const animationRef = useRef<number | null>(null);
 
-  const [colorState, setColorState] = useState('idle'); // 'idle' | 'typing' | 'listening'
+  const [colorState, setColorState] = useState<ColorState>('idle'); // 'idle' | 'typing' | 'listening' | 'maintenance'
 
-  const colorPalettes = useMemo(() => ({
-    idle: [
-      { r: 80, g: 150, b: 255 },
-      { r: 90, g: 170, b: 255 },
-      { r: 100, g: 190, b: 255 },
-      { r: 130, g: 170, b: 255 },
-      { r: 160, g: 150, b: 255 },
-      { r: 200, g: 130, b: 255 },
-      { r: 230, g: 120, b: 255 },
-    ],
-    maintenance: [
-      { r: 255, g: 193, b: 7 },
-      { r: 245, g: 158, b: 11 },
-      { r: 255, g: 140, b: 0 },
-      { r: 96, g: 165, b: 250 },
-      { r: 59, g: 130, b: 246 },
-      { r: 129, g: 140, b: 248 },
-    ],
-    // Green for user typing
-    typing: [
-      { r: 50, g: 220, b: 50 },   // Bright green
-      { r: 70, g: 240, b: 70 },   // Lighter green
-      { r: 100, g: 255, b: 100 }, // Lightest green
-    ],
-    // Red for AI typing/responding
-    listening: [
-      { r: 255, g: 50, b: 50 },   // Bright red
-      { r: 255, g: 80, b: 80 },   // Lighter red
-      { r: 255, g: 120, b: 120 }, // Lightest red
-    ],
-  }), []);
+  const colorPalettes = useMemo<Record<ColorState, RGB[]>>(
+    () => ({
+      idle: [
+        { r: 0, g: 255, b: 255 },
+        { r: 0, g: 240, b: 190 },
+        { r: 50, g: 255, b: 255 },
+        { r: 0, g: 200, b: 255 },
+        { r: 0, g: 255, b: 180 },
+        { r: 100, g: 255, b: 255 },
+      ],
+      maintenance: [
+        { r: 255, g: 193, b: 7 },
+        { r: 245, g: 158, b: 11 },
+        { r: 255, g: 140, b: 0 },
+        { r: 96, g: 165, b: 250 },
+        { r: 59, g: 130, b: 246 },
+        { r: 129, g: 140, b: 248 },
+      ],
+      typing: [
+        { r: 50, g: 220, b: 50 },
+        { r: 70, g: 240, b: 70 },
+        { r: 100, g: 255, b: 100 },
+      ],
+      listening: [
+        { r: 255, g: 50, b: 50 },
+        { r: 255, g: 80, b: 80 },
+        { r: 255, g: 120, b: 120 },
+      ],
+    }),
+    []
+  );
 
   useEffect(() => {
     if (maintenance) {
       setColorState('maintenance');
       return;
     }
-
-    if (isTyping) {
-      setColorState(sender === 'user' ? 'typing' : 'listening');
-    } else {
-      setColorState('idle');
-    }
+    if (isTyping) setColorState(sender === 'user' ? 'typing' : 'listening');
+    else setColorState('idle');
   }, [isTyping, sender, maintenance]);
 
   useEffect(() => {
-    if (!containerRef.current) return;
+    colorStateRef.current = colorState;
+  }, [colorState]);
+
+  useEffect(() => {
+    skinRef.current = skin;
+  }, [skin]);
+
+  useEffect(() => {
+    if (!containerRef.current || !canvasRef.current) return;
 
     const container = containerRef.current;
     const canvas = canvasRef.current;
-    const ctx = canvas.getContext('2d');
+    const ctx2 = canvas.getContext('2d', { alpha: true }) as CanvasRenderingContext2D;
 
-    // fysikk-konstanter (oppdateres ved resize)
+    let sizePx = 0;
+    let dpr = 1;
+
     let centerX = 0;
     let centerY = 0;
+
     let orbRadius = 0;
-    let minRadius = 0;
-    let maxRadius = 0;
-    let pullAngleRange = 0.9;
-    let maxPullAmount = 0;
-    let pullRingThickness = 0;
-    let mouseRepelRadius = 0;
-    let maxPushStrength = 0;
 
-    const updatePhysicsConstants = (sizePx) => {
-      centerX = sizePx / 2;
-      centerY = sizePx / 2;
-      orbRadius = sizePx / 2;
-      minRadius = orbRadius * 0.06;
-      maxRadius = orbRadius * 0.9;
+    // outer casing
+    let casingOuter = 0;
+    let casingInner = 0;
 
-      pullAngleRange = 0.9;
-      maxPullAmount = orbRadius * 0.45;
+    // particle ring (donut)
+    let ringOuter = 0;
+    let ringInner = 0;
 
-      const basePullThicknessPx = 300; // som i HTML
-      pullRingThickness = basePullThicknessPx * (sizePx / 400);
+    // center disk
+    let centerRadius = 0;
 
-      mouseRepelRadius = orbRadius * 0.25;
-      maxPushStrength = orbRadius * 0.06;
+    const portal = {
+      rimStroke: 'rgba(175, 185, 200, 0.70)',
+      rimGlow: 'rgba(110, 130, 155, 0.35)',
+      casing1: 'rgba(10, 12, 18, 1)',
+      casing2: 'rgba(18, 22, 32, 1)',
+      deep1: 'rgba(6, 8, 14, 1)',
+      deep2: 'rgba(10, 13, 22, 1)',
+      deep3: 'rgba(14, 20, 40, 1)',
     };
 
+    const clampDpr = () => Math.min(window.devicePixelRatio || 1, 1.35);
+
     const updateDimensions = () => {
-      const sizePx = Math.min(container.offsetWidth, container.offsetHeight);
-      canvas.width = sizePx;
-      canvas.height = sizePx;
-      updatePhysicsConstants(sizePx);
+      sizePx = Math.min(container.offsetWidth, container.offsetHeight);
+      dpr = clampDpr();
+
+      canvas.width = Math.floor(sizePx * dpr);
+      canvas.height = Math.floor(sizePx * dpr);
+      canvas.style.width = `${sizePx}px`;
+      canvas.style.height = `${sizePx}px`;
+
+      ctx2.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+      centerX = sizePx / 2;
+      centerY = sizePx / 2;
+
+      orbRadius = sizePx / 2;
+
+      casingOuter = orbRadius * 0.995;
+      casingInner = orbRadius * 0.9;
+
+      ringOuter = orbRadius * 0.95;
+      ringInner = orbRadius * 0.5;
+
+      centerRadius = ringInner * 0.985;
     };
 
     updateDimensions();
 
-    const resizeObserver = new ResizeObserver(updateDimensions);
-    resizeObserver.observe(container);
-
-    let particles = [];
-    let snowflakes = [];
-    let explosions = [];
-    let mouseX = null;
-    let mouseY = null;
+    // -----------------------------
+    // Color blending (green ring)
+    // -----------------------------
     let colorIndex = 0;
     let colorProgress = 0;
 
-    let currentPaletteColors = colorPalettes[colorState].map((c) => ({ ...c }));
-    let targetPaletteColors = colorPalettes[colorState].map((c) => ({ ...c }));
-    let colorTransitionProgress = 1;
+    let currentPalette: RGB[] = colorPalettes[colorStateRef.current].map((c) => ({ ...c }));
+    let targetPalette: RGB[] = colorPalettes[colorStateRef.current].map((c) => ({ ...c }));
+    let paletteT = 1;
 
-    const getCurrentColor = (alpha = 0.25, variant = 'normal', offset = 0) => {
-      const colors = currentPaletteColors.map((current, i) => {
-        const target = targetPaletteColors[i];
+    const getRingColorRGB = (offset = 0): RGB => {
+      const cols = currentPalette.map((cur, i) => {
+        const tgt = targetPalette[i] || targetPalette[targetPalette.length - 1];
         return {
-          r: Math.floor(
-            current.r + (target.r - current.r) * colorTransitionProgress
-          ),
-          g: Math.floor(
-            current.g + (target.g - current.g) * colorTransitionProgress
-          ),
-          b: Math.floor(
-            current.b + (target.b - current.b) * colorTransitionProgress
-          ),
+          r: Math.floor(cur.r + (tgt.r - cur.r) * paletteT),
+          g: Math.floor(cur.g + (tgt.g - cur.g) * paletteT),
+          b: Math.floor(cur.b + (tgt.b - cur.b) * paletteT),
         };
       });
 
-      const baseIndex = (colorIndex + offset) % colors.length;
-      const current = colors[baseIndex];
-      const next = colors[(baseIndex + 1) % colors.length];
-
-      let r, g, b;
-
-      if (variant === 'pulled') {
-        r = Math.min(255, Math.floor(current.r * 1.2));
-        g = Math.min(255, Math.floor(current.g * 1.2));
-        b = Math.min(255, Math.floor(current.b * 1.2));
-      } else if (variant === 'pushed') {
-        r = 255;
-        g = 35;
-        b = 35;
-      } else {
-        r = Math.floor(current.r + (next.r - current.r) * colorProgress);
-        g = Math.floor(current.g + (next.g - current.g) * colorProgress);
-        b = Math.floor(current.b + (next.b - current.b) * colorProgress);
-      }
-
-      return `rgba(${r}, ${g}, ${b}, ${alpha})`;
-    };
-
-
-    // ---------- JULE-SKIN: Juletre + blinkende lys + stjerne ----------
-
-    // Litt grov tekstur til treet (som barnåler/uregelmessigheter)
-    const addTreeTexture = (base, nx, ny) => {
-    const noise1 =
-        (Math.sin(nx * 15) + Math.sin((ny + 0.7) * 21)) * 0.10;
-    const noise2 =
-        (Math.cos(nx * 27 - ny * 9) + Math.sin(nx * 9 + ny * 13)) * 0.06;
-    const shade = 0.9 + noise1 + noise2; // ca 0.74–1.06
-    const clamp = (v) => Math.max(0, Math.min(255, Math.round(v)));
-    return {
-        r: clamp(base.r * shade),
-        g: clamp(base.g * shade),
-        b: clamp(base.b * shade),
-    };
-    };
-
-    // Felles geometri for treet og stjerna
-const STAR_Y = -0.48;
-const STAR_RADIUS = 0.14;
-const TREE_TOP = -0.30;      // topp av treet
-const TREE_BOTTOM = 0.50;    // nederste kant på det grønne
-const TREE_BASE_WIDTH = 0.55;
-const TREE_TOP_WIDTH = 0.12;
-
-
-const isInTree = (nx, ny) => {
-  if (ny < TREE_TOP || ny > TREE_BOTTOM) return false;
-  const t = (ny - TREE_TOP) / (TREE_BOTTOM - TREE_TOP); // 0 top → 1 bunn
-  const halfWidth =
-    TREE_TOP_WIDTH + (TREE_BASE_WIDTH - TREE_TOP_WIDTH) * t;
-  return Math.abs(nx) < halfWidth;
-};
-
-const isInStar = (nx, ny) => {
-  const dx = nx;
-  const dy = ny - STAR_Y;
-  const r = Math.sqrt(dx * dx + dy * dy);
-  return r < STAR_RADIUS * 0.7; // tydelig, men litt "myk" stjerne-kjerne
-};
-
-const getChristmasBaseColor = (x, y) => {
-  const nx = (x - centerX) / orbRadius;
-  const ny = (y - centerY) / orbRadius;
-  const dist = Math.sqrt(nx * nx + ny * ny);
-
-  // Utenfor kula → mørk bakgrunn
-  if (dist > 1) return { r: 8, g: 10, b: 25 };
-
-  // Litt mørk blå nattehimmel inne i kula
-  const skyBase = { r: 15, g: 20, b: 45 };
-
-  // ░░░ STJERNE ░░░
-  if (isInStar(nx, ny)) {
-    const twinkle = 0.9 + 0.1 * Math.sin(colorProgress * 10);
-    return {
-      r: Math.round(255 * twinkle),
-      g: Math.round(245 * twinkle),
-      b: Math.round(210 * twinkle),
-    };
-  }
-
-    // ░░░ STAMME – tydelig, lysere og med svak outline ░░░
-    if (ny > TREE_BOTTOM + 0.02 && ny < TREE_BOTTOM + 0.26 && Math.abs(nx) < 0.09) {
-    const w = 0.09;
-    const t = Math.abs(nx) / w; // 0 i midten → 1 ved kanten
-
-    // Lysere og mer "tre-aktig" brun
-    const base = { r: 140, g: 95, b: 55 };
-
-    // Sentrumslys → stammen ser avrundet og mer synlig ut
-    const centerLight = 1 - t * 0.45;
-
-    // Gjør stammen litt mer synlig mot bakgrunnen
-    const visibilityBoost = 1.12;
-
-    return {
-        r: Math.min(255, Math.round(base.r * centerLight * visibilityBoost)),
-        g: Math.min(255, Math.round(base.g * centerLight * visibilityBoost)),
-        b: Math.min(255, Math.round(base.b * centerLight * visibilityBoost)),
-    };
-    }
-
-  // ░░░ JULETRE (ren trekant-form) ░░░
-  if (isInTree(nx, ny)) {
-    // klar grønn base
-    let green = { r: 30, g: 140, b: 70 };
-    green = addTreeTexture(green, nx * 1.7, ny * 1.7);
-
-    // litt mørkere på høyre side for "lysretning"
-    const sideShade = 0.9 + (nx > 0 ? -0.06 : 0.04);
-    green = {
-      r: Math.round(green.r * sideShade),
-      g: Math.round(green.g * sideShade),
-      b: Math.round(green.b * sideShade),
-    };
-
-    // ░░ JULEKULER ░░
-    const baubleSeed =
-      Math.sin(nx * 30 + ny * 42) +
-      Math.cos(nx * 55 - ny * 17);
-
-    if (Math.abs(baubleSeed) > 1.9) {
-      const palettes = [
-        { r: 220, g: 40, b: 55 },   // rød
-        { r: 210, g: 180, b: 60 },  // gull
-        { r: 70,  g: 120, b: 220 }, // blå
-      ];
-      const idx =
-        Math.abs(Math.floor(baubleSeed * 10)) % palettes.length;
-      const p = palettes[idx];
-
-      const sparkle =
-        0.85 + 0.15 * Math.sin(colorProgress * 7 + baubleSeed * 3);
+      const base = (colorIndex + offset) % cols.length;
+      const a = cols[base];
+      const b = cols[(base + 1) % cols.length];
 
       return {
-        r: Math.round(p.r * sparkle),
-        g: Math.round(p.g * sparkle),
-        b: Math.round(p.b * sparkle),
+        r: Math.floor(a.r + (b.r - a.r) * colorProgress),
+        g: Math.floor(a.g + (b.g - a.g) * colorProgress),
+        b: Math.floor(a.b + (b.b - a.b) * colorProgress),
       };
-    }
-
-    // ░░ VARME LYS ░░
-    const lightSeed =
-      Math.sin(nx * 50 - ny * 33) +
-      Math.cos(nx * 18 + ny * 29);
-
-    if (Math.abs(lightSeed) > 1.7) {
-      const baseLight = { r: 255, g: 235, b: 190 };
-      const blink =
-        0.7 + 0.3 * Math.sin(colorProgress * 14 + lightSeed * 2);
-
-      return {
-        r: Math.round(baseLight.r * blink),
-        g: Math.round(baseLight.g * blink),
-        b: Math.round(baseLight.b * blink),
-      };
-    }
-
-    return green;
-  }
-
-  // ░░ SNØ / BAKKE ░░
-  if (ny > 0.65) {
-    const snow = 0.7 + 0.3 * (1 - Math.min(1, (ny - 0.65) / 0.4));
-    return {
-      r: Math.round(225 * snow),
-      g: Math.round(235 * snow),
-      b: Math.round(250 * snow),
     };
-  }
 
-  // ░░ HIMMEL ░░ – vi lysner litt så prikkene blir mer hvite
-  const fade = 0.6 + 0.4 * (1 - dist);
-  const mixWithWhite = 0.35; // 0.0 = ren mørk, 1.0 = helt hvit
-  const baseR = skyBase.r * fade;
-  const baseG = skyBase.g * fade;
-  const baseB = skyBase.b * fade;
+    const rgba = (c: RGB, a: number) => `rgba(${c.r}, ${c.g}, ${c.b}, ${a})`;
+    const mix = (a: number, b: number, t: number) => a + (b - a) * t;
+    const mixRGB = (a: RGB, b: RGB, t: number): RGB => ({
+      r: Math.round(mix(a.r, b.r, t)),
+      g: Math.round(mix(a.g, b.g, t)),
+      b: Math.round(mix(a.b, b.b, t)),
+    });
 
-  return {
-    r: Math.round(baseR * (1 - mixWithWhite) + 255 * mixWithWhite),
-    g: Math.round(baseG * (1 - mixWithWhite) + 255 * mixWithWhite),
-    b: Math.round(baseB * (1 - mixWithWhite) + 255 * mixWithWhite),
-  };
-};
-
-
-
-
-
-
-    const applyVariantToBase = (base, variant) => {
-      let { r, g, b } = base;
-      if (variant === 'pulled') {
-        r = Math.max(0, Math.floor(r * 0.8));
-        g = Math.max(0, Math.floor(g * 0.8));
-        b = Math.max(0, Math.floor(b * 0.8));
-      } else if (variant === 'pushed') {
-        r = 255;
-        g = Math.floor(g * 0.3);
-        b = Math.floor(b * 0.3);
+    // -----------------------------
+    // Rune shape helpers
+    // -----------------------------
+    const sampleLine = (ax: number, ay: number, bx: number, by: number, steps: number): Point[] => {
+      const pts: Point[] = [];
+      for (let i = 0; i <= steps; i++) {
+        const t = i / steps;
+        pts.push({ x: ax + (bx - ax) * t, y: ay + (by - ay) * t });
       }
-      return { r, g, b };
+      return pts;
     };
 
-    // ---------- SNØ ----------
+    // -----------------------------
+    // Rune shape (ᚨ / Ansuz) - SOLID (no gaps)
+    // stem + two right-leaning arms, with stroke-fill thickness
+    // -----------------------------
+    const buildAnsuzPoints = (): Point[] => {
+      const pts: Point[] = [];
+
+      const addStroke = (linePts: Point[], dxs: number[], dys: number[]): Point[] => {
+        const out: Point[] = [];
+        for (const p of linePts) {
+          for (const dx of dxs) for (const dy of dys) out.push({ x: p.x + dx, y: p.y + dy });
+        }
+        return out;
+      };
+
+      const xStem = -0.35;
+      const stem = sampleLine(xStem, -0.85, xStem, 0.85, 140);
+
+      const topArm = sampleLine(xStem, -0.35, 0.55, -0.6, 110);
+      const midArm = sampleLine(xStem, 0.05, 0.45, -0.12, 95);
+
+      const stemDX = [-0.08, -0.05, -0.025, 0, 0.025, 0.05, 0.08];
+      const stemDY = [-0.03, 0, 0.03];
+
+      const armDX = [-0.05, -0.025, 0, 0.025, 0.05];
+      const armDY = [-0.03, 0, 0.03];
+
+      pts.push(...addStroke(stem, stemDX, stemDY), ...addStroke(topArm, armDX, armDY), ...addStroke(midArm, armDX, armDY));
+
+      return pts;
+    };
+
+    // swap rune points source:
+    const runeNorm: Point[] = buildAnsuzPoints();
+
+    const runeTargets = (): RuneTarget[] => {
+      const radius = centerRadius * 0.78;
+      return runeNorm.map((p) => ({
+        tx: centerX + p.x * radius,
+        ty: centerY + p.y * radius,
+      }));
+    };
+
+    // -----------------------------
+    // Ring particles (green)
+    // -----------------------------
+    let ringParticles: RingParticle[] = [];
+
+    const initRingParticles = () => {
+      const base = 520;
+      const count = Math.max(240, Math.min(820, Math.floor(base * (sizePx / 420))));
+      ringParticles = new Array(count).fill(0).map(() => new RingParticle());
+    };
+
+    class RingParticle {
+      radius: number;
+      angle: number;
+      speed: number;
+      size: number;
+      colorOffset: number;
+
+      constructor() {
+        this.radius = ringInner + Math.random() * (ringOuter - ringInner);
+        this.angle = Math.random() * Math.PI * 2;
+        this.speed = (Math.random() * 0.010 + 0.004) * (Math.random() < 0.5 ? 1 : -1);
+        this.size = (Math.random() * 2.6 + 2.0) * (sizePx / 500);
+        this.colorOffset = (Math.random() * 9999) | 0;
+      }
+
+      update(speedMul: number) {
+        this.angle += this.speed * speedMul;
+      }
+
+      draw(speedMul: number, hovered: boolean) {
+        const x = centerX + Math.cos(this.angle) * this.radius;
+        const y = centerY + Math.sin(this.angle) * this.radius;
+
+        let baseA = 0.26;
+        let glowA = 0.12;
+
+        if (hovered) {
+          baseA *= 1.06;
+          glowA *= 1.25;
+        }
+
+        const rgb = getRingColorRGB(this.colorOffset);
+        const fill = rgba(rgb, baseA);
+        const glow = rgba(rgb, glowA);
+
+        ctx2.shadowBlur = (14 + 6 * speedMul) * (sizePx / 500);
+        ctx2.shadowColor = glow;
+
+        ctx2.fillStyle = fill;
+        ctx2.beginPath();
+        ctx2.arc(x, y, this.size, 0, Math.PI * 2);
+        ctx2.fill();
+
+        ctx2.globalAlpha = 0.12;
+        ctx2.shadowBlur = 24 * (sizePx / 500);
+        ctx2.fillStyle = glow;
+        ctx2.beginPath();
+        ctx2.arc(x, y, this.size + 2.0 * (sizePx / 500), 0, Math.PI * 2);
+        ctx2.fill();
+        ctx2.globalAlpha = 1;
+      }
+    }
+
+    // -----------------------------
+    // Gold dots (no respawn)
+    // -----------------------------
+    let goldDots: GoldDot[] = [];
+    let goldBlend = 0;
+    let goldTargets: RuneTarget[] = runeTargets();
+
+    const shuffleInPlace = <T,>(arr: T[]): T[] => {
+      for (let i = arr.length - 1; i > 0; i--) {
+        const j = (Math.random() * (i + 1)) | 0;
+        [arr[i], arr[j]] = [arr[j], arr[i]];
+      }
+      return arr;
+    };
+
+    const initGoldDots = () => {
+      const base = 400;
+      const count = Math.max(260, Math.min(900, Math.floor(base * (sizePx / 420))));
+
+      goldTargets = runeTargets();
+
+      const idx = Array.from({ length: count }, (_, i) =>
+        Math.floor((i / Math.max(1, count - 1)) * Math.max(1, goldTargets.length - 1))
+      );
+      shuffleInPlace(idx);
+
+      goldDots = new Array(count).fill(0).map((_, i) => {
+        const a = Math.random() * Math.PI * 2;
+        const rr = ringInner + Math.random() * (ringOuter - ringInner);
+
+        return {
+          x: centerX + Math.cos(a) * rr,
+          y: centerY + Math.sin(a) * rr,
+          vx: 0,
+          vy: 0,
+
+          ringAngle: a,
+          ringRadius: rr,
+          ringSpeed: (Math.random() * 0.010 + 0.004) * (Math.random() < 0.5 ? 1 : -1),
+
+          runeIndex: idx[i],
+        };
+      });
+    };
+
+    const updateGoldTargetsOnResize = () => {
+      goldTargets = runeTargets();
+      for (const d of goldDots) {
+        d.runeIndex = Math.min(d.runeIndex, goldTargets.length - 1);
+      }
+    };
+
+    const updateGoldDots = (speedMul: number, hovered: boolean) => {
+      if (!goldDots.length) return;
+
+      const mx = mouseRef.current.x;
+      const my = mouseRef.current.y;
+
+      const targetBlend = hovered ? 1 : 0;
+      goldBlend += (targetBlend - goldBlend) * 0.12;
+
+      const spring = mix(0.12, 0.18, goldBlend);
+      const damp = 0.82;
+
+      for (const d of goldDots) {
+        d.ringAngle += d.ringSpeed * speedMul;
+
+        const ringTx = centerX + Math.cos(d.ringAngle) * d.ringRadius;
+        const ringTy = centerY + Math.sin(d.ringAngle) * d.ringRadius;
+
+        const t = goldTargets[d.runeIndex] || goldTargets[0];
+        const runeTx = t.tx;
+        const runeTy = t.ty;
+
+        const tx = mix(ringTx, runeTx, goldBlend);
+        const ty = mix(ringTy, runeTy, goldBlend);
+
+        if (hovered && mx !== null && my !== null && goldBlend > 0.15) {
+          const dx = d.x - mx;
+          const dy = d.y - my;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          const repelR = centerRadius * 0.26;
+
+          if (dist < repelR && dist > 0.0001) {
+            const push = (1 - dist / repelR) * (1.9 * goldBlend);
+            d.vx += (dx / dist) * push;
+            d.vy += (dy / dist) * push;
+          }
+        }
+
+        d.vx += (tx - d.x) * spring;
+        d.vy += (ty - d.y) * spring;
+
+        d.vx *= damp;
+        d.vy *= damp;
+
+        d.x += d.vx;
+        d.y += d.vy;
+      }
+    };
+
+    const drawGoldDots = () => {
+      if (!goldDots.length) return;
+
+      ctx2.shadowBlur = 0;
+      ctx2.shadowColor = 'transparent';
+
+      const goldRGB: RGB = { r: 255, g: 196, b: 70 };
+      const dotR = mix(3.0, 5.2, goldBlend) * (sizePx / 500);
+
+      for (const d of goldDots) {
+        const ringRGB = getRingColorRGB(d.runeIndex * 13);
+        const rgb = mixRGB(ringRGB, goldRGB, goldBlend);
+
+        const alpha = mix(0.0, 1.0, goldBlend);
+        ctx2.fillStyle = rgba(rgb, alpha);
+
+        ctx2.beginPath();
+        ctx2.arc(d.x, d.y, dotR, 0, Math.PI * 2);
+        ctx2.fill();
+      }
+    };
+
+    // -----------------------------
+    // Portal background
+    // -----------------------------
+    const drawPortalBase = () => {
+      const g = ctx2.createRadialGradient(centerX, centerY, orbRadius * 0.08, centerX, centerY, orbRadius);
+      g.addColorStop(0, portal.deep2);
+      g.addColorStop(0.55, portal.deep3);
+      g.addColorStop(1, portal.deep1);
+
+      ctx2.fillStyle = g;
+      ctx2.beginPath();
+      ctx2.arc(centerX, centerY, casingOuter, 0, Math.PI * 2);
+      ctx2.fill();
+
+      ctx2.save();
+      const cg = ctx2.createRadialGradient(centerX, centerY, casingInner, centerX, centerY, casingOuter);
+      cg.addColorStop(0, portal.casing2);
+      cg.addColorStop(1, portal.casing1);
+
+      ctx2.fillStyle = cg;
+      ctx2.beginPath();
+      ctx2.arc(centerX, centerY, casingOuter, 0, Math.PI * 2);
+      ctx2.arc(centerX, centerY, casingInner, 0, Math.PI * 2, true);
+      ctx2.fill('evenodd');
+      ctx2.restore();
+
+      ctx2.save();
+      const dg = ctx2.createRadialGradient(centerX, centerY, centerRadius * 0.05, centerX, centerY, centerRadius);
+      dg.addColorStop(0, portal.deep3);
+      dg.addColorStop(0.65, portal.deep2);
+      dg.addColorStop(1, portal.deep1);
+
+      ctx2.fillStyle = dg;
+      ctx2.beginPath();
+      ctx2.arc(centerX, centerY, centerRadius, 0, Math.PI * 2);
+      ctx2.fill();
+      ctx2.restore();
+
+      ctx2.save();
+      ctx2.shadowBlur = 18 * (sizePx / 500);
+      ctx2.shadowColor = portal.rimGlow;
+      ctx2.strokeStyle = portal.rimStroke;
+      ctx2.lineWidth = Math.max(2, sizePx / 140);
+      ctx2.beginPath();
+      ctx2.arc(centerX, centerY, casingOuter - ctx2.lineWidth * 0.5, 0, Math.PI * 2);
+      ctx2.stroke();
+      ctx2.restore();
+    };
+
+    // clip helpers
+    const clipRing = () => {
+      ctx2.save();
+      ctx2.beginPath();
+      ctx2.arc(centerX, centerY, ringOuter, 0, Math.PI * 2);
+      ctx2.arc(centerX, centerY, ringInner, 0, Math.PI * 2, true);
+      ctx2.clip('evenodd');
+    };
+    const clipOrb = () => {
+      ctx2.save();
+      ctx2.beginPath();
+      ctx2.arc(centerX, centerY, casingOuter, 0, Math.PI * 2);
+      ctx2.clip();
+    };
+    const unclip = () => ctx2.restore();
+
+    // -----------------------------
+    // Optional snow (juleskin)
+    // -----------------------------
+    let snowflakes: Snowflake[] = [];
 
     const initSnowflakes = () => {
-      const sizePx = Math.min(canvas.width, canvas.height);
-      const count = Math.floor(80 * (sizePx / 200));
-      snowflakes = [];
-      for (let i = 0; i < count; i++) {
-        snowflakes.push({
-          x: Math.random() * canvas.width,
-          y: Math.random() * canvas.height,
-          radius: (Math.random() * 1.2 + 0.4) * (sizePx / 200),
-          speed: (Math.random() * 0.4 + 0.2) * (sizePx / 200),
-        });
-      }
+      const count = Math.max(34, Math.min(110, Math.floor(64 * (sizePx / 260))));
+      snowflakes = new Array(count).fill(0).map(() => ({
+        x: Math.random() * sizePx,
+        y: Math.random() * sizePx,
+        r: (Math.random() * 1.2 + 0.4) * (sizePx / 220),
+        s: (Math.random() * 0.33 + 0.16) * (sizePx / 240),
+      }));
     };
 
-    const updateSnow = () => {
-      ctx.save();
-      ctx.fillStyle = 'rgba(255,255,255,0.85)';
-      snowflakes.forEach((flake) => {
-        flake.y += flake.speed;
-        if (flake.y > canvas.height + 5) {
-          flake.y = -10;
-          flake.x = Math.random() * canvas.width;
+    const drawSnow = () => {
+      ctx2.save();
+      ctx2.fillStyle = 'rgba(255,255,255,0.72)';
+      for (const f of snowflakes) {
+        f.y += f.s;
+        if (f.y > sizePx + 6) {
+          f.y = -10;
+          f.x = Math.random() * sizePx;
         }
-        ctx.beginPath();
-        ctx.arc(flake.x, flake.y, flake.radius, 0, Math.PI * 2);
-        ctx.fill();
-      });
-      ctx.restore();
+        ctx2.beginPath();
+        ctx2.arc(f.x, f.y, f.r, 0, Math.PI * 2);
+        ctx2.fill();
+      }
+      ctx2.restore();
     };
 
-    // ---------- PARTICLES (HTML-stil) ----------
-    const initParticles = () => {
-      const sizePx = Math.min(canvas.width, canvas.height);
-      const baseCount = 1400;
-      const count = Math.floor(baseCount * (sizePx / 500));
-      particles = [];
-      for (let i = 0; i < count; i++) {
-        particles.push(new Particle());
-      }
-    };
+    // -----------------------------
+    // Init once
+    // -----------------------------
+    initRingParticles();
+    initGoldDots();
+    if (skinRef.current === 'juleskin') initSnowflakes();
 
-    class Particle {
-      constructor() {
-        const sizePx = Math.min(canvas.width, canvas.height);
-        this.baseRadius =
-          minRadius + Math.random() * (maxRadius - minRadius);
-        this.angle = Math.random() * Math.PI * 2;
-        this.speed =
-          (Math.random() * 0.01 + 0.005) * (Math.random() < 0.5 ? 1 : -1);
-        this.size = (Math.random() * 4 + 3) * (sizePx / 500);
-        this.radiusOffset = 0;
-        this.angleOffset = 0;
-        this.effect = 'none';
-        this.colorOffset = Math.floor(Math.random() * 9999);
-      }
+    const ro = new ResizeObserver(() => {
+      updateDimensions();
+      updateGoldTargetsOnResize();
+      // NOTE: optional: re-init ring particles or snowflakes on resize if you want density to match size changes
+      // initRingParticles();
+      // if (skinRef.current === 'juleskin') initSnowflakes();
+    });
+    ro.observe(container);
 
-      update() {
-        this.angle += this.speed;
-
-        let currentRadius = this.baseRadius + this.radiusOffset;
-        let currentAngle = this.angle + this.angleOffset;
-
-        const particleX = centerX + Math.cos(currentAngle) * currentRadius;
-        const particleY = centerY + Math.sin(currentAngle) * currentRadius;
-
-        let targetRadiusOffset = 0;
-        let targetAngleOffset = 0;
-        let effect = 'none';
-
-        if (mouseX !== null && mouseY !== null) {
-          const dx = mouseX - centerX;
-          const dy = mouseY - centerY;
-          const distFromCenter = Math.sqrt(dx * dx + dy * dy);
-
-          // INSIDE ORB – push
-          if (distFromCenter < orbRadius - 10) {
-            const distToMouse = Math.sqrt(
-              (particleX - mouseX) ** 2 +
-                (particleY - mouseY) ** 2
-            );
-
-            if (distToMouse < mouseRepelRadius) {
-              const pushAngle = Math.atan2(
-                particleY - mouseY,
-                particleX - mouseX
-              );
-              const falloff = 1 - distToMouse / mouseRepelRadius;
-              const pushStrength = falloff * falloff;
-
-              const pushDx =
-                Math.cos(pushAngle) * maxPushStrength * pushStrength;
-              const pushDy =
-                Math.sin(pushAngle) * maxPushStrength * pushStrength;
-
-              const newX = particleX + pushDx;
-              const newY = particleY + pushDy;
-
-              const newDx = newX - centerX;
-              const newDy = newY - centerY;
-              const newRadius = Math.sqrt(newDx * newDx + newDy * newDy);
-              const newAngle = Math.atan2(newDy, newDx);
-
-              targetRadiusOffset =
-                Math.max(minRadius, Math.min(maxRadius, newRadius)) -
-                this.baseRadius;
-              targetAngleOffset = newAngle - this.angle;
-              effect = 'pushed';
-            }
-          }
-          // OUTSIDE ORB – pull
-          else if (distFromCenter >= orbRadius) {
-            const mouseAngle = Math.atan2(dy, dx);
-            const particleAngle = Math.atan2(
-              particleY - centerY,
-              particleX - centerX
-            );
-
-            let angleDiff = Math.abs(mouseAngle - particleAngle);
-            if (angleDiff > Math.PI) angleDiff = 2 * Math.PI - angleDiff;
-
-            const radialFromBorder = distFromCenter - orbRadius;
-
-            if (
-              angleDiff < pullAngleRange &&
-              radialFromBorder >= 0 &&
-              radialFromBorder <= pullRingThickness
-            ) {
-              const t = radialFromBorder / pullRingThickness;
-
-              let pullStrength = 1 - t;
-              pullStrength = Math.pow(pullStrength, 1.5);
-
-              const angleFactor = 1 - angleDiff / pullAngleRange;
-              pullStrength *= angleFactor;
-
-              targetRadiusOffset = maxPullAmount * pullStrength;
-              effect = 'pulled';
-            }
-          }
-        }
-
-        // Explosions
-        explosions.forEach((explosion) => {
-          const distToExplosion = Math.sqrt(
-            (particleX - explosion.x) ** 2 +
-              (particleY - explosion.y) ** 2
-          );
-          if (distToExplosion < explosion.radius) {
-            const explosionAngle = Math.atan2(
-              particleY - explosion.y,
-              particleX - explosion.x
-            );
-            const falloff =
-              1 - distToExplosion / explosion.radius;
-            const explosionPush =
-              falloff * falloff * explosion.strength * 0.6;
-
-            const pushDx =
-              Math.cos(explosionAngle) * explosionPush;
-            const pushDy =
-              Math.sin(explosionAngle) * explosionPush;
-
-            const newX = particleX + pushDx;
-            const newY = particleY + pushDy;
-
-            const newDx = newX - centerX;
-            const newDy = newY - centerY;
-            const newRadius = Math.sqrt(newDx * newDx + newDy * newDy);
-            const newAngle = Math.atan2(newDy, newDx);
-
-            targetRadiusOffset =
-              Math.max(minRadius, Math.min(maxRadius, newRadius)) -
-              this.baseRadius;
-            targetAngleOffset = newAngle - this.angle;
-            effect = 'pushed';
-          }
-        });
-
-        this.radiusOffset +=
-          (targetRadiusOffset - this.radiusOffset) * 0.15;
-        this.angleOffset +=
-          (targetAngleOffset - this.angleOffset) * 0.15;
-
-        this.radiusOffset *= 0.95;
-        this.angleOffset *= 0.95;
-        this.effect = effect;
-      }
-
-      draw() {
-        const currentRadius = this.baseRadius + this.radiusOffset;
-        const currentAngle = this.angle + this.angleOffset;
-
-        const x = centerX + Math.cos(currentAngle) * currentRadius;
-        const y = centerY + Math.sin(currentAngle) * currentRadius;
-
-        const nx = (x - centerX) / orbRadius;
-        const ny = (y - centerY) / orbRadius;
-
-        let variant = 'normal';
-        if (this.effect === 'pulled') variant = 'pulled';
-        if (this.effect === 'pushed') variant = 'pushed';
-
-        let color, glowColor;
-        let baseAlpha = 0.25;
-        let glowAlpha = 0.15;
-
-        if (skin === 'juleskin') {
-            const inTree = isInTree(nx, ny);
-            const inStar = isInStar(nx, ny);
-
-            // tre + stjerne skal POPPE
-            if (inTree || inStar) {
-            baseAlpha = 0.65;
-            glowAlpha = 0.40;
-            } else {
-            baseAlpha = 0.16;
-            glowAlpha = 0.08;
-            }
-
-            // nederst fortsatt litt ekstra transparent
-            if (ny > 0.90) {
-            baseAlpha *= 0.6;
-            glowAlpha *= 0.6;
-            }
-
-            const base = getChristmasBaseColor(x, y);
-            const final = applyVariantToBase(base, variant);
-            const { r, g, b } = final;
-            color = `rgba(${r}, ${g}, ${b}, ${baseAlpha})`;
-            glowColor = `rgba(${r}, ${g}, ${b}, ${glowAlpha})`;
-        } else {
-            if (variant === 'pushed') {
-              baseAlpha = Math.min(0.65, baseAlpha * 2.4);
-              glowAlpha = Math.min(0.55, glowAlpha * 3.0);
-            }
-
-            color = getCurrentColor(baseAlpha, variant, this.colorOffset);
-            glowColor = getCurrentColor(glowAlpha, variant, this.colorOffset);
-        }
-
-        const sizePx = Math.min(canvas.width, canvas.height);
-
-        ctx.shadowBlur = (variant === 'pushed' ? 32 : 20) * (sizePx / 500);
-        ctx.shadowColor = glowColor;
-        ctx.fillStyle = color;
-        ctx.beginPath();
-        ctx.arc(x, y, this.size, 0, Math.PI * 2);
-        ctx.fill();
-
-        ctx.shadowBlur = 35 * (sizePx / 500);
-        ctx.globalAlpha = 0.2;
-        ctx.fillStyle = glowColor;
-        ctx.beginPath();
-        ctx.arc(
-            x,
-            y,
-            this.size + 3 * (sizePx / 500),
-            0,
-            Math.PI * 2
-        );
-        ctx.fill();
-        ctx.globalAlpha = 1;
-        }
-
-    }
-
-    initParticles();
-    if (skin === 'juleskin') initSnowflakes();
-
-    const handleMouseMove = (e) => {
-      if (!containerRef.current) return;
-      const rect = containerRef.current.getBoundingClientRect();
-      mouseX = e.clientX - rect.left;
-      mouseY = e.clientY - rect.top;
-    };
-
-    const handleClick = (e) => {
-      if (!containerRef.current) return;
-      const rect = containerRef.current.getBoundingClientRect();
-      const clickX = e.clientX - rect.left;
-      const clickY = e.clientY - rect.top;
-
-      const dx = clickX - centerX;
-      const dy = clickY - centerY;
-      const distFromCenter = Math.sqrt(dx * dx + dy * dy);
-
-      if (distFromCenter < orbRadius - 10) {
-        explosions.push({
-          x: clickX,
-          y: clickY,
-          radius: orbRadius * 0.25,
-          strength: orbRadius * 0.08,
-          decay: 0.85,
-        });
-      }
-    };
-
+    // -----------------------------
+    // Animation loop (NO React state inside)
+    // -----------------------------
     const animate = () => {
-      if (!canvasRef.current) return;
-
-      colorProgress += 0.003;
+      // palette timing
+      colorProgress += 0.0032;
       if (colorProgress >= 1) {
         colorProgress = 0;
-        colorIndex = (colorIndex + 1) % targetPaletteColors.length;
+        colorIndex = (colorIndex + 1) % Math.max(1, targetPalette.length);
       }
 
-      if (colorTransitionProgress < 1) {
-        colorTransitionProgress = Math.min(
-          1,
-          colorTransitionProgress + 0.02
-        );
+      // palette transition (using ref)
+      const nextPalette = colorPalettes[colorStateRef.current];
+      if (currentPalette[0]?.r !== nextPalette[0]?.r) {
+        targetPalette = nextPalette.map((c) => ({ ...c }));
+        paletteT = 0;
       }
+      if (paletteT < 1) paletteT = Math.min(1, paletteT + 0.03);
 
-      const targetPalette = colorPalettes[colorState];
-      if (targetPaletteColors !== targetPalette) {
-        currentPaletteColors = currentPaletteColors.map((current, i) => {
-          const target = targetPaletteColors[i];
-          return {
-            r: Math.floor(
-              current.r + (target.r - current.r) * colorTransitionProgress
-            ),
-            g: Math.floor(
-              current.g + (target.g - current.g) * colorTransitionProgress
-            ),
-            b: Math.floor(
-              current.b + (target.b - current.b) * colorTransitionProgress
-            ),
-          };
-        });
-        targetPaletteColors = targetPalette;
-        colorTransitionProgress = 0;
-      }
-
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-      // snø først, under partiklene
-      if (skin === 'juleskin') {
-        updateSnow();
-      }
-
-      explosions = explosions.filter((explosion) => {
-        explosion.strength *= explosion.decay;
-        return explosion.strength > 0.3;
+      currentPalette = currentPalette.map((cur, i) => {
+        const tgt = targetPalette[i] || targetPalette[targetPalette.length - 1];
+        return {
+          r: Math.floor(cur.r + (tgt.r - cur.r) * 0.10),
+          g: Math.floor(cur.g + (tgt.g - cur.g) * 0.10),
+          b: Math.floor(cur.b + (tgt.b - cur.b) * 0.10),
+        };
       });
 
-      particles.forEach((p) => {
-        p.update();
-        p.draw();
-      });
+      const hovered = hoveredRef.current;
+      const speedMul = hovered ? 3.0 : 1.0;
+
+      ctx2.clearRect(0, 0, sizePx, sizePx);
+
+      drawPortalBase();
+
+      clipRing();
+      if (skinRef.current === 'juleskin') drawSnow();
+      for (const p of ringParticles) {
+        p.update(speedMul);
+        p.draw(speedMul, hovered);
+      }
+      unclip();
+
+      clipOrb();
+      updateGoldDots(speedMul, hovered);
+      drawGoldDots();
+      unclip();
 
       animationRef.current = requestAnimationFrame(animate);
     };
 
     animationRef.current = requestAnimationFrame(animate);
 
-    window.addEventListener('mousemove', handleMouseMove);
-    container.addEventListener('click', handleClick);
-
     return () => {
       if (animationRef.current) cancelAnimationFrame(animationRef.current);
-      window.removeEventListener('mousemove', handleMouseMove);
-      container.removeEventListener('click', handleClick);
-      resizeObserver.disconnect();
+      ro.disconnect();
     };
-  }, [colorState, skin, colorPalettes]);
+  }, [colorPalettes]);
 
-  // glasskule–look fra HTML
-  const glassBackground =
-    'radial-gradient(circle at 30% 30%, ' +
-    'rgba(255,255,255,0.2) 0%, ' +
-    'rgba(150,200,255,0.1) 30%, ' +
-    'rgba(100,150,255,0.05) 60%, ' +
-    'rgba(50,100,200,0.1) 100%)';
+  const portalBackground =
+    'radial-gradient(circle at 50% 50%, ' +
+    'rgba(0,0,0,0) 0%, ' +
+    'rgba(30,255,190,0.10) 35%, ' +
+    'rgba(30,255,190,0.05) 60%, ' +
+    'rgba(0,0,0,0) 100%)';
 
-  const glassBoxShadow =
+  const portalBoxShadow =
     skin === 'juleskin'
-      ? 'inset 0 0 50px rgba(255,255,255,0.18), ' +
-        'inset 20px 20px 60px rgba(255,255,255,0.08), ' +
-        '0 0 80px rgba(255,80,80,0.45), ' +
-        '0 0 120px rgba(255,40,40,0.3)'
-      : 'inset 0 0 50px rgba(255,255,255,0.1), ' +
-        'inset 20px 20px 60px rgba(255,255,255,0.05), ' +
-        '0 0 80px rgba(100,150,255,0.3), ' +
-        '0 0 120px rgba(100,150,255,0.2)';
+      ? '0 0 70px rgba(255,80,80,0.22), 0 0 140px rgba(255,40,40,0.14)'
+      : '0 0 70px rgba(30,255,190,0.18), 0 0 140px rgba(30,255,190,0.12)';
 
   return (
     <div
       ref={containerRef}
       className={className}
+      onPointerEnter={() => {
+        setIsHovered(true);
+        hoveredRef.current = true;
+      }}
+      onPointerLeave={() => {
+        setIsHovered(false);
+        hoveredRef.current = false;
+        mouseRef.current.x = null;
+        mouseRef.current.y = null;
+      }}
+      onPointerMove={(e: React.PointerEvent<HTMLDivElement>) => {
+        if (!containerRef.current) return;
+        const rect = containerRef.current.getBoundingClientRect();
+        mouseRef.current.x = e.clientX - rect.left;
+        mouseRef.current.y = e.clientY - rect.top;
+      }}
       style={{
         position: 'absolute',
         background: 'none',
-        width: style?.width || `${size}px`,
-        height: style?.height || `${size}px`,
+        width: style?.width || `${selected ? 80 : size}px`,
+        height: style?.height || `${selected ? 80 : size}px`,
         cursor: 'pointer',
         ...style,
       }}
@@ -751,11 +674,9 @@ const getChristmasBaseColor = (x, y) => {
           width: '100%',
           height: '100%',
           borderRadius: '50%',
-          background: glassBackground,
-          boxShadow: glassBoxShadow,
-          border: '2px solid rgba(255, 255, 255, 0.15)',
+          background: portalBackground,
+          boxShadow: portalBoxShadow,
           pointerEvents: 'none',
-          overflow: 'hidden',
         }}
       />
       <canvas
