@@ -18,6 +18,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { useWorkspace } from '@/components/admin/workspace-provider'
 import {
   Loader2,
   Save,
@@ -57,6 +58,7 @@ const AI_MODELS = [
 ]
 
 export default function AIConfigPage() {
+  const { activeWorkspaceId } = useWorkspace()
   const [config, setConfig] = useState<AIConfig | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -93,7 +95,7 @@ export default function AIConfigPage() {
     const { data } = await supabase
       .from('chatbot_configs')
       .select('id, ai_enabled, ai_system_prompt, ai_knowledge_base, ai_model, ai_temperature, ai_max_tokens, ai_auto_greet, ai_greeting_message, ai_handoff_keywords')
-      .eq('admin_id', user.id)
+      .eq('admin_id', activeWorkspaceId)
       .single()
 
     if (data) {
@@ -231,14 +233,14 @@ export default function AIConfigPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">AI Assistant</h1>
-          <p className="text-muted-foreground">
+          <h1 className="text-xl sm:text-2xl font-bold text-foreground">AI Assistant</h1>
+          <p className="text-sm sm:text-base text-muted-foreground">
             Configure your AI chatbot to automatically respond to visitors
           </p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
           <Badge 
             variant={config.ai_enabled ? 'default' : 'secondary'}
             className="text-sm"

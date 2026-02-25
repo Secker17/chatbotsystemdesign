@@ -15,11 +15,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Loader2, Save, Bot, Clock, MessageCircle, Headset, MessageSquare, Heart, SmilePlus, Upload, Code, Lock, X, ImageIcon, Sparkles } from 'lucide-react'
+import { Loader2, Save, Bot, Clock, MessageCircle, Headset, MessageSquare, Heart, SmilePlus, Upload, Code, Lock, X, ImageIcon, Sparkles, Globe, Plus, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import type { PlanLimits } from '@/lib/products'
 import ColorPicker, { DEFAULT_COLOR_CATEGORIES } from '@/components/color-picker'
 import AdminThemePicker from '@/components/admin-theme-picker'
+import { useWorkspace } from '@/components/admin/workspace-provider'
 
 interface DaySchedule {
   enabled: boolean
@@ -116,13 +117,27 @@ interface ChatbotConfig {
   business_hours: BusinessHours | null
   business_hours_timezone: string | null
   outside_hours_message: string | null
+  // Landing widget fields
+  is_landing_widget: boolean
+  landing_widget_enabled: boolean
+  quick_replies: string[] | null
+  greeting_message: string | null
+  greeting_subtext: string | null
 }
 
 export default function AppearancePage() {
-  const [config, setConfig] = useState<ChatbotConfig | null>(null)
+  const { activeWorkspaceId } = useWorkspace()
+  const [configs, setConfigs] = useState<ChatbotConfig[]>([])
+  const [activeConfigIndex, setActiveConfigIndex] = useState(0)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [planLimits, setPlanLimits] = useState<PlanLimits | null>(null)
+
+  const config = configs[activeConfigIndex] ?? null
+
+  const setConfig = (updated: ChatbotConfig) => {
+    setConfigs(prev => prev.map((c, i) => i === activeConfigIndex ? updated : c))
+  }
 
   useEffect(() => {
     loadConfig()
@@ -138,27 +153,53 @@ export default function AppearancePage() {
     
     if (!supabaseUrl || !supabaseKey) {
       // Use mock data in development mode
-      const mockConfig = {
-        id: 'dev-chatbot',
-        admin_id: 'dev-user',
-        widget_title: 'Chat with us',
-        welcome_message: 'Hi! How can we help you today?',
-        primary_color: '#eab308',
-        position: 'bottom-right',
-        avatar_url: null,
-        show_branding: true,
-        offline_message: 'We are currently offline. Leave a message!',
-        placeholder_text: 'Type your message...',
-        launcher_text: null,
-        launcher_text_enabled: false,
-        business_hours_enabled: false,
-        business_hours: DEFAULT_BUSINESS_HOURS,
-        business_hours_timezone: 'Europe/Oslo',
-        outside_hours_message: null,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      }
-      setConfig(mockConfig)
+      const mockConfigs: ChatbotConfig[] = [
+        {
+          id: 'dev-chatbot-landing',
+          widget_title: 'Chat with us',
+          welcome_message: 'Hi! How can we help you today?',
+          primary_color: '#eab308',
+          position: 'bottom-right',
+          avatar_url: null,
+          show_branding: true,
+          offline_message: 'We are currently offline. Leave a message!',
+          placeholder_text: 'Type your message...',
+          launcher_text: 'Talk to us',
+          launcher_text_enabled: true,
+          business_hours_enabled: false,
+          business_hours: DEFAULT_BUSINESS_HOURS,
+          business_hours_timezone: 'Europe/Oslo',
+          outside_hours_message: null,
+          is_landing_widget: true,
+          landing_widget_enabled: true,
+          quick_replies: ['What features do you offer?', 'Tell me about pricing'],
+          greeting_message: 'Hi there!',
+          greeting_subtext: 'How can I help you today?',
+        },
+        {
+          id: 'dev-chatbot-demo',
+          widget_title: 'Chat Demo Bot',
+          welcome_message: 'Welcome to the demo!',
+          primary_color: '#6366f1',
+          position: 'bottom-right',
+          avatar_url: null,
+          show_branding: true,
+          offline_message: 'We are currently offline.',
+          placeholder_text: 'Type your message...',
+          launcher_text: 'Chat with us',
+          launcher_text_enabled: true,
+          business_hours_enabled: false,
+          business_hours: DEFAULT_BUSINESS_HOURS,
+          business_hours_timezone: 'Europe/Oslo',
+          outside_hours_message: null,
+          is_landing_widget: false,
+          landing_widget_enabled: false,
+          quick_replies: ['Show me a demo', 'What can you do?'],
+          greeting_message: 'Welcome!',
+          greeting_subtext: 'Try out our features here.',
+        },
+      ]
+      setConfigs(mockConfigs)
       setLoading(false)
       return
     }
@@ -167,14 +208,37 @@ export default function AppearancePage() {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
 
-    const { data } = await supabase
+    // First try to fetch with all columns
+    let { data, error } = await supabase
       .from('chatbot_configs')
       .select('*')
-      .eq('admin_id', user.id)
-      .single()
+      .eq('admin_id', activeWorkspaceId)
 
-    if (data) {
-      setConfig(data)
+    if (error) {
+      // Fallback: fetch only core columns if new columns don't exist yet
+      const fallback = await supabase
+        .from('chatbot_configs')
+        .select('id, widget_title, welcome_message, primary_color, position, avatar_url, show_branding, offline_message, placeholder_text, launcher_text, launcher_text_enabled, business_hours_enabled, business_hours, business_hours_timezone, outside_hours_message')
+        .eq('admin_id', activeWorkspaceId)
+
+      data = (fallback.data || []).map((c) => ({
+        ...c,
+        is_landing_widget: false,
+        landing_widget_enabled: false,
+        quick_replies: null,
+        greeting_message: 'Hi there!',
+        greeting_subtext: 'How can I help you today?',
+      })) as ChatbotConfig[]
+    }
+
+    if (data && data.length > 0) {
+      // Sort: landing widget first
+      const sorted = [...data].sort((a, b) => {
+        if (a.is_landing_widget && !b.is_landing_widget) return -1
+        if (!a.is_landing_widget && b.is_landing_widget) return 1
+        return 0
+      })
+      setConfigs(sorted)
     }
     setLoading(false)
   }
@@ -207,12 +271,14 @@ export default function AppearancePage() {
         show_branding: config.show_branding,
         offline_message: config.offline_message,
         placeholder_text: config.placeholder_text,
-        launcher_text: config.launcher_text,
-        launcher_text_enabled: config.launcher_text_enabled,
         business_hours_enabled: config.business_hours_enabled,
         business_hours: config.business_hours,
         business_hours_timezone: config.business_hours_timezone,
         outside_hours_message: config.outside_hours_message,
+        landing_widget_enabled: config.landing_widget_enabled,
+        quick_replies: config.quick_replies,
+        greeting_message: config.greeting_message,
+        greeting_subtext: config.greeting_subtext,
         updated_at: new Date().toISOString(),
       })
       .eq('id', config.id)
@@ -249,14 +315,14 @@ export default function AppearancePage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Appearance</h1>
-          <p className="text-muted-foreground">
+          <h1 className="text-xl sm:text-2xl font-bold text-foreground">Appearance</h1>
+          <p className="text-sm sm:text-base text-muted-foreground">
             Customize how your chatbot looks and feels
           </p>
         </div>
-        <Button onClick={handleSave} disabled={saving}>
+        <Button onClick={handleSave} disabled={saving} className="w-fit">
           {saving ? (
             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
           ) : (
@@ -265,6 +331,43 @@ export default function AppearancePage() {
           Save Changes
         </Button>
       </div>
+
+      {/* Multi-Chatbot Selector */}
+      {configs.length > 1 && (
+        <div className="flex items-center gap-2 rounded-xl border border-border bg-muted/30 p-1.5 overflow-x-auto">
+          {configs.map((c, i) => (
+            <button
+              key={c.id}
+              onClick={() => setActiveConfigIndex(i)}
+              className={`
+                flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium transition-all duration-200
+                ${i === activeConfigIndex
+                  ? 'bg-card text-foreground shadow-sm border border-border/60'
+                  : 'text-muted-foreground hover:text-foreground hover:bg-card/50'
+                }
+              `}
+            >
+              <span
+                className="h-3 w-3 rounded-full shrink-0 ring-1 ring-border/30"
+                style={{ backgroundColor: c.primary_color }}
+              />
+              <span>{c.widget_title || 'Untitled'}</span>
+              {c.is_landing_widget && (
+                <span className="ml-1 inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">
+                  <Globe className="h-3 w-3" />
+                  Landing
+                </span>
+              )}
+              {!c.is_landing_widget && (
+                <span className="ml-1 inline-flex items-center rounded-full bg-indigo-500/10 px-2 py-0.5 text-[10px] font-semibold text-indigo-600 dark:text-indigo-400">
+                  <MessageSquare className="h-3 w-3 mr-0.5" />
+                  Demo
+                </span>
+              )}
+            </button>
+          ))}
+        </div>
+      )}
 
       <div className="grid gap-6 lg:grid-cols-2">
         {/* Admin Panel Theme */}
@@ -600,38 +703,212 @@ export default function AppearancePage() {
             <CardHeader>
               <div className="flex items-center gap-2">
                 <MessageCircle className="h-5 w-5 text-muted-foreground" />
-                <CardTitle>Launcher Text</CardTitle>
+                <CardTitle>Greeting Bubble</CardTitle>
               </div>
               <CardDescription>
-                Show a &quot;Talk to us&quot; label next to the chat button
+                A popup bubble that appears above the chat button to invite visitors to chat
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div className="space-y-0.5">
-                  <Label>Enable Launcher Text</Label>
-                  <p className="text-xs text-muted-foreground">
-                    Display text next to the chat bubble
-                  </p>
-                </div>
-                <Switch
-                  checked={config.launcher_text_enabled}
-                  onCheckedChange={(checked) => setConfig({ ...config, launcher_text_enabled: checked })}
+              <div className="space-y-2">
+                <Label htmlFor="greeting-msg">Greeting Title</Label>
+                <Input
+                  id="greeting-msg"
+                  value={config.greeting_message || ''}
+                  onChange={(e) => setConfig({ ...config, greeting_message: e.target.value })}
+                  placeholder="Hi there!"
                 />
               </div>
-              {config.launcher_text_enabled && (
-                <div className="space-y-2">
-                  <Label htmlFor="launcher-text">Launcher Text</Label>
-                  <Input
-                    id="launcher-text"
-                    value={config.launcher_text || ''}
-                    onChange={(e) => setConfig({ ...config, launcher_text: e.target.value })}
-                    placeholder="Talk to us"
-                  />
-                </div>
-              )}
+              <div className="space-y-2">
+                <Label htmlFor="greeting-sub">Greeting Subtext</Label>
+                <Input
+                  id="greeting-sub"
+                  value={config.greeting_subtext || ''}
+                  onChange={(e) => setConfig({ ...config, greeting_subtext: e.target.value })}
+                  placeholder="How can I help you today?"
+                />
+              </div>
             </CardContent>
           </Card>
+
+          {/* Landing Page Widget - Only shown for Vintra / landing widget owner */}
+          {config.is_landing_widget && (
+            <Card className="border-primary/20 bg-primary/[0.02]">
+              <CardHeader>
+                <div className="flex items-center gap-2">
+                  <Globe className="h-5 w-5 text-primary" />
+                  <CardTitle>Landing Page Widget</CardTitle>
+                </div>
+                <CardDescription>
+                  Control the chat widget shown on the main landing page. This section is only visible because your chatbot is the designated landing page widget.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-5">
+                {/* Enable / Disable */}
+                <div className="flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <Label>Enable Landing Widget</Label>
+                    <p className="text-xs text-muted-foreground">
+                      Show the chat widget on the public landing page
+                    </p>
+                  </div>
+                  <Switch
+                    checked={config.landing_widget_enabled}
+                    onCheckedChange={(checked) =>
+                      setConfig({ ...config, landing_widget_enabled: checked })
+                    }
+                  />
+                </div>
+
+                {config.landing_widget_enabled && (
+                  <>
+                    {/* Landing Widget Color */}
+                    <div className="space-y-3 rounded-lg border border-border/50 bg-card p-4">
+                      <p className="text-sm font-medium text-foreground">Widget Color</p>
+                      <p className="text-xs text-muted-foreground">
+                        Primary color used for the landing page chat button, header, and message bubbles.
+                      </p>
+                      <ColorPicker
+                        value={config.primary_color}
+                        onChange={(color) => setConfig({ ...config, primary_color: color })}
+                        categories={DEFAULT_COLOR_CATEGORIES}
+                      />
+                    </div>
+
+                    {/* Landing Widget Title & Welcome */}
+                    <div className="space-y-3 rounded-lg border border-border/50 bg-card p-4">
+                      <p className="text-sm font-medium text-foreground">Widget Text</p>
+                      <div className="space-y-2">
+                        <Label htmlFor="landing-title">Header Title</Label>
+                        <Input
+                          id="landing-title"
+                          value={config.widget_title}
+                          onChange={(e) => setConfig({ ...config, widget_title: e.target.value })}
+                          placeholder="Chat Support"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="landing-welcome">Welcome Message</Label>
+                        <Textarea
+                          id="landing-welcome"
+                          value={config.welcome_message}
+                          onChange={(e) => setConfig({ ...config, welcome_message: e.target.value })}
+                          placeholder="Ask me anything about our platform..."
+                          rows={2}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="landing-placeholder">Input Placeholder</Label>
+                        <Input
+                          id="landing-placeholder"
+                          value={config.placeholder_text}
+                          onChange={(e) => setConfig({ ...config, placeholder_text: e.target.value })}
+                          placeholder="Type your message..."
+                        />
+                      </div>
+                    </div>
+
+                    {/* Position */}
+                    <div className="space-y-3 rounded-lg border border-border/50 bg-card p-4">
+                      <p className="text-sm font-medium text-foreground">Position</p>
+                      <Select
+                        value={config.position}
+                        onValueChange={(value) => setConfig({ ...config, position: value })}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select position" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="bottom-left">Bottom Left</SelectItem>
+                          <SelectItem value="bottom-right">Bottom Right</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    {/* Quick Replies */}
+                    <div className="space-y-3 rounded-lg border border-border/50 bg-card p-4">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-sm font-medium text-foreground">Quick Replies</p>
+                          <p className="text-xs text-muted-foreground">
+                            Suggested replies shown to visitors when the chat is empty.
+                          </p>
+                        </div>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            const current = config.quick_replies || []
+                            if (current.length >= 6) {
+                              toast.error('Maximum 6 quick replies allowed')
+                              return
+                            }
+                            setConfig({
+                              ...config,
+                              quick_replies: [...current, ''],
+                            })
+                          }}
+                          disabled={(config.quick_replies?.length || 0) >= 6}
+                        >
+                          <Plus className="mr-1 h-3.5 w-3.5" />
+                          Add
+                        </Button>
+                      </div>
+                      <div className="space-y-2">
+                        {(config.quick_replies || []).map((reply, index) => (
+                          <div key={index} className="flex items-center gap-2">
+                            <Input
+                              value={reply}
+                              onChange={(e) => {
+                                const updated = [...(config.quick_replies || [])]
+                                updated[index] = e.target.value
+                                setConfig({ ...config, quick_replies: updated })
+                              }}
+                              placeholder={`Quick reply ${index + 1}`}
+                              className="flex-1"
+                            />
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="h-9 w-9 p-0 text-muted-foreground hover:text-destructive"
+                              onClick={() => {
+                                const updated = [...(config.quick_replies || [])]
+                                updated.splice(index, 1)
+                                setConfig({ ...config, quick_replies: updated })
+                              }}
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          </div>
+                        ))}
+                        {(!config.quick_replies || config.quick_replies.length === 0) && (
+                          <p className="text-xs italic text-muted-foreground py-2">
+                            No quick replies configured. Default suggestions will be shown.
+                          </p>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Branding toggle */}
+                    <div className="flex items-center justify-between rounded-lg border border-border/50 bg-card p-4">
+                      <div className="space-y-0.5">
+                        <Label>Show Branding</Label>
+                        <p className="text-xs text-muted-foreground">
+                          Display &quot;Powered by Vintra&quot; in widget
+                        </p>
+                      </div>
+                      <Switch
+                        checked={config.show_branding}
+                        onCheckedChange={(checked) => setConfig({ ...config, show_branding: checked })}
+                      />
+                    </div>
+                  </>
+                )}
+              </CardContent>
+            </Card>
+          )}
 
           <Card>
             <CardHeader>
@@ -829,36 +1106,22 @@ export default function AppearancePage() {
                 </div>
 
                 {/* Launcher Button */}
-                <div className={`flex flex-col ${config.position === 'bottom-left' ? 'items-start' : 'items-end'}`}>
+                <div className={`flex flex-col ${config.position === 'bottom-left' ? 'items-start' : 'items-end'} gap-2`}>
+                  {/* Greeting Bubble Preview */}
+                  {(config.greeting_message || config.greeting_subtext) && (
+                    <div className="max-w-[220px]">
+                      <div className="relative rounded-xl bg-card border border-border/60 px-3 py-2 shadow-lg">
+                        {config.greeting_message && (
+                          <p className="text-xs font-medium text-foreground">{config.greeting_message}</p>
+                        )}
+                        {config.greeting_subtext && (
+                          <p className="text-[10px] text-muted-foreground mt-0.5">{config.greeting_subtext}</p>
+                        )}
+                        <div className={`absolute -bottom-1.5 ${config.position === 'bottom-left' ? 'left-4' : 'right-4'} w-3 h-3 bg-card border-b border-r border-border/60 rotate-45`} />
+                      </div>
+                    </div>
+                  )}
                   <div className="relative inline-flex items-center justify-center">
-                    {config.launcher_text_enabled && config.launcher_text && (
-                      <svg
-                        className="absolute -top-7 left-1/2 -translate-x-1/2"
-                        width="160"
-                        height="75"
-                        viewBox="0 0 200 100"
-                        xmlns="http://www.w3.org/2000/svg"
-                      >
-                        <defs>
-                          <path id="preview-curve" d="M 10,95 Q 100,-15 190,95" fill="none"/>
-                        </defs>
-                        <text>
-                          <textPath
-                            href="#preview-curve"
-                            startOffset="50%"
-                            textAnchor="middle"
-                            style={{
-                              fontSize: '18px',
-                              fontWeight: 800,
-                              fill: config.primary_color,
-                              letterSpacing: '0.8px',
-                            }}
-                          >
-                            {config.launcher_text}
-                          </textPath>
-                        </text>
-                      </svg>
-                    )}
                     <div 
                       className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full text-white shadow-lg"
                       style={{ backgroundColor: config.primary_color }}

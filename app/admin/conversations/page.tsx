@@ -43,6 +43,7 @@ import {
 } from '@/components/ui/tooltip'
 import { toast } from 'sonner'
 import type { RealtimeChannel } from '@supabase/supabase-js'
+import { useWorkspace } from '@/components/admin/workspace-provider'
 
 interface ChatSession {
   id: string
@@ -72,6 +73,7 @@ interface ChatMessage {
 }
 
 export default function ConversationsPage() {
+  const { activeWorkspaceId } = useWorkspace()
   const [sessions, setSessions] = useState<ChatSession[]>([])
   const [selectedSession, setSelectedSession] = useState<ChatSession | null>(null)
   const [loading, setLoading] = useState(true)
@@ -81,6 +83,7 @@ export default function ConversationsPage() {
   const [isConnected, setIsConnected] = useState(false)
   const [userId, setUserId] = useState<string | null>(null)
   const [chatbotIds, setChatbotIds] = useState<string[]>([])
+  const [chatbotMap, setChatbotMap] = useState<Record<string, { title: string; isLanding: boolean }>>({})
   const [filter, setFilter] = useState<'all' | 'handoff' | 'active' | 'ai'>('all')
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const channelRef = useRef<RealtimeChannel | null>(null)
@@ -133,8 +136,8 @@ export default function ConversationsPage() {
       // Fetch all chatbot IDs belonging to this admin
       const { data: chatbots, error: chatbotsError } = await supabase
         .from('chatbot_configs')
-        .select('id')
-        .eq('admin_id', user.id)
+        .select('id, widget_title, is_landing_widget')
+        .eq('admin_id', activeWorkspaceId)
 
       if (chatbotsError) {
         console.error('Failed to fetch chatbots:', chatbotsError)
@@ -144,6 +147,16 @@ export default function ConversationsPage() {
 
       const ids = (chatbots || []).map(c => c.id)
       setChatbotIds(ids)
+
+      // Build a map of chatbot ID -> details for labeling
+      const map: Record<string, { title: string; isLanding: boolean }> = {}
+      for (const c of chatbots || []) {
+        map[c.id] = {
+          title: c.widget_title || 'Chatbot',
+          isLanding: !!c.is_landing_widget,
+        }
+      }
+      setChatbotMap(map)
     }
 
     init()
@@ -482,18 +495,18 @@ export default function ConversationsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Conversations</h1>
-          <p className="text-muted-foreground">
+          <h1 className="text-xl sm:text-2xl font-bold text-foreground">Conversations</h1>
+          <p className="text-sm text-muted-foreground">
             Manage and respond to chat conversations in real-time
           </p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
           {handoffCount > 0 && (
             <Badge variant="destructive" className="gap-1 py-1">
               <AlertTriangle className="h-3 w-3" />
-              {handoffCount} waiting for human
+              {handoffCount} waiting
             </Badge>
           )}
           <div className="flex items-center gap-2 text-sm">
@@ -511,9 +524,9 @@ export default function ConversationsPage() {
         </div>
       </div>
 
-      <div className="grid h-[calc(100vh-220px)] gap-6 lg:grid-cols-3">
+      <div className="grid h-[calc(100vh-280px)] sm:h-[calc(100vh-220px)] gap-4 sm:gap-6 lg:grid-cols-3">
         {/* Sessions List */}
-        <Card className="flex flex-col">
+        <Card className={`flex flex-col ${selectedSession ? 'hidden lg:flex' : ''}`}>
           <CardHeader className="space-y-3 pb-3">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -590,10 +603,22 @@ export default function ConversationsPage() {
                             </div>
                             <div className="min-w-0">
                               <div className="flex items-center gap-2">
-                                <span className="truncate font-medium">
-                                  {session.visitor_name || 'Anonymous'}
-                                </span>
-                                {getSessionStatusBadge(session)}
+                  <span className="truncate font-medium">
+                  {session.visitor_name || 'Anonymous'}
+                  </span>
+                  {chatbotMap[session.chatbot_id] && (
+                    <Badge
+                      variant="outline"
+                      className={`text-[10px] px-1.5 py-0 h-4 font-medium shrink-0 ${
+                        chatbotMap[session.chatbot_id].isLanding
+                          ? 'border-amber-300 bg-amber-50 text-amber-700 dark:bg-amber-900/20 dark:text-amber-400 dark:border-amber-800'
+                          : 'border-indigo-300 bg-indigo-50 text-indigo-700 dark:bg-indigo-900/20 dark:text-indigo-400 dark:border-indigo-800'
+                      }`}
+                    >
+                      {chatbotMap[session.chatbot_id].isLanding ? 'Landing' : 'Demo'}
+                    </Badge>
+                  )}
+                  {getSessionStatusBadge(session)}
                               </div>
                               {lastMessage && (
                                 <p className="mt-0.5 line-clamp-1 text-xs text-muted-foreground">
@@ -621,30 +646,39 @@ export default function ConversationsPage() {
         </Card>
 
         {/* Chat View */}
-        <Card className="flex flex-col lg:col-span-2">
+        <Card className={`flex flex-col lg:col-span-2 ${!selectedSession ? 'hidden lg:flex' : ''}`}>
           {selectedSession ? (
             <>
-              <CardHeader className="flex flex-row items-center justify-between border-b pb-4">
-                <div className="flex items-center gap-3">
-                  <Avatar>
+              <CardHeader className="flex flex-row items-center justify-between border-b pb-4 gap-2">
+                <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="shrink-0 lg:hidden h-8 w-8"
+                    onClick={() => setSelectedSession(null)}
+                    aria-label="Back to conversations"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+                  </Button>
+                  <Avatar className="hidden sm:flex">
                     <AvatarFallback className="bg-primary/10 text-primary">
                       {selectedSession.visitor_name?.[0]?.toUpperCase() || 'V'}
                     </AvatarFallback>
                   </Avatar>
-                  <div>
+                  <div className="min-w-0">
                     <div className="flex items-center gap-2">
-                      <CardTitle className="text-base">
+                      <CardTitle className="text-sm sm:text-base truncate">
                         {selectedSession.visitor_name || 'Anonymous Visitor'}
                       </CardTitle>
                       {getSessionStatusBadge(selectedSession)}
                     </div>
-                    <CardDescription className="text-xs">
+                    <CardDescription className="text-xs truncate">
                       {selectedSession.visitor_email || 'No email provided'}
-                      {selectedSession.bot_messages_count ? ` \u00B7 ${selectedSession.bot_messages_count} AI messages` : ''}
+                      {selectedSession.bot_messages_count ? ` \u00B7 ${selectedSession.bot_messages_count} AI msgs` : ''}
                     </CardDescription>
                   </div>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1 sm:gap-2 shrink-0">
                   <TooltipProvider>
                     {selectedSession.status === 'waiting_for_human' && (
                       <Tooltip>
@@ -654,8 +688,8 @@ export default function ConversationsPage() {
                             size="sm" 
                             onClick={() => handleTakeOver(selectedSession.id)}
                           >
-                            <UserCheck className="mr-2 h-4 w-4" />
-                            Take Over
+                            <UserCheck className="h-4 w-4 sm:mr-2" />
+                            <span className="hidden sm:inline">Take Over</span>
                           </Button>
                         </TooltipTrigger>
                         <TooltipContent>Take over from AI and respond as a human</TooltipContent>
@@ -669,8 +703,8 @@ export default function ConversationsPage() {
                             size="sm" 
                             onClick={() => handleTakeOver(selectedSession.id)}
                           >
-                            <UserCheck className="mr-2 h-4 w-4" />
-                            Take Over
+                            <UserCheck className="h-4 w-4 sm:mr-2" />
+                            <span className="hidden sm:inline">Take Over</span>
                           </Button>
                         </TooltipTrigger>
                         <TooltipContent>Disable AI and respond manually</TooltipContent>
@@ -684,8 +718,8 @@ export default function ConversationsPage() {
                             size="sm" 
                             onClick={() => handleReactivateBot(selectedSession.id)}
                           >
-                            <Power className="mr-2 h-4 w-4" />
-                            Reactivate AI
+                            <Power className="h-4 w-4 sm:mr-2" />
+                            <span className="hidden sm:inline">Reactivate AI</span>
                           </Button>
                         </TooltipTrigger>
                         <TooltipContent>Let AI handle this conversation again</TooltipContent>
@@ -773,7 +807,7 @@ export default function ConversationsPage() {
                                   {isAdmin ? 'A' : isBot ? <Sparkles className="h-4 w-4" /> : <User className="h-4 w-4" />}
                                 </AvatarFallback>
                               </Avatar>
-                              <div className={`max-w-[70%] ${isAdmin ? 'text-right' : ''}`}>
+                              <div className={`max-w-[85%] sm:max-w-[70%] ${isAdmin ? 'text-right' : ''}`}>
                                 <div className="mb-0.5 flex items-center gap-1.5">
                                   {isBot && (
                                     <span className="text-[11px] text-purple-400">AI Assistant</span>

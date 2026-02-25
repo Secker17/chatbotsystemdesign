@@ -27,6 +27,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { Loader2, Plus, MoreVertical, Pencil, Trash2, MessagesSquare, Search } from 'lucide-react'
 import { toast } from 'sonner'
+import { useWorkspace } from '@/components/admin/workspace-provider'
 
 interface CannedResponse {
   id: string
@@ -38,6 +39,7 @@ interface CannedResponse {
 }
 
 export default function ResponsesPage() {
+  const { activeWorkspaceId } = useWorkspace()
   const [responses, setResponses] = useState<CannedResponse[]>([])
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
@@ -73,7 +75,7 @@ export default function ResponsesPage() {
       const { data: chatbots } = await supabase
         .from('chatbot_configs')
         .select('id')
-        .eq('admin_id', user.id)
+        .eq('admin_id', activeWorkspaceId)
         .limit(1)
       if (chatbots && chatbots.length > 0) {
         setChatbotId(chatbots[0].id)
@@ -83,7 +85,7 @@ export default function ResponsesPage() {
     const { data } = await supabase
       .from('canned_responses')
       .select('*')
-      .eq('admin_id', user.id)
+      .eq('admin_id', activeWorkspaceId)
       .order('created_at', { ascending: false })
 
     if (data) {
@@ -196,8 +198,8 @@ export default function ResponsesPage() {
     return (
       <div className="space-y-6">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Canned Responses</h1>
-          <p className="text-muted-foreground">
+          <h1 className="text-xl sm:text-2xl font-bold text-foreground">Canned Responses</h1>
+          <p className="text-sm sm:text-base text-muted-foreground">
             Create quick replies for common questions
           </p>
         </div>
@@ -213,10 +215,10 @@ export default function ResponsesPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Canned Responses</h1>
-          <p className="text-muted-foreground">
+          <h1 className="text-xl sm:text-2xl font-bold text-foreground">Canned Responses</h1>
+          <p className="text-sm sm:text-base text-muted-foreground">
             Create quick replies for common questions
           </p>
         </div>

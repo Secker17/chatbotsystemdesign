@@ -116,29 +116,71 @@ export async function GET() {
       align-items: center;
       justify-content: center;
     }
-    .vintra-curved-text {
+    .vintra-greeting-bubble {
       position: absolute;
-      bottom: 38px;
-      left: 50%;
-      transform: translateX(-50%);
-      width: 200px;
-      height: 100px;
-      pointer-events: none;
+      bottom: 70px;
+      right: 0;
+      max-width: 240px;
       display: none;
+      z-index: 10;
     }
-    .vintra-curved-text.show {
+    .vintra-greeting-bubble.show {
       display: block;
-      animation: vintraCurvedIn 0.5s ease;
+      animation: vintraGreetingIn 0.4s ease;
     }
-    .vintra-curved-label {
-      font-size: 18px;
-      font-weight: 800;
+    .vintra-greeting-inner {
+      position: relative;
+      background: #fff;
+      border: 1px solid rgba(0,0,0,0.08);
+      border-radius: 14px;
+      padding: 10px 14px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.12);
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-      letter-spacing: 0.8px;
     }
-    @keyframes vintraCurvedIn {
-      from { opacity: 0; transform: translateX(-50%) translateY(6px); }
-      to { opacity: 1; transform: translateX(-50%) translateY(0); }
+    .vintra-greeting-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: #111;
+      margin: 0;
+    }
+    .vintra-greeting-sub {
+      font-size: 11px;
+      color: #666;
+      margin: 2px 0 0;
+    }
+    .vintra-greeting-tail {
+      position: absolute;
+      bottom: -6px;
+      right: 16px;
+      width: 12px;
+      height: 12px;
+      background: #fff;
+      border-bottom: 1px solid rgba(0,0,0,0.08);
+      border-right: 1px solid rgba(0,0,0,0.08);
+      transform: rotate(45deg);
+    }
+    .vintra-greeting-close {
+      position: absolute;
+      top: -6px;
+      right: -6px;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: #e5e5e5;
+      border: none;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 10px;
+      color: #666;
+      line-height: 1;
+      padding: 0;
+    }
+    .vintra-greeting-close:hover { background: #d4d4d4; }
+    @keyframes vintraGreetingIn {
+      from { opacity: 0; transform: translateY(8px) scale(0.95); }
+      to { opacity: 1; transform: translateY(0) scale(1); }
     }
     .vintra-offline-overlay {
       display: none;
@@ -1186,14 +1228,14 @@ export async function GET() {
       </div>
       <div class="vintra-launcher-row">
         <div class="vintra-launcher-wrapper">
-          <svg class="vintra-curved-text" viewBox="0 0 200 100" xmlns="http://www.w3.org/2000/svg">
-            <defs>
-              <path id="vintra-curve" d="M 10,95 Q 100,-15 190,95" fill="none"/>
-            </defs>
-            <text>
-              <textPath href="#vintra-curve" startOffset="50%" text-anchor="middle" class="vintra-curved-label" fill="currentColor">Talk to us</textPath>
-            </text>
-          </svg>
+          <div class="vintra-greeting-bubble">
+            <div class="vintra-greeting-inner">
+              <button class="vintra-greeting-close" aria-label="Dismiss">&times;</button>
+              <p class="vintra-greeting-title">Hi there!</p>
+              <p class="vintra-greeting-sub">How can I help you today?</p>
+              <div class="vintra-greeting-tail"></div>
+            </div>
+          </div>
           <button class="vintra-launcher">
             <span class="vintra-icon-open">\${launcherIcons.chat}</span>
             <span class="vintra-icon-close">\${icons.close}</span>
@@ -1236,10 +1278,26 @@ export async function GET() {
     const unreadBadge = container.querySelector('.vintra-unread-badge');
     const quickActions = container.querySelector('.vintra-quick-actions');
     const quickActionBtns = container.querySelectorAll('.vintra-quick-action');
-    const curvedText = container.querySelector('.vintra-curved-text');
-    const curvedLabel = container.querySelector('.vintra-curved-label');
+    const greetingBubble = container.querySelector('.vintra-greeting-bubble');
+    const greetingTitle = container.querySelector('.vintra-greeting-title');
+    const greetingSub = container.querySelector('.vintra-greeting-sub');
+    const greetingClose = container.querySelector('.vintra-greeting-close');
     const offlineOverlay = container.querySelector('.vintra-offline-overlay');
     const offlineMsg = container.querySelector('.vintra-offline-msg');
+    let greetingDismissed = false;
+    
+    // Show greeting bubble after 2s
+    setTimeout(() => {
+      if (!isOpen && !greetingDismissed) {
+        greetingBubble.classList.add('show');
+      }
+    }, 2000);
+    
+    greetingClose.addEventListener('click', (e) => {
+      e.stopPropagation();
+      greetingBubble.classList.remove('show');
+      greetingDismissed = true;
+    });
     
     // Event handlers - launcher toggles open/close
     launcher.addEventListener('click', () => toggleChat(!isOpen));
@@ -1273,7 +1331,7 @@ export async function GET() {
         unreadBadge.classList.remove('show');
         unreadBadge.textContent = '0';
         // Hide curved text when chat is open
-        curvedText.classList.remove('show');
+        greetingBubble.classList.remove('show');
         
         // Show offline overlay if outside business hours
         if (isOffline && !hasStartedChat) {
@@ -1287,9 +1345,9 @@ export async function GET() {
           input.focus();
         }
       } else {
-        // Re-show curved text when chat is closed
-        if (config?.launcher_text_enabled && config?.launcher_text) {
-          curvedText.classList.add('show');
+        // Re-show greeting bubble when chat is closed (if not dismissed)
+        if (!greetingDismissed) {
+          greetingBubble.classList.add('show');
         }
       }
     }
@@ -1789,11 +1847,12 @@ export async function GET() {
         }
       }
       
-      // Curved text around launcher
-      if (cfg.launcher_text_enabled && cfg.launcher_text) {
-        curvedLabel.textContent = cfg.launcher_text;
-        curvedText.style.color = cfg.primary_color || '#14b8a6';
-        curvedText.classList.add('show');
+      // Greeting bubble text from config
+      if (cfg.greeting_message) {
+        greetingTitle.textContent = cfg.greeting_message;
+      }
+      if (cfg.greeting_subtext) {
+        greetingSub.textContent = cfg.greeting_subtext;
       }
       
       // Business hours check
