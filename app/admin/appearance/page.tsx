@@ -312,27 +312,27 @@ export default function AppearancePage() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="space-y-4 sm:space-y-6">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Appearance</h1>
-          <p className="text-muted-foreground">
+          <h1 className="text-xl font-bold text-foreground sm:text-2xl">Appearance</h1>
+          <p className="text-sm text-muted-foreground">
             Customize how your chatbot looks and feels
           </p>
         </div>
-        <Button onClick={handleSave} disabled={saving}>
+        <Button onClick={handleSave} disabled={saving} size="sm" className="w-fit">
           {saving ? (
             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
           ) : (
             <Save className="mr-2 h-4 w-4" />
           )}
-          Save Changes
+          Save
         </Button>
       </div>
 
       {/* Multi-Chatbot Selector */}
       {configs.length > 1 && (
-        <div className="flex items-center gap-2 rounded-xl border border-border bg-muted/30 p-1.5">
+        <div className="flex flex-wrap items-center gap-2 rounded-xl border border-border bg-muted/30 p-1.5">
           {configs.map((c, i) => (
             <button
               key={c.id}
@@ -480,7 +480,7 @@ export default function AppearancePage() {
             </CardHeader>
             <CardContent className="space-y-5">
               {/* Preset icons */}
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3">
                 {ICON_OPTIONS.map((option) => {
                   const mode = getIconMode(config.avatar_url)
                   const isSelected = mode === 'preset' && getIconStyle(config.avatar_url) === option.value
@@ -966,7 +966,7 @@ export default function AppearancePage() {
                       const hours = config.business_hours || DEFAULT_BUSINESS_HOURS
                       const day = hours[key]
                       return (
-                        <div key={key} className="flex items-center gap-3">
+                        <div key={key} className="flex flex-wrap items-center gap-2 sm:gap-3">
                           <Switch
                             checked={day.enabled}
                             onCheckedChange={(checked) => {
@@ -974,9 +974,9 @@ export default function AppearancePage() {
                               setConfig({ ...config, business_hours: updated })
                             }}
                           />
-                          <span className="w-24 text-sm font-medium">{label}</span>
+                          <span className="w-16 text-sm font-medium sm:w-24">{label.slice(0, 3)}<span className="hidden sm:inline">{label.slice(3)}</span></span>
                           {day.enabled ? (
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-1.5 sm:gap-2">
                               <Input
                                 type="time"
                                 value={day.start}
@@ -984,9 +984,9 @@ export default function AppearancePage() {
                                   const updated = { ...hours, [key]: { ...day, start: e.target.value } }
                                   setConfig({ ...config, business_hours: updated })
                                 }}
-                                className="w-28"
+                                className="w-24 sm:w-28"
                               />
-                              <span className="text-sm text-muted-foreground">to</span>
+                              <span className="text-xs text-muted-foreground sm:text-sm">to</span>
                               <Input
                                 type="time"
                                 value={day.end}
@@ -994,7 +994,7 @@ export default function AppearancePage() {
                                   const updated = { ...hours, [key]: { ...day, end: e.target.value } }
                                   setConfig({ ...config, business_hours: updated })
                                 }}
-                                className="w-28"
+                                className="w-24 sm:w-28"
                               />
                             </div>
                           ) : (
@@ -1020,8 +1020,8 @@ export default function AppearancePage() {
           </Card>
         </div>
 
-        {/* Preview */}
-        <Card>
+        {/* Preview - hidden on mobile to save space */}
+        <Card className="hidden lg:block">
           <CardHeader>
             <CardTitle>Preview</CardTitle>
             <CardDescription>

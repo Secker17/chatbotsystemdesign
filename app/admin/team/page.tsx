@@ -281,25 +281,27 @@ export default function TeamPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Team</h1>
-          <p className="text-muted-foreground">
+          <h1 className="text-xl font-bold text-foreground sm:text-2xl">Team</h1>
+          <p className="text-sm text-muted-foreground">
             Invite others to collaborate on your chatbots
           </p>
         </div>
         <Button
           onClick={() => setInviteDialogOpen(true)}
           disabled={isAtLimit}
+          size="sm"
+          className="w-fit"
         >
           <UserPlus className="mr-2 h-4 w-4" />
           Invite Member
         </Button>
       </div>
 
-      <div className="grid gap-6">
+      <div className="grid gap-4 sm:gap-6">
         {/* Usage Overview */}
         <Card>
           <CardHeader>

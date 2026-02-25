@@ -27,6 +27,7 @@ import {
   ArrowLeftRight,
   Power,
   AlertTriangle,
+  ArrowLeft,
 } from 'lucide-react'
 import {
   DropdownMenu,
@@ -492,19 +493,19 @@ export default function ConversationsPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="space-y-4 sm:space-y-6">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Conversations</h1>
-          <p className="text-muted-foreground">
-            Manage and respond to chat conversations in real-time
+          <h1 className="text-xl font-bold text-foreground sm:text-2xl">Conversations</h1>
+          <p className="text-sm text-muted-foreground">
+            Manage and respond to chat conversations
           </p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
           {handoffCount > 0 && (
             <Badge variant="destructive" className="gap-1 py-1">
               <AlertTriangle className="h-3 w-3" />
-              {handoffCount} waiting for human
+              {handoffCount} waiting
             </Badge>
           )}
           <div className="flex items-center gap-2 text-sm">
@@ -522,9 +523,9 @@ export default function ConversationsPage() {
         </div>
       </div>
 
-      <div className="grid h-[calc(100vh-220px)] gap-6 lg:grid-cols-3">
+      <div className="grid h-[calc(100vh-220px)] gap-4 sm:gap-6 lg:grid-cols-3">
         {/* Sessions List */}
-        <Card className="flex flex-col">
+        <Card className={`flex flex-col ${selectedSession ? 'hidden lg:flex' : 'flex'}`}>
           <CardHeader className="space-y-3 pb-3">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -644,30 +645,39 @@ export default function ConversationsPage() {
         </Card>
 
         {/* Chat View */}
-        <Card className="flex flex-col lg:col-span-2">
+        <Card className={`flex flex-col lg:col-span-2 ${!selectedSession ? 'hidden lg:flex' : 'flex'}`}>
           {selectedSession ? (
             <>
-              <CardHeader className="flex flex-row items-center justify-between border-b pb-4">
-                <div className="flex items-center gap-3">
-                  <Avatar>
+              <CardHeader className="flex flex-row items-center justify-between border-b pb-4 gap-2">
+                <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="shrink-0 lg:hidden h-8 w-8"
+                    onClick={() => setSelectedSession(null)}
+                  >
+                    <ArrowLeft className="h-4 w-4" />
+                    <span className="sr-only">Back to conversations</span>
+                  </Button>
+                  <Avatar className="shrink-0 hidden sm:flex">
                     <AvatarFallback className="bg-primary/10 text-primary">
                       {selectedSession.visitor_name?.[0]?.toUpperCase() || 'V'}
                     </AvatarFallback>
                   </Avatar>
-                  <div>
+                  <div className="min-w-0">
                     <div className="flex items-center gap-2">
-                      <CardTitle className="text-base">
-                        {selectedSession.visitor_name || 'Anonymous Visitor'}
+                      <CardTitle className="truncate text-sm sm:text-base">
+                        {selectedSession.visitor_name || 'Anonymous'}
                       </CardTitle>
-                      {getSessionStatusBadge(selectedSession)}
+                      <span className="hidden sm:inline-flex">{getSessionStatusBadge(selectedSession)}</span>
                     </div>
-                    <CardDescription className="text-xs">
-                      {selectedSession.visitor_email || 'No email provided'}
-                      {selectedSession.bot_messages_count ? ` \u00B7 ${selectedSession.bot_messages_count} AI messages` : ''}
+                    <CardDescription className="truncate text-xs">
+                      {selectedSession.visitor_email || 'No email'}
+                      {selectedSession.bot_messages_count ? ` · ${selectedSession.bot_messages_count} AI msgs` : ''}
                     </CardDescription>
                   </div>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex shrink-0 items-center gap-1 sm:gap-2">
                   <TooltipProvider>
                     {selectedSession.status === 'waiting_for_human' && (
                       <Tooltip>
@@ -677,8 +687,8 @@ export default function ConversationsPage() {
                             size="sm" 
                             onClick={() => handleTakeOver(selectedSession.id)}
                           >
-                            <UserCheck className="mr-2 h-4 w-4" />
-                            Take Over
+                            <UserCheck className="h-4 w-4 sm:mr-2" />
+                            <span className="hidden sm:inline">Take Over</span>
                           </Button>
                         </TooltipTrigger>
                         <TooltipContent>Take over from AI and respond as a human</TooltipContent>
@@ -692,8 +702,8 @@ export default function ConversationsPage() {
                             size="sm" 
                             onClick={() => handleTakeOver(selectedSession.id)}
                           >
-                            <UserCheck className="mr-2 h-4 w-4" />
-                            Take Over
+                            <UserCheck className="h-4 w-4 sm:mr-2" />
+                            <span className="hidden sm:inline">Take Over</span>
                           </Button>
                         </TooltipTrigger>
                         <TooltipContent>Disable AI and respond manually</TooltipContent>
@@ -707,8 +717,8 @@ export default function ConversationsPage() {
                             size="sm" 
                             onClick={() => handleReactivateBot(selectedSession.id)}
                           >
-                            <Power className="mr-2 h-4 w-4" />
-                            Reactivate AI
+                            <Power className="h-4 w-4 sm:mr-2" />
+                            <span className="hidden sm:inline">Reactivate AI</span>
                           </Button>
                         </TooltipTrigger>
                         <TooltipContent>Let AI handle this conversation again</TooltipContent>
