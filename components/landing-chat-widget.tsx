@@ -18,6 +18,7 @@ interface LandingConfig {
     quick_replies: string[]
     greeting_message: string
     greeting_subtext: string
+    greeting_enabled: boolean
   } | null
 }
 
@@ -71,6 +72,7 @@ export function LandingChatWidget() {
       quickReplies={cfg.quick_replies}
       greetingMessage={cfg.greeting_message}
       greetingSubtext={cfg.greeting_subtext}
+      greetingEnabled={cfg.greeting_enabled}
     />
   )
 }
