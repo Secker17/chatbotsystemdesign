@@ -13,6 +13,7 @@ import {
   Zap,
 } from 'lucide-react'
 import { getPlanLimits, getProduct, type PlanId } from '@/lib/products'
+import { getActiveWorkspaceId } from '@/lib/workspace'
 
 async function getDashboardStats(adminId: string) {
   const supabase = await createClient()
@@ -85,14 +86,16 @@ export default async function AdminDashboard() {
   
   if (!user) return null
 
-  const stats = await getDashboardStats(user.id)
-  const recentConversations = await getRecentConversations(user.id)
+  const workspaceId = await getActiveWorkspaceId()
+
+  const stats = await getDashboardStats(workspaceId)
+  const recentConversations = await getRecentConversations(workspaceId)
 
   // Fetch plan info
   const { data: profile } = await supabase
     .from('admin_profiles')
     .select('plan, conversations_this_month, conversations_reset_at')
-    .eq('id', user.id)
+    .eq('id', workspaceId)
     .single()
 
   const planId = (profile?.plan as PlanId) || 'starter'

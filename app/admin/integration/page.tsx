@@ -7,8 +7,10 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Check, Copy, Code2, Globe, Loader2, CheckCircle2 } from 'lucide-react'
+import { useWorkspace } from '@/components/admin/workspace-provider'
 
 export default function IntegrationPage() {
+  const { activeWorkspaceId } = useWorkspace()
   const [chatbotId, setChatbotId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [copied, setCopied] = useState<string | null>(null)
@@ -25,7 +27,7 @@ export default function IntegrationPage() {
     const { data } = await supabase
       .from('chatbot_configs')
       .select('id')
-      .eq('admin_id', user.id)
+      .eq('admin_id', activeWorkspaceId)
       .single()
 
     if (data) {

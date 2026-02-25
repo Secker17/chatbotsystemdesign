@@ -9,9 +9,10 @@ import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import { Separator } from '@/components/ui/separator'
 import { Badge } from '@/components/ui/badge'
-import { Loader2, Save, User, Bell, Shield, Trash2, CreditCard, Check, Crown } from 'lucide-react'
+import { Loader2, Save, User, Bell, Shield, Trash2, CreditCard, Check, Crown, ExternalLink, ArrowDown } from 'lucide-react'
 import { toast } from 'sonner'
 import { PRODUCTS, type PlanId } from '@/lib/products'
+import { useRouter } from 'next/navigation'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -41,12 +42,14 @@ interface Profile {
 }
 
 export default function SettingsPage() {
+  const router = useRouter()
   const [profile, setProfile] = useState<Profile | null>(null)
   const [email, setEmail] = useState('')
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [currentPlan, setCurrentPlan] = useState<PlanId>('starter')
   const [switchingPlan, setSwitchingPlan] = useState<PlanId | null>(null)
+  const [openingPortal, setOpeningPortal] = useState(false)
 
   // Password change state
   const [passwordDialogOpen, setPasswordDialogOpen] = useState(false)
@@ -145,27 +148,48 @@ export default function SettingsPage() {
     setSaving(false)
   }
 
-  const handlePlanSwitch = async (planId: PlanId) => {
-    setSwitchingPlan(planId)
+  const handleUpgrade = (planId: PlanId) => {
+    // Redirect to Stripe checkout
+    router.push(`/checkout/${planId}`)
+  }
+
+  const handleDowngrade = async () => {
+    setSwitchingPlan('starter')
     try {
       const res = await fetch('/api/plan/update', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ plan: planId }),
+        body: JSON.stringify({ plan: 'starter' }),
       })
+      const data = await res.json()
 
       if (res.ok) {
-        setCurrentPlan(planId)
-        toast.success(`Switched to ${planId.charAt(0).toUpperCase() + planId.slice(1)} plan`)
-        // Reload the page to update sidebar and all plan-dependent features
+        setCurrentPlan('starter')
+        toast.success('Downgraded to Starter plan. Your subscription has been canceled.')
         window.location.reload()
       } else {
-        toast.error('Failed to switch plan')
+        toast.error(data.error || 'Failed to downgrade')
       }
     } catch {
-      toast.error('Failed to switch plan')
+      toast.error('Failed to downgrade')
     }
     setSwitchingPlan(null)
+  }
+
+  const handleManageBilling = async () => {
+    setOpeningPortal(true)
+    try {
+      const res = await fetch('/api/stripe/portal', { method: 'POST' })
+      const data = await res.json()
+      if (res.ok && data.url) {
+        window.open(data.url, '_blank')
+      } else {
+        toast.error(data.error || 'Failed to open billing portal')
+      }
+    } catch {
+      toast.error('Failed to open billing portal')
+    }
+    setOpeningPortal(false)
   }
 
   const handleChangePassword = async () => {
@@ -296,22 +320,62 @@ export default function SettingsPage() {
                         </li>
                       )}
                     </ul>
-                    <Button
-                      variant={isActive ? 'outline' : product.id === 'business' ? 'default' : 'outline'}
-                      size="sm"
-                      className="w-full"
-                      disabled={isActive || switchingPlan !== null}
-                      onClick={() => handlePlanSwitch(product.id)}
-                    >
-                      {switchingPlan === product.id ? (
-                        <Loader2 className="mr-2 h-3 w-3 animate-spin" />
-                      ) : null}
-                      {isActive ? 'Current Plan' : `Switch to ${product.name}`}
-                    </Button>
+                    {isActive ? (
+                      <Button variant="outline" size="sm" className="w-full" disabled>
+                        Current Plan
+                      </Button>
+                    ) : product.priceInCents === 0 ? (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="w-full"
+                        disabled={switchingPlan !== null}
+                        onClick={handleDowngrade}
+                      >
+                        {switchingPlan === 'starter' ? (
+                          <Loader2 className="mr-2 h-3 w-3 animate-spin" />
+                        ) : (
+                          <ArrowDown className="mr-2 h-3 w-3" />
+                        )}
+                        Downgrade
+                      </Button>
+                    ) : (
+                      <Button
+                        variant={product.id === 'business' ? 'default' : 'outline'}
+                        size="sm"
+                        className="w-full"
+                        onClick={() => handleUpgrade(product.id)}
+                      >
+                        Upgrade to {product.name}
+                      </Button>
+                    )}
                   </div>
                 )
               })}
             </div>
+            {currentPlan !== 'starter' && (
+              <div className="mt-4 flex items-center justify-between rounded-lg border p-3">
+                <div>
+                  <p className="text-sm font-medium text-foreground">Subscription Management</p>
+                  <p className="text-xs text-muted-foreground">
+                    Update payment method, view invoices, or cancel your subscription
+                  </p>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleManageBilling}
+                  disabled={openingPortal}
+                >
+                  {openingPortal ? (
+                    <Loader2 className="mr-2 h-3 w-3 animate-spin" />
+                  ) : (
+                    <ExternalLink className="mr-2 h-3 w-3" />
+                  )}
+                  Manage Billing
+                </Button>
+              </div>
+            )}
           </CardContent>
         </Card>
 
