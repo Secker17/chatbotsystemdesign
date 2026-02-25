@@ -40,6 +40,7 @@ interface ChatInterfaceProps {
   quickReplies?: string[]
   greetingMessage?: string
   greetingSubtext?: string
+  greetingEnabled?: boolean
 }
 
 const DEFAULT_QUICK_REPLIES = [
@@ -63,6 +64,7 @@ export default function ChatInterface({
   quickReplies,
   greetingMessage = 'Hi there!',
   greetingSubtext = 'How can I help you today?',
+  greetingEnabled = true,
 }: ChatInterfaceProps) {
   const activeQuickReplies = quickReplies && quickReplies.length > 0 ? quickReplies : DEFAULT_QUICK_REPLIES
   const isLiveMode = !!chatbotId && chatbotId !== 'demo-chatbot'
@@ -107,14 +109,14 @@ export default function ChatInterface({
 
   // Show greeting bubble after a delay
   useEffect(() => {
-    if (!isOpen && !greetingDismissed && messages.length === 0) {
+    if (greetingEnabled && !isOpen && !greetingDismissed && messages.length === 0) {
       const timer = setTimeout(() => setShowGreeting(true), 2000)
       return () => clearTimeout(timer)
     }
-    if (isOpen) {
+    if (isOpen || !greetingEnabled) {
       setShowGreeting(false)
     }
-  }, [isOpen, greetingDismissed, messages.length])
+  }, [isOpen, greetingDismissed, messages.length, greetingEnabled])
 
   // Check scroll position for scroll-down button
   useEffect(() => {

@@ -125,6 +125,7 @@ interface ChatbotConfig {
   quick_replies: string[] | null
   greeting_message: string | null
   greeting_subtext: string | null
+  greeting_enabled: boolean
 }
 
 export default function AppearancePage() {
@@ -177,6 +178,7 @@ export default function AppearancePage() {
           quick_replies: ['What features do you offer?', 'Tell me about pricing'],
           greeting_message: 'Hi there!',
           greeting_subtext: 'How can I help you today?',
+          greeting_enabled: true,
         },
         {
           id: 'dev-chatbot-demo',
@@ -199,7 +201,8 @@ export default function AppearancePage() {
           quick_replies: ['Show me a demo', 'What can you do?'],
           greeting_message: 'Welcome!',
           greeting_subtext: 'Try out our features here.',
-        },
+          greeting_enabled: true,
+          },
       ]
       setConfigs(mockConfigs)
       setLoading(false)
@@ -230,6 +233,7 @@ export default function AppearancePage() {
         quick_replies: null,
         greeting_message: 'Hi there!',
         greeting_subtext: 'How can I help you today?',
+        greeting_enabled: true,
       })) as ChatbotConfig[]
     }
 
@@ -281,6 +285,7 @@ export default function AppearancePage() {
         quick_replies: config.quick_replies,
         greeting_message: config.greeting_message,
         greeting_subtext: config.greeting_subtext,
+        greeting_enabled: config.greeting_enabled,
         updated_at: new Date().toISOString(),
       })
       .eq('id', config.id)
@@ -718,6 +723,22 @@ export default function AppearancePage() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <Label>Enable Greeting Bubble</Label>
+                  <p className="text-xs text-muted-foreground">
+                    Show a popup message above the chat button
+                  </p>
+                </div>
+                <Switch
+                  checked={config.greeting_enabled}
+                  onCheckedChange={(checked) =>
+                    setConfig({ ...config, greeting_enabled: checked })
+                  }
+                />
+              </div>
+
+              {config.greeting_enabled && (
               <div className="space-y-2">
                 <Label htmlFor="greeting-msg">Greeting Title</Label>
                 <Input
@@ -736,6 +757,7 @@ export default function AppearancePage() {
                   placeholder="How can I help you today?"
                 />
               </div>
+              )}
             </CardContent>
           </Card>
 
@@ -879,6 +901,7 @@ export default function AppearancePage() {
                 quickReplies={config.quick_replies || undefined}
                 greetingMessage={config.greeting_message || undefined}
                 greetingSubtext={config.greeting_subtext || undefined}
+                greetingEnabled={config.greeting_enabled}
               />
             </div>
           </CardContent>
