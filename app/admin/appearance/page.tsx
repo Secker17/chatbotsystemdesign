@@ -20,6 +20,7 @@ import { toast } from 'sonner'
 import type { PlanLimits } from '@/lib/products'
 import ColorPicker, { DEFAULT_COLOR_CATEGORIES } from '@/components/color-picker'
 import AdminThemePicker from '@/components/admin-theme-picker'
+import { useWorkspace } from '@/components/admin/workspace-provider'
 
 interface DaySchedule {
   enabled: boolean
@@ -125,6 +126,7 @@ interface ChatbotConfig {
 }
 
 export default function AppearancePage() {
+  const { activeWorkspaceId } = useWorkspace()
   const [configs, setConfigs] = useState<ChatbotConfig[]>([])
   const [activeConfigIndex, setActiveConfigIndex] = useState(0)
   const [loading, setLoading] = useState(true)
@@ -210,14 +212,14 @@ export default function AppearancePage() {
     let { data, error } = await supabase
       .from('chatbot_configs')
       .select('*')
-      .eq('admin_id', user.id)
+      .eq('admin_id', activeWorkspaceId)
 
     if (error) {
       // Fallback: fetch only core columns if new columns don't exist yet
       const fallback = await supabase
         .from('chatbot_configs')
         .select('id, widget_title, welcome_message, primary_color, position, avatar_url, show_branding, offline_message, placeholder_text, launcher_text, launcher_text_enabled, business_hours_enabled, business_hours, business_hours_timezone, outside_hours_message')
-        .eq('admin_id', user.id)
+        .eq('admin_id', activeWorkspaceId)
 
       data = (fallback.data || []).map((c) => ({
         ...c,

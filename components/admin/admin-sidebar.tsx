@@ -44,7 +44,10 @@ import {
   Lock,
   CreditCard,
   Users,
+  ShieldAlert,
 } from 'lucide-react'
+import { WorkspaceSwitcher } from './workspace-switcher'
+import { useWorkspace } from './workspace-provider'
 
 interface AdminSidebarProps {
   user: User
@@ -61,6 +64,10 @@ interface MenuItem {
   icon: typeof LayoutDashboard
   href: string
   requiredFeature: string | null
+  /** If true, item is only shown when user is owner or admin of the workspace */
+  requiresEdit?: boolean
+  /** If true, item is only shown for workspace owner */
+  ownerOnly?: boolean
 }
 
 const menuItems: MenuItem[] = [
@@ -81,18 +88,21 @@ const menuItems: MenuItem[] = [
     icon: Bot,
     href: '/admin/ai',
     requiredFeature: 'aiEnabled',
+    requiresEdit: true,
   },
   {
     title: 'Canned Responses',
     icon: MessagesSquare,
     href: '/admin/responses',
     requiredFeature: 'cannedResponses',
+    requiresEdit: true,
   },
   {
     title: 'Appearance',
     icon: Palette,
     href: '/admin/appearance',
     requiredFeature: null,
+    requiresEdit: true,
   },
   {
     title: 'Analytics',
@@ -105,18 +115,21 @@ const menuItems: MenuItem[] = [
     icon: Users,
     href: '/admin/team',
     requiredFeature: null,
+    ownerOnly: true,
   },
   {
     title: 'Integration',
     icon: Code2,
     href: '/admin/integration',
     requiredFeature: null,
+    requiresEdit: true,
   },
   {
     title: 'Settings',
     icon: Settings,
     href: '/admin/settings',
     requiredFeature: null,
+    ownerOnly: true,
   },
 ]
 
@@ -125,6 +138,7 @@ export function AdminSidebar({ user, profile }: AdminSidebarProps) {
   const router = useRouter()
   const [currentPlan, setCurrentPlan] = useState<string>('starter')
   const [planLimits, setPlanLimits] = useState<Record<string, boolean | number | null> | null>(null)
+  const { canEdit, canManage, isOwnWorkspace } = useWorkspace()
 
   useEffect(() => {
     fetch('/api/plan')
@@ -138,9 +152,15 @@ export function AdminSidebar({ user, profile }: AdminSidebarProps) {
 
   const isFeatureLocked = (requiredFeature: string | null): boolean => {
     if (!requiredFeature) return false
-    if (!planLimits) return false // Don't lock while loading
+    if (!planLimits) return false
     const value = planLimits[requiredFeature]
     if (typeof value === 'boolean') return !value
+    return false
+  }
+
+  const isPermissionLocked = (item: MenuItem): boolean => {
+    if (item.ownerOnly && !canManage) return true
+    if (item.requiresEdit && !canEdit) return true
     return false
   }
 
@@ -174,6 +194,7 @@ export function AdminSidebar({ user, profile }: AdminSidebarProps) {
             </Link>
           </SidebarMenuItem>
         </SidebarMenu>
+        <WorkspaceSwitcher />
       </SidebarHeader>
 
       <SidebarContent>
@@ -182,7 +203,13 @@ export function AdminSidebar({ user, profile }: AdminSidebarProps) {
           <SidebarGroupContent>
             <SidebarMenu>
               {menuItems.map((item) => {
-                const locked = isFeatureLocked(item.requiredFeature)
+                const planLocked = isFeatureLocked(item.requiredFeature)
+                const permLocked = isPermissionLocked(item)
+                const locked = planLocked || permLocked
+                if (permLocked && !isOwnWorkspace) {
+                  // Hide owner-only items entirely when viewing someone else's workspace
+                  if (item.ownerOnly) return null
+                }
                 return (
                   <SidebarMenuItem key={item.href}>
                     <SidebarMenuButton
@@ -193,10 +220,18 @@ export function AdminSidebar({ user, profile }: AdminSidebarProps) {
                           : pathname.startsWith(item.href)
                       }
                     >
-                      <Link href={item.href} className={locked ? 'opacity-60' : ''}>
+                      <Link
+                        href={locked ? '#' : item.href}
+                        className={locked ? 'opacity-60 pointer-events-none' : ''}
+                        aria-disabled={locked}
+                        tabIndex={locked ? -1 : undefined}
+                      >
                         <item.icon className="h-4 w-4" />
                         <span className="flex-1">{item.title}</span>
-                        {locked && <Lock className="h-3 w-3 text-muted-foreground" />}
+                        {planLocked && <Lock className="h-3 w-3 text-muted-foreground" />}
+                        {permLocked && !planLocked && (
+                          <ShieldAlert className="h-3 w-3 text-muted-foreground" />
+                        )}
                       </Link>
                     </SidebarMenuButton>
                   </SidebarMenuItem>

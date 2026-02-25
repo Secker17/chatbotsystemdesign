@@ -4,6 +4,8 @@ import { redirect } from 'next/navigation'
 import { AdminSidebar } from '@/components/admin/admin-sidebar'
 import { AdminHeader } from '@/components/admin/admin-header'
 import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar'
+import { WorkspaceProvider } from '@/components/admin/workspace-provider'
+import { getActiveWorkspaceId } from '@/lib/workspace'
 import '../admin-animations.css'
 
 export default async function AdminLayout({
@@ -90,7 +92,10 @@ export default async function AdminLayout({
 
     user = authUser
 
-    // Fetch admin profile
+    // Get active workspace (may be user's own or a team workspace)
+    const workspaceId = await getActiveWorkspaceId()
+
+    // Fetch admin profile (user's own for sidebar display)
     const { data: profileData } = await supabase
       .from('admin_profiles')
       .select('*')
@@ -98,11 +103,11 @@ export default async function AdminLayout({
       .single()
     profile = profileData
 
-    // Fetch chatbot config (first one - user may have multiple)
+    // Fetch chatbot config scoped to active workspace
     const { data: chatbotData } = await supabase
       .from('chatbot_configs')
       .select('*')
-      .eq('admin_id', user.id)
+      .eq('admin_id', workspaceId)
       .order('is_landing_widget', { ascending: false })
       .limit(1)
 
@@ -115,14 +120,16 @@ export default async function AdminLayout({
   }
 
   return (
-    <SidebarProvider>
-      <AdminSidebar user={user} profile={profile} />
-      <SidebarInset>
-        <AdminHeader user={user} chatbotId={chatbot?.id} />
-        <main className="flex-1 overflow-auto p-3 sm:p-6">
-          {children}
-        </main>
-      </SidebarInset>
-    </SidebarProvider>
+    <WorkspaceProvider userId={user.id}>
+      <SidebarProvider>
+        <AdminSidebar user={user} profile={profile} />
+        <SidebarInset>
+          <AdminHeader user={user} chatbotId={chatbot?.id} />
+          <main className="flex-1 overflow-auto p-3 sm:p-6">
+            {children}
+          </main>
+        </SidebarInset>
+      </SidebarProvider>
+    </WorkspaceProvider>
   )
 }

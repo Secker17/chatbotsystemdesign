@@ -43,6 +43,7 @@ import {
 } from '@/components/ui/tooltip'
 import { toast } from 'sonner'
 import type { RealtimeChannel } from '@supabase/supabase-js'
+import { useWorkspace } from '@/components/admin/workspace-provider'
 
 interface ChatSession {
   id: string
@@ -72,6 +73,7 @@ interface ChatMessage {
 }
 
 export default function ConversationsPage() {
+  const { activeWorkspaceId } = useWorkspace()
   const [sessions, setSessions] = useState<ChatSession[]>([])
   const [selectedSession, setSelectedSession] = useState<ChatSession | null>(null)
   const [loading, setLoading] = useState(true)
@@ -135,7 +137,7 @@ export default function ConversationsPage() {
       const { data: chatbots, error: chatbotsError } = await supabase
         .from('chatbot_configs')
         .select('id, widget_title, is_landing_widget')
-        .eq('admin_id', user.id)
+        .eq('admin_id', activeWorkspaceId)
 
       if (chatbotsError) {
         console.error('Failed to fetch chatbots:', chatbotsError)

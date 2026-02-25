@@ -13,6 +13,7 @@ import {
   ChartTooltipContent,
 } from '@/components/ui/chart'
 import { Bar, BarChart, Line, LineChart, XAxis, YAxis, ResponsiveContainer } from 'recharts'
+import { useWorkspace } from '@/components/admin/workspace-provider'
 
 interface AnalyticsData {
   totalSessions: number
@@ -36,6 +37,7 @@ const chartConfig = {
 } satisfies ChartConfig
 
 export default function AnalyticsPage() {
+  const { activeWorkspaceId } = useWorkspace()
   const [data, setData] = useState<AnalyticsData | null>(null)
   const [loading, setLoading] = useState(true)
   const [planId, setPlanId] = useState<string>('starter')
@@ -58,13 +60,13 @@ export default function AnalyticsPage() {
     const { count: totalSessions } = await supabase
       .from('chat_sessions')
       .select('*', { count: 'exact', head: true })
-      .eq('admin_id', user.id)
+      .eq('admin_id', activeWorkspaceId)
 
     // Get total messages
     const { count: totalMessages } = await supabase
       .from('chat_messages')
       .select('*', { count: 'exact', head: true })
-      .eq('admin_id', user.id)
+      .eq('admin_id', activeWorkspaceId)
 
     // Generate sample daily data (in production, query from analytics_events)
     const dailyData = []

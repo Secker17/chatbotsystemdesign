@@ -18,6 +18,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { useWorkspace } from '@/components/admin/workspace-provider'
 import {
   Loader2,
   Save,
@@ -57,6 +58,7 @@ const AI_MODELS = [
 ]
 
 export default function AIConfigPage() {
+  const { activeWorkspaceId } = useWorkspace()
   const [config, setConfig] = useState<AIConfig | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -93,7 +95,7 @@ export default function AIConfigPage() {
     const { data } = await supabase
       .from('chatbot_configs')
       .select('id, ai_enabled, ai_system_prompt, ai_knowledge_base, ai_model, ai_temperature, ai_max_tokens, ai_auto_greet, ai_greeting_message, ai_handoff_keywords')
-      .eq('admin_id', user.id)
+      .eq('admin_id', activeWorkspaceId)
       .single()
 
     if (data) {
