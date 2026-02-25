@@ -21,6 +21,7 @@ import type { PlanLimits } from '@/lib/products'
 import ColorPicker, { DEFAULT_COLOR_CATEGORIES } from '@/components/color-picker'
 import AdminThemePicker from '@/components/admin-theme-picker'
 import { useWorkspace } from '@/components/admin/workspace-provider'
+import ChatInterface from '@/components/chat-interface'
 
 interface DaySchedule {
   enabled: boolean
@@ -498,11 +499,7 @@ export default function AppearancePage() {
                           : 'border-border hover:border-muted-foreground/30 hover:bg-muted/50'
                       }`}
                     >
-                      {'animated' in option && option.animated && (
-                        <span className="absolute -top-2 right-1 rounded-full bg-gradient-to-r from-amber-500 to-orange-500 px-1.5 py-0.5 text-[9px] font-bold text-white">
-                          EXPERIMENTAL
-                        </span>
-                      )}
+
                       <div
                         className="flex h-10 w-10 items-center justify-center rounded-full text-white"
                         style={{ backgroundColor: config.primary_color }}
@@ -1027,149 +1024,28 @@ export default function AppearancePage() {
           <CardHeader>
             <CardTitle>Preview</CardTitle>
             <CardDescription>
-              See how your chat widget will look
+              See how your chat widget will look — this is the real widget
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="relative rounded-lg border bg-muted/50 p-6" style={{ minHeight: '500px' }}>
-              {/* Widget Preview */}
-              <div 
-                className={`absolute bottom-4 ${config.position === 'bottom-left' ? 'left-4' : 'right-4'}`}
-              >
-                {/* Chat Window */}
-                <div 
-                  className="mb-4 w-80 overflow-hidden rounded-xl shadow-2xl"
-                  style={{ 
-                    border: '1px solid hsl(var(--border))',
-                  }}
-                >
-                  {/* Header */}
-                  <div 
-                    className="flex items-center gap-3 p-4 text-white"
-                    style={{ backgroundColor: config.primary_color }}
-                  >
-                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white/20">
-                      <Bot className="h-5 w-5" />
-                    </div>
-                    <div>
-                      <h4 className="font-semibold">{config.widget_title}</h4>
-                      <p className="text-xs opacity-80">Online</p>
-                    </div>
-                  </div>
-
-                  {/* Messages */}
-                  <div className="h-64 space-y-3 bg-background p-4">
-                    {/* Bot message - gray bubble like real widget */}
-                    <div className="flex flex-col items-start gap-1">
-                      <span className="text-[11px] text-muted-foreground">AI Assistant</span>
-                      <div className="max-w-[80%] rounded-2xl rounded-bl-sm bg-[#f0f0f0] p-3 text-sm text-[#333]">
-                        {config.welcome_message}
-                      </div>
-                    </div>
-                    {/* Visitor message - uses primary color */}
-                    <div className="flex flex-col items-end gap-1">
-                      <span className="text-[11px] text-muted-foreground">You</span>
-                      <div 
-                        className="max-w-[80%] rounded-2xl rounded-br-sm p-3 text-sm text-white"
-                        style={{ backgroundColor: config.primary_color }}
-                      >
-                        Hi, I need some help!
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Input */}
-                  <div className="border-t bg-background p-3">
-                    <div className="flex items-center gap-2 rounded-lg border bg-muted/50 px-3 py-2">
-                      <input
-                        type="text"
-                        placeholder={config.placeholder_text}
-                        className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
-                        disabled
-                      />
-                      <button
-                        className="rounded-md p-1.5 text-white"
-                        style={{ backgroundColor: config.primary_color }}
-                        disabled
-                      >
-                        <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
-                        </svg>
-                      </button>
-                    </div>
-                    {config.show_branding && (
-                      <p className="mt-2 text-center text-xs text-muted-foreground">
-                        Powered by VintraStudio
-                      </p>
-                    )}
-                  </div>
-                </div>
-
-                {/* Launcher Button */}
-                <div className={`flex flex-col ${config.position === 'bottom-left' ? 'items-start' : 'items-end'} gap-2`}>
-                  {/* Greeting Bubble Preview */}
-                  {(config.greeting_message || config.greeting_subtext) && (
-                    <div className="max-w-[220px]">
-                      <div className="relative rounded-xl bg-card border border-border/60 px-3 py-2 shadow-lg">
-                        {config.greeting_message && (
-                          <p className="text-xs font-medium text-foreground">{config.greeting_message}</p>
-                        )}
-                        {config.greeting_subtext && (
-                          <p className="text-[10px] text-muted-foreground mt-0.5">{config.greeting_subtext}</p>
-                        )}
-                        <div className={`absolute -bottom-1.5 ${config.position === 'bottom-left' ? 'left-4' : 'right-4'} w-3 h-3 bg-card border-b border-r border-border/60 rotate-45`} />
-                      </div>
-                    </div>
-                  )}
-                  <div className="relative inline-flex items-center justify-center">
-                    <div 
-                      className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full text-white shadow-lg"
-                      style={{ backgroundColor: config.primary_color }}
-                    >
-                      {(() => {
-                        const mode = getIconMode(config.avatar_url)
-                        if (mode === 'upload') {
-                          return (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img
-                              src={config.avatar_url || ''}
-                              alt="Custom icon"
-                              className="h-7 w-7 object-contain"
-                              style={{ filter: 'brightness(0) invert(1)' }}
-                            />
-                          )
-                        }
-                        if (mode === 'svg') {
-                          return (
-                            <span
-                              className="flex h-6 w-6 items-center justify-center [&_svg]:h-6 [&_svg]:w-6 [&_svg]:fill-white"
-                              dangerouslySetInnerHTML={{ __html: config.avatar_url?.replace('svg:', '') || '' }}
-                            />
-                          )
-                        }
-                        if (mode === 'code') {
-                          return (
-                            <iframe
-                              srcDoc={config.avatar_url?.replace('code:', '') || ''}
-                              sandbox="allow-scripts"
-                              className="pointer-events-none h-full w-full rounded-full border-0"
-                              title="Custom icon"
-                              style={{ background: 'transparent', position: 'absolute', inset: 0 }}
-                            />
-                          )
-                        }
-                        const style = getIconStyle(config.avatar_url)
-                        if (style === 'glass-orb') {
-                          return <Sparkles className="h-6 w-6 animate-pulse" />
-                        }
-                        const found = ICON_OPTIONS.find(o => o.value === style)
-                        const Icon = found ? found.icon : MessageCircle
-                        return <Icon className="h-6 w-6" />
-                      })()}
-                    </div>
-                  </div>
-                </div>
-              </div>
+            <div className="relative rounded-lg border bg-muted/50 overflow-hidden" style={{ minHeight: '600px', transform: 'translateZ(0)' }}>
+              <ChatInterface
+                chatbotId="preview"
+                primaryColor={config.primary_color}
+                avatarStyle={
+                  getIconStyle(config.avatar_url) === 'glass-orb'
+                    ? 'glass-orb'
+                    : 'default'
+                }
+                position={config.position as 'bottom-right' | 'bottom-left'}
+                widgetTitle={config.widget_title}
+                welcomeMessage={config.welcome_message}
+                placeholderText={config.placeholder_text}
+                showBranding={config.show_branding}
+                quickReplies={config.quick_replies || undefined}
+                greetingMessage={config.greeting_message || undefined}
+                greetingSubtext={config.greeting_subtext || undefined}
+              />
             </div>
           </CardContent>
         </Card>

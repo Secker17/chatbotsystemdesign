@@ -13,21 +13,12 @@ export async function GET() {
     auth: { autoRefreshToken: false, persistSession: false },
   })
 
-  // Find Vintra's non-landing chatbot config (the demo page bot)
-  const { data: authData } = await supabase.auth.admin.listUsers()
-  const vintraUser = authData?.users?.find(
-    (u) => u.email === 'vintrastudio@gmail.com'
-  )
-
-  if (!vintraUser) {
-    return NextResponse.json({ enabled: false })
-  }
-
+  // Find the landing widget config (any account that has is_landing_widget enabled)
   const { data: config } = await supabase
     .from('chatbot_configs')
     .select('*')
-    .eq('admin_id', vintraUser.id)
-    .eq('is_landing_widget', false)
+    .eq('is_landing_widget', true)
+    .eq('landing_widget_enabled', true)
     .limit(1)
     .single()
 
