@@ -85,7 +85,7 @@ function buildInviteHtml({ inviteLink, inviterEmail, role }: Omit<SendInviteEmai
                 This invitation expires in 7 days. If you did not expect this email, you can safely ignore it.
               </p>
               <p style="margin:0;font-size:12px;color:#a1a1aa;">
-                Vintra &mdash; AI-Powered Chatbots
+                Vintra &mdash; AI-Powered Chatbots | <a href="mailto:vintrastudio@gmail.com" style="color:#a1a1aa;">vintrastudio@gmail.com</a>
               </p>
             </td>
           </tr>
