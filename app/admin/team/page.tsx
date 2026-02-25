@@ -40,8 +40,6 @@ import {
   Clock,
   Trash2,
   Loader2,
-  Copy,
-  Check,
   Crown,
   ArrowUpRight,
   Shield,
@@ -84,37 +82,9 @@ export default function TeamPage() {
   const [inviteEmail, setInviteEmail] = useState('')
   const [inviteRole, setInviteRole] = useState('member')
   const [inviting, setInviting] = useState(false)
-  const [copiedToken, setCopiedToken] = useState<string | null>(null)
-  const [lastToken, setLastToken] = useState<string | null>(null)
-  const [tokenDialogOpen, setTokenDialogOpen] = useState(false)
-  const [migrating, setMigrating] = useState(false)
-  const [migrationNeeded, setMigrationNeeded] = useState(false)
-  const [migrationSql, setMigrationSql] = useState<string | null>(null)
-
-  const runMigrationCheck = useCallback(async () => {
-    try {
-      const res = await fetch('/api/migrate-team')
-      if (!res.ok) return false
-      const data = await res.json()
-      if (data.tablesReady) return true
-      // Tables don't exist yet - show migration info
-      setMigrationNeeded(true)
-      setMigrationSql(data.migrationSql || null)
-      return false
-    } catch {
-      return false
-    }
-  }, [])
 
   const loadTeam = useCallback(async () => {
     try {
-      // First check if tables exist
-      const ready = await runMigrationCheck()
-      if (!ready) {
-        setLoading(false)
-        return
-      }
-
       const res = await fetch('/api/team')
       if (!res.ok) throw new Error('Failed to load team')
       const data = await res.json()
@@ -122,13 +92,12 @@ export default function TeamPage() {
       setInvitations(data.invitations || [])
       setLimits(data.limits || null)
       setPlanId(data.planId || 'starter')
-      setMigrationNeeded(false)
     } catch {
       toast.error('Failed to load team data')
     } finally {
       setLoading(false)
     }
-  }, [runMigrationCheck])
+  }, [])
 
   useEffect(() => {
     loadTeam()
@@ -155,12 +124,15 @@ export default function TeamPage() {
         return
       }
 
-      toast.success(`Invitation sent to ${inviteEmail.trim()}`)
-      setLastToken(data.token)
+      if (data.emailSent) {
+        toast.success(`Invitation email sent to ${inviteEmail.trim()}`)
+      } else {
+        toast.success(`Invitation created for ${inviteEmail.trim()} (email delivery pending)`)
+      }
+
       setInviteEmail('')
       setInviteRole('member')
       setInviteDialogOpen(false)
-      setTokenDialogOpen(true)
       loadTeam()
     } catch {
       toast.error('Failed to send invitation')
@@ -197,14 +169,6 @@ export default function TeamPage() {
     }
   }
 
-  const copyInviteLink = (token: string) => {
-    const link = `${window.location.origin}/invite/${token}`
-    navigator.clipboard.writeText(link)
-    setCopiedToken(token)
-    toast.success('Invite link copied to clipboard')
-    setTimeout(() => setCopiedToken(null), 2000)
-  }
-
   const totalUsed = (limits?.currentCount || 0) + (limits?.pendingCount || 0)
   const maxAllowed = limits?.maxTeamMembers || 2
   const usagePercent = Math.min((totalUsed / maxAllowed) * 100, 100)
@@ -214,68 +178,6 @@ export default function TeamPage() {
     return (
       <div className="flex items-center justify-center py-20">
         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-      </div>
-    )
-  }
-
-  if (migrationNeeded) {
-    return (
-      <div className="space-y-6">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Team</h1>
-          <p className="text-muted-foreground">
-            Invite others to collaborate on your chatbots
-          </p>
-        </div>
-        <Card>
-          <CardHeader>
-            <CardTitle>Database Setup Required</CardTitle>
-            <CardDescription>
-              The team tables need to be created in your Supabase database before you can use this feature.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <p className="text-sm text-muted-foreground">
-              Copy the SQL below and run it in your Supabase Dashboard &gt; SQL Editor:
-            </p>
-            {migrationSql && (
-              <div className="relative">
-                <pre className="max-h-64 overflow-auto rounded-md bg-muted p-4 text-xs font-mono">
-                  {migrationSql}
-                </pre>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="absolute right-2 top-2"
-                  onClick={() => {
-                    navigator.clipboard.writeText(migrationSql)
-                    toast.success('SQL copied to clipboard')
-                  }}
-                >
-                  <Copy className="mr-1 h-3 w-3" />
-                  Copy
-                </Button>
-              </div>
-            )}
-            <Button
-              onClick={() => {
-                setMigrating(true)
-                setLoading(true)
-                loadTeam().finally(() => setMigrating(false))
-              }}
-              disabled={migrating}
-            >
-              {migrating ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Checking...
-                </>
-              ) : (
-                'I have run the SQL - Check again'
-              )}
-            </Button>
-          </CardContent>
-        </Card>
       </div>
     )
   }
@@ -474,20 +376,6 @@ export default function TeamPage() {
                         <Badge variant={invite.role === 'admin' ? 'default' : 'secondary'}>
                           {invite.role}
                         </Badge>
-                        {!isExpired && (
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 text-muted-foreground"
-                            onClick={() => {
-                              // We don't have the token in the list response for security
-                              toast.info('Use the invite link that was shared when the invitation was created')
-                            }}
-                          >
-                            <Copy className="h-4 w-4" />
-                            <span className="sr-only">Copy invite link</span>
-                          </Button>
-                        )}
                         <AlertDialog>
                           <AlertDialogTrigger asChild>
                             <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive">
@@ -529,7 +417,7 @@ export default function TeamPage() {
           <DialogHeader>
             <DialogTitle>Invite Team Member</DialogTitle>
             <DialogDescription>
-              Send an invitation to join your workspace. They will receive a link to accept.
+              Enter their email address and we will send them an invitation to join your workspace.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
@@ -567,42 +455,6 @@ export default function TeamPage() {
               {inviting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Mail className="mr-2 h-4 w-4" />}
               Send Invitation
             </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Token/Link Dialog - shown after successful invite */}
-      <Dialog open={tokenDialogOpen} onOpenChange={setTokenDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Invitation Created</DialogTitle>
-            <DialogDescription>
-              Share this link with the invited person. The link expires in 7 days.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="py-4">
-            <div className="flex items-center gap-2">
-              <Input
-                readOnly
-                value={lastToken ? `${typeof window !== 'undefined' ? window.location.origin : ''}/invite/${lastToken}` : ''}
-                className="font-mono text-xs"
-              />
-              <Button
-                size="icon"
-                variant="outline"
-                onClick={() => lastToken && copyInviteLink(lastToken)}
-              >
-                {copiedToken === lastToken ? (
-                  <Check className="h-4 w-4 text-green-500" />
-                ) : (
-                  <Copy className="h-4 w-4" />
-                )}
-                <span className="sr-only">Copy link</span>
-              </Button>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button onClick={() => setTokenDialogOpen(false)}>Done</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
