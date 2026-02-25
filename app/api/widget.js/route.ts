@@ -2,39 +2,37 @@ import { NextResponse } from 'next/server'
 import { readFileSync } from 'fs'
 import { join } from 'path'
 
-// Read the widget script from disk once at module load (outside the request handler)
-// so it is not re-read on every request but also not inlined as a huge string literal
-// in the webpack bundle (which caused the 133kiB serialization warning).
-let _cachedScript: string | null = null
+// Cache the widget script as a Buffer instead of a string.
+// Webpack's PackFileCacheStrategy warns when serializing large strings (>100 KiB)
+// but Buffers are serialized as binary and avoid the performance penalty.
+let _cachedBuf: Buffer | null = null
 
-function getWidgetScript(): string {
-  if (!_cachedScript) {
+function getWidgetBuffer(): Buffer {
+  if (!_cachedBuf) {
     const filePath = join(process.cwd(), 'lib', 'widget-script.txt')
-    _cachedScript = readFileSync(filePath, 'utf-8')
+    _cachedBuf = readFileSync(filePath)           // returns Buffer (no encoding)
   }
-  return _cachedScript
+  return _cachedBuf
 }
 
+const CORS_HEADERS = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type',
+} as const
+
 export async function OPTIONS() {
-  return new NextResponse(null, {
-    headers: {
-      'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Methods': 'GET, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type',
-    },
-  })
+  return new NextResponse(null, { headers: CORS_HEADERS })
 }
 
 export async function GET() {
-  const widgetScript = getWidgetScript()
+  const buf = getWidgetBuffer()
 
-  return new NextResponse(widgetScript, {
+  return new NextResponse(buf, {
     headers: {
+      ...CORS_HEADERS,
       'Content-Type': 'application/javascript; charset=utf-8',
       'Cache-Control': 'no-cache, no-store, must-revalidate',
-      'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Methods': 'GET, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type',
     },
   })
 }
