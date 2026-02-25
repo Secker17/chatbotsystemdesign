@@ -27,7 +27,7 @@ export function AdminHeader({ chatbotId }: AdminHeaderProps) {
       <div className="flex flex-1 items-center justify-between">
         <div className="flex items-center gap-3">
           {chatbotId && (
-            <Badge variant="secondary" className="font-mono text-xs">
+            <Badge variant="secondary" className="hidden sm:flex font-mono text-xs">
               ID: {chatbotId.slice(0, 8)}...
             </Badge>
           )}

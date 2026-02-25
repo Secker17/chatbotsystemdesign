@@ -135,8 +135,8 @@ export default async function AdminDashboard() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-foreground">Dashboard</h1>
-        <p className="text-muted-foreground">
+        <h1 className="text-xl sm:text-2xl font-bold text-foreground">Dashboard</h1>
+        <p className="text-sm sm:text-base text-muted-foreground">
           Welcome back! Here&apos;s an overview of your chatbot performance.
         </p>
       </div>
@@ -180,9 +180,9 @@ export default async function AdminDashboard() {
 
       {/* Plan Usage */}
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
+        <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <CardTitle className="flex items-center gap-2">
+            <CardTitle className="flex flex-wrap items-center gap-2">
               Plan Usage
               <Badge variant={planId === 'starter' ? 'secondary' : 'default'}>
                 {product?.name || 'Starter'}
@@ -193,7 +193,7 @@ export default async function AdminDashboard() {
             </CardDescription>
           </div>
           {planId !== 'business' && (
-            <Button asChild size="sm">
+            <Button asChild size="sm" className="w-fit">
               <Link href="/admin/settings">
                 <Zap className="mr-2 h-4 w-4" />
                 Upgrade
@@ -202,7 +202,7 @@ export default async function AdminDashboard() {
           )}
         </CardHeader>
         <CardContent>
-          <div className="grid gap-4 sm:grid-cols-3">
+          <div className="grid gap-4 grid-cols-1 sm:grid-cols-3">
             <div className="space-y-2">
               <div className="flex items-center justify-between text-sm">
                 <span className="text-muted-foreground">Conversations</span>
@@ -257,7 +257,7 @@ export default async function AdminDashboard() {
                 return (
                   <div
                     key={conversation.id}
-                    className="flex items-start justify-between rounded-lg border p-4"
+                    className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between rounded-lg border p-3 sm:p-4"
                   >
                     <div className="space-y-1">
                       <div className="flex items-center gap-2">

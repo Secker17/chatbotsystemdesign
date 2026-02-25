@@ -100,7 +100,7 @@ export default async function LandingPage() {
               Pricing
             </Link>
           </nav>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3">
             {user ? (
               <Link href="/admin">
                 <Button size="sm">Dashboard</Button>
@@ -108,7 +108,7 @@ export default async function LandingPage() {
             ) : (
               <>
                 <Link href="/auth/login">
-                  <Button variant="ghost" size="sm">Sign In</Button>
+                  <Button variant="ghost" size="sm" className="hidden sm:inline-flex">Sign In</Button>
                 </Link>
                 <Link href="/auth/sign-up">
                   <Button size="sm">Get Started</Button>
@@ -149,21 +149,21 @@ export default async function LandingPage() {
           </AnimateOnScroll>
 
           <AnimateOnScroll animation="slide-up" delay={300}>
-            <div className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row">
-              <Link href="/auth/sign-up">
-                <Button size="lg" className="gap-2 shadow-lg shadow-primary/20 hover:shadow-xl hover:shadow-primary/30 transition-shadow">
+            <div className="mt-8 sm:mt-10 flex flex-col items-center justify-center gap-3 sm:flex-row sm:gap-4">
+              <Link href="/auth/sign-up" className="w-full sm:w-auto">
+                <Button size="lg" className="w-full sm:w-auto gap-2 shadow-lg shadow-primary/20 hover:shadow-xl hover:shadow-primary/30 transition-shadow">
                   Start Building Free
                   <ArrowRight className="h-4 w-4" />
                 </Button>
               </Link>
-              <Link href="/chat-demo">
-                <Button variant="outline" size="lg" className="gap-2">
+              <Link href="/chat-demo" className="w-full sm:w-auto">
+                <Button variant="outline" size="lg" className="w-full sm:w-auto gap-2">
                   <MessageSquare className="h-4 w-4" />
                   Try Live Demo
                 </Button>
               </Link>
-              <Link href="#integration">
-                <Button variant="outline" size="lg" className="gap-2 bg-transparent">
+              <Link href="#integration" className="w-full sm:w-auto">
+                <Button variant="outline" size="lg" className="w-full sm:w-auto gap-2 bg-transparent">
                   <Code2 className="h-4 w-4" />
                   View Integration
                 </Button>
@@ -262,8 +262,8 @@ export default async function LandingPage() {
                   <div className="h-3 w-3 rounded-full bg-green-500/60" />
                   <span className="ml-2 text-xs text-muted-foreground font-mono">index.html</span>
                 </div>
-                <pre className="overflow-x-auto rounded-xl bg-muted/80 p-4">
-                  <code className="font-mono text-sm text-foreground">
+                <pre className="overflow-x-auto rounded-xl bg-muted/80 p-3 sm:p-4">
+                  <code className="font-mono text-xs sm:text-sm text-foreground">
 {`<!-- Vintra Chatbot Widget -->
 <script 
   src="YOUR_DOMAIN/api/widget.js"
