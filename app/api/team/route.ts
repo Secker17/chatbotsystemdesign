@@ -136,7 +136,7 @@ export async function POST(request: Request) {
 
   if (error) {
     console.error('Failed to create invitation:', error)
-    return NextResponse.json({ error: 'Failed to send invitation' }, { status: 500 })
+    return NextResponse.json({ error: 'Failed to create invitation' }, { status: 500 })
   }
 
   // Build invite link and send email
@@ -148,6 +148,7 @@ export async function POST(request: Request) {
   const inviteLink = `${protocol}://${host}/invite/${token}`
 
   let emailSent = false
+  let emailError: string | undefined
   try {
     const emailResult = await sendInviteEmail({
       to: normalizedEmail,
@@ -157,15 +158,19 @@ export async function POST(request: Request) {
     })
     emailSent = emailResult.success
     if (!emailResult.success) {
+      emailError = emailResult.error
       console.error('Email send failed:', emailResult.error)
     }
-  } catch (emailError) {
-    console.error('Email send threw:', emailError)
+  } catch (err) {
+    emailError = err instanceof Error ? err.message : 'Unknown error'
+    console.error('Email send threw:', err)
   }
 
   return NextResponse.json({
     invitation,
     emailSent,
+    emailError,
+    inviteLink,
   })
 }
 
