@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { getUserPlan } from '@/lib/plan'
+import { sendInviteEmail } from '@/lib/resend'
 import crypto from 'crypto'
 
 // GET /api/team — list members + pending invitations
@@ -138,7 +139,25 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Failed to send invitation' }, { status: 500 })
   }
 
-  return NextResponse.json({ invitation, token })
+  // Build invite link and send email
+  const host =
+    request.headers.get('x-forwarded-host') ||
+    request.headers.get('host') ||
+    'localhost:3000'
+  const protocol = host.startsWith('localhost') ? 'http' : 'https'
+  const inviteLink = `${protocol}://${host}/invite/${token}`
+
+  const emailResult = await sendInviteEmail({
+    to: normalizedEmail,
+    inviteLink,
+    inviterEmail: user.email || 'A team admin',
+    role: role === 'admin' ? 'Admin' : 'Member',
+  })
+
+  return NextResponse.json({
+    invitation,
+    emailSent: emailResult.success,
+  })
 }
 
 // DELETE /api/team — revoke invitation or remove member
