@@ -43,6 +43,7 @@ import {
   Code2,
   Lock,
   CreditCard,
+  Users,
 } from 'lucide-react'
 
 interface AdminSidebarProps {
@@ -98,6 +99,12 @@ const menuItems: MenuItem[] = [
     icon: BarChart3,
     href: '/admin/analytics',
     requiredFeature: 'analyticsEnabled',
+  },
+  {
+    title: 'Team',
+    icon: Users,
+    href: '/admin/team',
+    requiredFeature: null,
   },
   {
     title: 'Integration',
