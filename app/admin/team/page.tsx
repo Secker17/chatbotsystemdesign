@@ -185,16 +185,17 @@ export default function TeamPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Team</h1>
-          <p className="text-muted-foreground">
+          <h1 className="text-xl sm:text-2xl font-bold text-foreground">Team</h1>
+          <p className="text-sm sm:text-base text-muted-foreground">
             Invite others to collaborate on your chatbots
           </p>
         </div>
         <Button
           onClick={() => setInviteDialogOpen(true)}
           disabled={isAtLimit}
+          className="w-fit"
         >
           <UserPlus className="mr-2 h-4 w-4" />
           Invite Member
@@ -228,7 +229,7 @@ export default function TeamPage() {
             </div>
 
             {isAtLimit && (
-              <div className="flex items-center justify-between rounded-lg border border-amber-200 bg-amber-50 p-3 dark:border-amber-900/50 dark:bg-amber-950/30">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between rounded-lg border border-amber-200 bg-amber-50 p-3 dark:border-amber-900/50 dark:bg-amber-950/30">
                 <div className="flex items-center gap-2">
                   <Crown className="h-4 w-4 text-amber-600 dark:text-amber-400" />
                   <span className="text-sm font-medium text-amber-800 dark:text-amber-300">
@@ -271,14 +272,14 @@ export default function TeamPage() {
                 {members.map((member) => (
                   <div
                     key={member.id}
-                    className="flex items-center justify-between rounded-lg border p-3"
+                    className="flex items-center justify-between gap-2 rounded-lg border p-3"
                   >
-                    <div className="flex items-center gap-3">
-                      <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/10 text-sm font-medium text-primary">
+                    <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+                      <div className="flex h-8 w-8 sm:h-9 sm:w-9 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs sm:text-sm font-medium text-primary">
                         {(member.company_name || member.user_id)?.slice(0, 2).toUpperCase()}
                       </div>
-                      <div>
-                        <p className="text-sm font-medium text-foreground">
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium text-foreground truncate">
                           {member.company_name || 'Team Member'}
                         </p>
                         <p className="text-xs text-muted-foreground">
@@ -350,16 +351,16 @@ export default function TeamPage() {
                   return (
                     <div
                       key={invite.id}
-                      className={`flex items-center justify-between rounded-lg border p-3 ${
+                      className={`flex items-center justify-between gap-2 rounded-lg border p-3 ${
                         isExpired ? 'opacity-60' : ''
                       }`}
                     >
-                      <div className="flex items-center gap-3">
-                        <div className="flex h-9 w-9 items-center justify-center rounded-full bg-muted text-sm font-medium text-muted-foreground">
+                      <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+                        <div className="flex h-8 w-8 sm:h-9 sm:w-9 shrink-0 items-center justify-center rounded-full bg-muted text-xs sm:text-sm font-medium text-muted-foreground">
                           {invite.email.slice(0, 2).toUpperCase()}
                         </div>
-                        <div>
-                          <p className="text-sm font-medium text-foreground">{invite.email}</p>
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium text-foreground truncate">{invite.email}</p>
                           <div className="flex items-center gap-2 text-xs text-muted-foreground">
                             <Clock className="h-3 w-3" />
                             {isExpired ? (
@@ -447,7 +448,7 @@ export default function TeamPage() {
               </Select>
             </div>
           </div>
-          <DialogFooter>
+          <DialogFooter className="flex-col-reverse gap-2 sm:flex-row">
             <Button variant="outline" onClick={() => setInviteDialogOpen(false)}>
               Cancel
             </Button>

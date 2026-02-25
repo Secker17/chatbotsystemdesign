@@ -93,8 +93,8 @@ export default function ChatInterface({
   const isOpen = isControlled ? controlledIsOpen : isInternalOpen
 
   const positionClasses = {
-    'bottom-right': 'bottom-6 right-6',
-    'bottom-left': 'bottom-6 left-6',
+    'bottom-right': 'bottom-2 right-2 sm:bottom-6 sm:right-6',
+    'bottom-left': 'bottom-2 left-2 sm:bottom-6 sm:left-6',
   }
 
   const scrollToBottom = useCallback((smooth = true) => {
@@ -453,7 +453,7 @@ export default function ChatInterface({
       {isOpen && (
         <div 
           className={`
-            w-[380px] max-h-[560px] flex flex-col rounded-2xl shadow-2xl border border-border/40 overflow-hidden
+            w-[calc(100vw-1rem)] sm:w-[380px] max-h-[calc(100vh-6rem)] sm:max-h-[560px] flex flex-col rounded-2xl shadow-2xl border border-border/40 overflow-hidden
             bg-card backdrop-blur-xl
             ${isAnimatingOpen ? 'animate-chat-open' : ''}
             ${isAnimatingClose ? 'animate-chat-close' : ''}
@@ -519,8 +519,7 @@ export default function ChatInterface({
               {/* Messages */}
               <div 
                 ref={messagesContainerRef}
-                className="flex-1 overflow-y-auto px-4 py-4 min-h-0"
-                style={{ maxHeight: '380px' }}
+                className="flex-1 overflow-y-auto px-4 py-4 min-h-0 max-h-[calc(100vh-16rem)] sm:max-h-[380px]"
               >
                 <div className="flex flex-col gap-3">
                   {messages.length === 0 && (

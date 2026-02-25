@@ -85,8 +85,8 @@ import { VintraChat } from '@vintrastudio/widget';
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-foreground">Integration</h1>
-        <p className="text-muted-foreground">
+        <h1 className="text-xl sm:text-2xl font-bold text-foreground">Integration</h1>
+        <p className="text-sm sm:text-base text-muted-foreground">
           Add the chat widget to your website in seconds
         </p>
       </div>
@@ -104,7 +104,7 @@ import { VintraChat } from '@vintrastudio/widget';
         </CardHeader>
         <CardContent>
           <div className="flex items-center gap-3">
-            <code className="flex-1 rounded-lg bg-muted px-4 py-3 font-mono text-sm">
+            <code className="flex-1 overflow-x-auto rounded-lg bg-muted px-3 sm:px-4 py-3 font-mono text-xs sm:text-sm">
               {chatbotId}
             </code>
             <Button
@@ -135,7 +135,7 @@ import { VintraChat } from '@vintrastudio/widget';
         </CardHeader>
         <CardContent>
           <Tabs defaultValue="script">
-            <TabsList className="mb-4 w-full justify-start">
+            <TabsList className="mb-4 w-full justify-start overflow-x-auto">
               <TabsTrigger value="script">HTML Script</TabsTrigger>
               <TabsTrigger value="react">React / Next.js</TabsTrigger>
               <TabsTrigger value="npm">
@@ -149,7 +149,7 @@ import { VintraChat } from '@vintrastudio/widget';
                 Add this script tag just before the closing <code className="rounded bg-muted px-1">&lt;/body&gt;</code> tag on your website.
               </p>
               <div className="relative">
-                <pre className="overflow-x-auto rounded-lg bg-muted p-4 font-mono text-sm">
+                <pre className="overflow-x-auto rounded-lg bg-muted p-3 sm:p-4 font-mono text-xs sm:text-sm">
                   <code>{scriptCode}</code>
                 </pre>
                 <Button

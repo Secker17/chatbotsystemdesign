@@ -147,16 +147,25 @@ export async function POST(request: Request) {
   const protocol = host.startsWith('localhost') ? 'http' : 'https'
   const inviteLink = `${protocol}://${host}/invite/${token}`
 
-  const emailResult = await sendInviteEmail({
-    to: normalizedEmail,
-    inviteLink,
-    inviterEmail: user.email || 'A team admin',
-    role: role === 'admin' ? 'Admin' : 'Member',
-  })
+  let emailSent = false
+  try {
+    const emailResult = await sendInviteEmail({
+      to: normalizedEmail,
+      inviteLink,
+      inviterEmail: user.email || 'A team admin',
+      role: role === 'admin' ? 'Admin' : 'Member',
+    })
+    emailSent = emailResult.success
+    if (!emailResult.success) {
+      console.error('Email send failed:', emailResult.error)
+    }
+  } catch (emailError) {
+    console.error('Email send threw:', emailError)
+  }
 
   return NextResponse.json({
     invitation,
-    emailSent: emailResult.success,
+    emailSent,
   })
 }
 

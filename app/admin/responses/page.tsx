@@ -196,8 +196,8 @@ export default function ResponsesPage() {
     return (
       <div className="space-y-6">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Canned Responses</h1>
-          <p className="text-muted-foreground">
+          <h1 className="text-xl sm:text-2xl font-bold text-foreground">Canned Responses</h1>
+          <p className="text-sm sm:text-base text-muted-foreground">
             Create quick replies for common questions
           </p>
         </div>
@@ -213,10 +213,10 @@ export default function ResponsesPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Canned Responses</h1>
-          <p className="text-muted-foreground">
+          <h1 className="text-xl sm:text-2xl font-bold text-foreground">Canned Responses</h1>
+          <p className="text-sm sm:text-base text-muted-foreground">
             Create quick replies for common questions
           </p>
         </div>

@@ -46,14 +46,14 @@ export default function ChatDemoPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background to-muted p-8">
+    <div className="min-h-screen bg-gradient-to-br from-background to-muted p-4 sm:p-8">
       <div className="max-w-6xl mx-auto">
         {/* Header */}
-        <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold text-foreground mb-4">
+        <div className="text-center mb-6 sm:mb-8">
+          <h1 className="text-2xl sm:text-4xl font-bold text-foreground mb-3 sm:mb-4">
             Glass Orb Avatar Demo
           </h1>
-          <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
+          <p className="text-sm sm:text-lg text-muted-foreground max-w-2xl mx-auto">
             Interactive demonstration of the customizable Glass Orb Avatar component 
             with different skins and states integrated into a chat interface.
           </p>
@@ -75,7 +75,7 @@ export default function ChatDemoPage() {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
                   {/* Default Skin States */}
                   <div className="space-y-4">
                     <h3 className="text-lg font-semibold text-center">Default Skin</h3>
@@ -199,7 +199,7 @@ export default function ChatDemoPage() {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="flex items-end justify-center gap-8">
+                <div className="flex flex-wrap items-end justify-center gap-4 sm:gap-8">
                   <div className="flex flex-col items-center space-y-2">
                     <GlassOrbAvatar
                       sender="bot"
@@ -328,7 +328,7 @@ export default function ChatDemoPage() {
             <CardDescription>What makes the Glass Orb Avatar special</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               <div className="space-y-2">
                 <h4 className="font-semibold">🎨 Dynamic Colors</h4>
                 <p className="text-sm text-muted-foreground">

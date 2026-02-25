@@ -313,14 +313,14 @@ export default function AppearancePage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Appearance</h1>
-          <p className="text-muted-foreground">
+          <h1 className="text-xl sm:text-2xl font-bold text-foreground">Appearance</h1>
+          <p className="text-sm sm:text-base text-muted-foreground">
             Customize how your chatbot looks and feels
           </p>
         </div>
-        <Button onClick={handleSave} disabled={saving}>
+        <Button onClick={handleSave} disabled={saving} className="w-fit">
           {saving ? (
             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
           ) : (
@@ -332,7 +332,7 @@ export default function AppearancePage() {
 
       {/* Multi-Chatbot Selector */}
       {configs.length > 1 && (
-        <div className="flex items-center gap-2 rounded-xl border border-border bg-muted/30 p-1.5">
+        <div className="flex items-center gap-2 rounded-xl border border-border bg-muted/30 p-1.5 overflow-x-auto">
           {configs.map((c, i) => (
             <button
               key={c.id}
