@@ -120,7 +120,10 @@ export default function TeamPage() {
       const data = await res.json()
 
       if (!res.ok) {
-        toast.error(data.error || 'Failed to send invitation')
+        const msg = data.details
+          ? `${data.error}: ${data.details}`
+          : data.error || 'Failed to send invitation'
+        toast.error(msg)
         return
       }
 

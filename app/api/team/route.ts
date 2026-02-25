@@ -57,6 +57,7 @@ export async function GET() {
 
 // POST /api/team — invite a new team member
 export async function POST(request: Request) {
+  try {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -172,6 +173,13 @@ export async function POST(request: Request) {
     emailError,
     inviteLink,
   })
+  } catch (err) {
+    console.error('Team POST unhandled error:', err)
+    return NextResponse.json(
+      { error: 'Internal server error', details: err instanceof Error ? err.message : 'Unknown' },
+      { status: 500 }
+    )
+  }
 }
 
 // DELETE /api/team — revoke invitation or remove member

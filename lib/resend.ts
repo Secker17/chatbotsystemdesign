@@ -19,7 +19,7 @@ export async function sendInviteEmail({ to, inviteLink, inviterEmail, role }: Se
 
   try {
     const { data, error } = await resend.emails.send({
-      from: 'Vintra <onboarding@resend.dev>',
+      from: 'Vintra <noreply@chat.vintrastudio.com>',
       to,
       subject: `You've been invited to join a team on Vintra`,
       html: buildInviteHtml({ inviteLink, inviterEmail, role }),
