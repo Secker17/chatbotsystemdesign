@@ -17,19 +17,24 @@ export async function sendInviteEmail({ to, inviteLink, inviterEmail, role }: Se
     return { success: false, error: 'Email service not configured' }
   }
 
-  const { data, error } = await resend.emails.send({
-    from: 'Vintra <onboarding@resend.dev>',
-    to,
-    subject: `You've been invited to join a team on Vintra`,
-    html: buildInviteHtml({ inviteLink, inviterEmail, role }),
-  })
+  try {
+    const { data, error } = await resend.emails.send({
+      from: 'Vintra <onboarding@resend.dev>',
+      to,
+      subject: `You've been invited to join a team on Vintra`,
+      html: buildInviteHtml({ inviteLink, inviterEmail, role }),
+    })
 
-  if (error) {
-    console.error('Resend error:', error)
-    return { success: false, error: error.message }
+    if (error) {
+      console.error('Resend API error:', error)
+      return { success: false, error: error.message }
+    }
+
+    return { success: true, id: data?.id }
+  } catch (err) {
+    console.error('Resend threw:', err)
+    return { success: false, error: err instanceof Error ? err.message : 'Unknown error' }
   }
-
-  return { success: true, id: data?.id }
 }
 
 function buildInviteHtml({ inviteLink, inviterEmail, role }: Omit<SendInviteEmailParams, 'to'>) {
