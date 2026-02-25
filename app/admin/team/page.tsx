@@ -87,9 +87,34 @@ export default function TeamPage() {
   const [copiedToken, setCopiedToken] = useState<string | null>(null)
   const [lastToken, setLastToken] = useState<string | null>(null)
   const [tokenDialogOpen, setTokenDialogOpen] = useState(false)
+  const [migrating, setMigrating] = useState(false)
+  const [migrationNeeded, setMigrationNeeded] = useState(false)
+  const [migrationSql, setMigrationSql] = useState<string | null>(null)
+
+  const runMigrationCheck = useCallback(async () => {
+    try {
+      const res = await fetch('/api/migrate-team')
+      if (!res.ok) return false
+      const data = await res.json()
+      if (data.tablesReady) return true
+      // Tables don't exist yet - show migration info
+      setMigrationNeeded(true)
+      setMigrationSql(data.migrationSql || null)
+      return false
+    } catch {
+      return false
+    }
+  }, [])
 
   const loadTeam = useCallback(async () => {
     try {
+      // First check if tables exist
+      const ready = await runMigrationCheck()
+      if (!ready) {
+        setLoading(false)
+        return
+      }
+
       const res = await fetch('/api/team')
       if (!res.ok) throw new Error('Failed to load team')
       const data = await res.json()
@@ -97,12 +122,13 @@ export default function TeamPage() {
       setInvitations(data.invitations || [])
       setLimits(data.limits || null)
       setPlanId(data.planId || 'starter')
+      setMigrationNeeded(false)
     } catch {
       toast.error('Failed to load team data')
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [runMigrationCheck])
 
   useEffect(() => {
     loadTeam()
@@ -188,6 +214,68 @@ export default function TeamPage() {
     return (
       <div className="flex items-center justify-center py-20">
         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    )
+  }
+
+  if (migrationNeeded) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-2xl font-bold text-foreground">Team</h1>
+          <p className="text-muted-foreground">
+            Invite others to collaborate on your chatbots
+          </p>
+        </div>
+        <Card>
+          <CardHeader>
+            <CardTitle>Database Setup Required</CardTitle>
+            <CardDescription>
+              The team tables need to be created in your Supabase database before you can use this feature.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Copy the SQL below and run it in your Supabase Dashboard &gt; SQL Editor:
+            </p>
+            {migrationSql && (
+              <div className="relative">
+                <pre className="max-h-64 overflow-auto rounded-md bg-muted p-4 text-xs font-mono">
+                  {migrationSql}
+                </pre>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="absolute right-2 top-2"
+                  onClick={() => {
+                    navigator.clipboard.writeText(migrationSql)
+                    toast.success('SQL copied to clipboard')
+                  }}
+                >
+                  <Copy className="mr-1 h-3 w-3" />
+                  Copy
+                </Button>
+              </div>
+            )}
+            <Button
+              onClick={() => {
+                setMigrating(true)
+                setLoading(true)
+                loadTeam().finally(() => setMigrating(false))
+              }}
+              disabled={migrating}
+            >
+              {migrating ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Checking...
+                </>
+              ) : (
+                'I have run the SQL - Check again'
+              )}
+            </Button>
+          </CardContent>
+        </Card>
       </div>
     )
   }
