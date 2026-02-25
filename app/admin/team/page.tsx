@@ -126,8 +126,22 @@ export default function TeamPage() {
 
       if (data.emailSent) {
         toast.success(`Invitation email sent to ${inviteEmail.trim()}`)
+      } else if (data.inviteLink) {
+        // Email failed — copy invite link to clipboard as fallback
+        try {
+          await navigator.clipboard.writeText(data.inviteLink)
+          toast.success(
+            `Invitation created! Email could not be sent — the invite link has been copied to your clipboard. Share it manually.`,
+            { duration: 8000 }
+          )
+        } catch {
+          toast.success(
+            `Invitation created but email could not be sent. Share this link manually: ${data.inviteLink}`,
+            { duration: 10000 }
+          )
+        }
       } else {
-        toast.success(`Invitation created for ${inviteEmail.trim()} (email delivery pending)`)
+        toast.success(`Invitation created for ${inviteEmail.trim()}`)
       }
 
       setInviteEmail('')

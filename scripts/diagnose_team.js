@@ -1,56 +1,91 @@
-import pg from 'pg';
+import { createClient } from '@supabase/supabase-js';
 
-const client = new pg.Client({ connectionString: process.env.POSTGRES_URL });
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-async function run() {
-  await client.connect();
-  
-  // Check if tables exist
-  const tables = await client.query(`
-    SELECT table_name 
-    FROM information_schema.tables 
-    WHERE table_schema = 'public' 
-    AND table_name IN ('team_invitations', 'team_members')
-    ORDER BY table_name;
-  `);
-  console.log('Tables found:', tables.rows.map(r => r.table_name));
-  
-  if (tables.rows.length > 0) {
-    // Check columns for each table
-    for (const row of tables.rows) {
-      const cols = await client.query(`
-        SELECT column_name, data_type, is_nullable, column_default
-        FROM information_schema.columns
-        WHERE table_schema = 'public' AND table_name = $1
-        ORDER BY ordinal_position;
-      `, [row.table_name]);
-      console.log(`\nColumns for ${row.table_name}:`);
-      cols.rows.forEach(c => console.log(`  ${c.column_name}: ${c.data_type} (nullable: ${c.is_nullable}, default: ${c.column_default})`));
-    }
-    
-    // Check RLS policies
-    const policies = await client.query(`
-      SELECT tablename, policyname, permissive, roles, cmd, qual
-      FROM pg_policies
-      WHERE tablename IN ('team_invitations', 'team_members')
-      ORDER BY tablename, policyname;
-    `);
-    console.log('\nRLS Policies:');
-    policies.rows.forEach(p => console.log(`  ${p.tablename}.${p.policyname}: ${p.cmd} (${p.permissive})`));
-    
-    // Check if RLS is enabled
-    const rls = await client.query(`
-      SELECT relname, relrowsecurity
-      FROM pg_class
-      WHERE relname IN ('team_invitations', 'team_members');
-    `);
-    console.log('\nRLS enabled:');
-    rls.rows.forEach(r => console.log(`  ${r.relname}: ${r.relrowsecurity}`));
-  } else {
-    console.log('NO TEAM TABLES FOUND - need to run migration');
-  }
-  
-  await client.end();
+console.log('SUPABASE_URL set:', !!supabaseUrl);
+console.log('SERVICE_ROLE_KEY set:', !!serviceKey);
+console.log('ANON_KEY set:', !!anonKey);
+console.log('RESEND_API_KEY set:', !!process.env.RESEND_API_KEY);
+if (process.env.RESEND_API_KEY) {
+  console.log('RESEND_API_KEY prefix:', process.env.RESEND_API_KEY.slice(0, 6) + '...');
 }
 
-run().catch(e => { console.error(e); process.exit(1); });
+const key = serviceKey || anonKey;
+if (!supabaseUrl || !key) {
+  console.error('Missing Supabase credentials');
+  process.exit(1);
+}
+
+const supabase = createClient(supabaseUrl, key);
+
+async function run() {
+  // Test team_invitations table
+  console.log('\n--- team_invitations ---');
+  const { data: inv, error: invErr } = await supabase.from('team_invitations').select('id').limit(1);
+  if (invErr) {
+    console.error('ERROR:', invErr.message, '| code:', invErr.code, '| details:', invErr.details, '| hint:', invErr.hint);
+  } else {
+    console.log('OK - accessible, rows returned:', inv.length);
+  }
+
+  // Test team_members table
+  console.log('\n--- team_members ---');
+  const { data: mem, error: memErr } = await supabase.from('team_members').select('id').limit(1);
+  if (memErr) {
+    console.error('ERROR:', memErr.message, '| code:', memErr.code, '| details:', memErr.details, '| hint:', memErr.hint);
+  } else {
+    console.log('OK - accessible, rows returned:', mem.length);
+  }
+
+  // Check exact columns in team_invitations
+  console.log('\n--- Check schema via select * ---');
+  const { data: allCols, error: colErr } = await supabase.from('team_invitations').select('*').limit(0);
+  if (colErr) {
+    console.error('Schema check error:', colErr.message);
+  } else {
+    console.log('team_invitations columns query OK (empty result gives column info)');
+  }
+
+  // Test insert matching what the API route does
+  console.log('\n--- Test insert (matching API route) ---');
+  const testToken = 'diag-test-' + Date.now();
+  const { data: insertData, error: insertErr } = await supabase.from('team_invitations').insert({
+    admin_id: '00000000-0000-0000-0000-000000000000',
+    email: 'test-diagnostic@example.com',
+    role: 'member',
+    token: testToken,
+    status: 'pending',
+  }).select().single();
+  if (insertErr) {
+    console.error('INSERT ERROR:', insertErr.message, '| code:', insertErr.code, '| details:', insertErr.details);
+  } else {
+    console.log('INSERT OK, id:', insertData?.id);
+    // Clean up
+    await supabase.from('team_invitations').delete().eq('token', testToken);
+    console.log('Cleaned up test row');
+  }
+
+  // Test Resend
+  console.log('\n--- Test Resend ---');
+  try {
+    const { Resend } = await import('resend');
+    const resend = new Resend(process.env.RESEND_API_KEY);
+    const { data, error } = await resend.emails.send({
+      from: 'Vintra <onboarding@resend.dev>',
+      to: 'test-diagnostic@example.com',
+      subject: 'Diagnostic test',
+      html: '<p>Test</p>',
+    });
+    if (error) {
+      console.error('RESEND ERROR:', JSON.stringify(error));
+    } else {
+      console.log('RESEND OK, id:', data?.id);
+    }
+  } catch (err) {
+    console.error('RESEND THREW:', err.message);
+  }
+}
+
+run().catch(e => { console.error('Unhandled:', e); process.exit(1); });
