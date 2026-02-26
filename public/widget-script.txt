@@ -790,17 +790,15 @@
     const ctx = canvas.getContext('2d');
     ctx.scale(2, 2); // Scale for higher res
     
-    // Physics constants
+    // Physics constants - matching React GlassOrbAvatar exactly
     const centerX = sizePx / 2;
     const centerY = sizePx / 2;
     const orbRadius = sizePx / 2;
-    const minRadius = orbRadius * 0.06;
-    const maxRadius = orbRadius * 0.9;
-    const mouseRepelRadius = orbRadius * 0.25;
-    const maxPushStrength = orbRadius * 0.06;
-    const pullAngleRange = 0.9;
-    const maxPullAmount = orbRadius * 0.45;
-    const pullRingThickness = 300 * (sizePx / 400);
+    
+    // Ring dimensions (particles only in ring area)
+    const ringOuter = orbRadius * 0.95;
+    const ringInner = orbRadius * 0.5;
+    const centerRadius = ringInner * 0.985;
     
     // Idle palette matching React GlassOrbAvatar (cyan/teal)
     const palette = [
@@ -814,44 +812,20 @@
     
     let colorIndex = 0;
     let colorProgress = 0;
-    let mouseX = null;
-    let mouseY = null;
-    let explosions = [];
     
-    function getCurrentColor(alpha, variant, offset) {
-      const ci = (colorIndex + (offset || 0)) % palette.length;
-      const current = palette[ci];
-      const next = palette[(ci + 1) % palette.length];
-      let r, g, b;
-      if (variant === 'pulled') {
-        r = Math.min(255, Math.floor(current.r * 1.2));
-        g = Math.min(255, Math.floor(current.g * 1.2));
-        b = Math.min(255, Math.floor(current.b * 1.2));
-      } else if (variant === 'pushed') {
-        r = 255; g = 35; b = 35;
-      } else {
-        r = Math.floor(current.r + (next.r - current.r) * colorProgress);
-        g = Math.floor(current.g + (next.g - current.g) * colorProgress);
-        b = Math.floor(current.b + (next.b - current.b) * colorProgress);
-      }
-      return 'rgba(' + r + ',' + g + ',' + b + ',' + alpha + ')';
-    }
-    
-    // Particles - optimized for 60px launcher
-    const baseCount = 400;
-    const count = Math.floor(baseCount * (sizePx / 500));
+    // Particles - only in ring area (matching React GlassOrbAvatar)
+    const baseCount = 520;
+    const count = Math.max(240, Math.min(820, Math.floor(baseCount * (sizePx / 420))));
     const particles = [];
     const sizeScale = sizePx / 500;
     
     for (let i = 0; i < count; i++) {
       particles.push({
-        baseRadius: minRadius + Math.random() * (maxRadius - minRadius),
+        // Particles only in ring area between ringInner and ringOuter
+        radius: ringInner + Math.random() * (ringOuter - ringInner),
         angle: Math.random() * Math.PI * 2,
-        speed: (Math.random() * 0.01 + 0.005) * (Math.random() < 0.5 ? 1 : -1),
-        size: (Math.random() * 4 + 3) * sizeScale,
-        radiusOffset: 0,
-        angleOffset: 0,
-        effect: 'none',
+        speed: (Math.random() * 0.010 + 0.004) * (Math.random() < 0.5 ? 1 : -1),
+        size: (Math.random() * 2.6 + 2.0) * sizeScale,
         colorOffset: Math.floor(Math.random() * 9999),
       });
     }
@@ -900,14 +874,13 @@
     }
     
     var runeNorm = buildAnsuzPoints();
-    var runeRadius = orbRadius * 0.78;
+    // Rune is drawn in center disk area (inside ringInner)
+    var runeRadius = centerRadius * 0.78;
     var runeTargets = runeNorm.map(function(p) {
       return { tx: centerX + p.x * runeRadius, ty: centerY + p.y * runeRadius };
     });
     
-    // Gold dots
-    var ringInner = orbRadius * 0.6;
-    var ringOuter = orbRadius * 0.95;
+    // Gold dots for rune
     var goldDotCount = Math.max(260, Math.min(900, Math.floor(400 * (sizePx / 420))));
     var goldDots = [];
     
@@ -938,38 +911,6 @@
     
     function mix(a, b, t) { return a + (b - a) * t; }
     
-    // Mouse tracking
-    function handleMouseMove(e) {
-      const rect = container.getBoundingClientRect();
-      mouseX = e.clientX - rect.left;
-      mouseY = e.clientY - rect.top;
-    }
-    
-    function handleMouseLeave() {
-      mouseX = null;
-      mouseY = null;
-    }
-    
-    function handleClick(e) {
-      const rect = container.getBoundingClientRect();
-      const clickX = e.clientX - rect.left;
-      const clickY = e.clientY - rect.top;
-      const dx = clickX - centerX;
-      const dy = clickY - centerY;
-      if (Math.sqrt(dx * dx + dy * dy) < orbRadius - 5) {
-        explosions.push({
-          x: clickX, y: clickY,
-          radius: orbRadius * 0.25,
-          strength: orbRadius * 0.08,
-          decay: 0.85,
-        });
-      }
-    }
-    
-    container.addEventListener('mousemove', handleMouseMove);
-    container.addEventListener('mouseleave', handleMouseLeave);
-    container.addEventListener('click', handleClick);
-    
     let animId;
     
     // Portal colors matching React GlassOrbAvatar
@@ -985,7 +926,6 @@
     
     var casingOuter = orbRadius * 0.995;
     var casingInner = orbRadius * 0.9;
-    var centerRadiusInner = ringInner * 0.985;
     
     function drawPortalBase() {
       // Deep background
@@ -1009,13 +949,13 @@
       ctx.fill('evenodd');
       
       // Center disk
-      var dg = ctx.createRadialGradient(centerX, centerY, centerRadiusInner * 0.05, centerX, centerY, centerRadiusInner);
+      var dg = ctx.createRadialGradient(centerX, centerY, centerRadius * 0.05, centerX, centerY, centerRadius);
       dg.addColorStop(0, portal.deep3);
       dg.addColorStop(0.65, portal.deep2);
       dg.addColorStop(1, portal.deep1);
       ctx.fillStyle = dg;
       ctx.beginPath();
-      ctx.arc(centerX, centerY, centerRadiusInner, 0, Math.PI * 2);
+      ctx.arc(centerX, centerY, centerRadius, 0, Math.PI * 2);
       ctx.fill();
       
       // Rim
@@ -1042,12 +982,6 @@
       // Draw portal background first
       drawPortalBase();
       
-      // Update and clean explosions
-      explosions = explosions.filter(function(ex) {
-        ex.strength *= ex.decay;
-        return ex.strength > 0.3;
-      });
-      
       // Clip to ring area for particles
       ctx.save();
       ctx.beginPath();
@@ -1055,101 +989,29 @@
       ctx.arc(centerX, centerY, ringInner, 0, Math.PI * 2, true);
       ctx.clip('evenodd');
       
+      // Draw particles - simple ring rotation (matching React GlassOrbAvatar)
       particles.forEach(function(p) {
-        // Update particle
         p.angle += p.speed;
         
-        var currentR = p.baseRadius + p.radiusOffset;
-        var currentA = p.angle + p.angleOffset;
-        var px = centerX + Math.cos(currentA) * currentR;
-        var py = centerY + Math.sin(currentA) * currentR;
+        var x = centerX + Math.cos(p.angle) * p.radius;
+        var y = centerY + Math.sin(p.angle) * p.radius;
         
-        var targetRadOff = 0;
-        var targetAngOff = 0;
-        var effect = 'none';
+        var baseAlpha = 0.26;
+        var glowAlpha = 0.12;
         
-        if (mouseX !== null && mouseY !== null) {
-          var mdx = mouseX - centerX;
-          var mdy = mouseY - centerY;
-          var distFromCenter = Math.sqrt(mdx * mdx + mdy * mdy);
-          
-          // Inside orb - push
-          if (distFromCenter < orbRadius - 5) {
-            var distToMouse = Math.sqrt(Math.pow(px - mouseX, 2) + Math.pow(py - mouseY, 2));
-            if (distToMouse < mouseRepelRadius) {
-              var pushAngle = Math.atan2(py - mouseY, px - mouseX);
-              var falloff = 1 - distToMouse / mouseRepelRadius;
-              var pushStr = falloff * falloff;
-              var pushDx = Math.cos(pushAngle) * maxPushStrength * pushStr;
-              var pushDy = Math.sin(pushAngle) * maxPushStrength * pushStr;
-              var newX = px + pushDx;
-              var newY = py + pushDy;
-              var newDx = newX - centerX;
-              var newDy = newY - centerY;
-              targetRadOff = Math.max(minRadius, Math.min(maxRadius, Math.sqrt(newDx * newDx + newDy * newDy))) - p.baseRadius;
-              targetAngOff = Math.atan2(newDy, newDx) - p.angle;
-              effect = 'pushed';
-            }
-          }
-          // Outside orb - pull
-          else if (distFromCenter >= orbRadius) {
-            var mouseAngle = Math.atan2(mdy, mdx);
-            var particleAngle = Math.atan2(py - centerY, px - centerX);
-            var angleDiff = Math.abs(mouseAngle - particleAngle);
-            if (angleDiff > Math.PI) angleDiff = 2 * Math.PI - angleDiff;
-            var radialFromBorder = distFromCenter - orbRadius;
-            if (angleDiff < pullAngleRange && radialFromBorder >= 0 && radialFromBorder <= pullRingThickness) {
-              var t = radialFromBorder / pullRingThickness;
-              var pullStr = Math.pow(1 - t, 1.5) * (1 - angleDiff / pullAngleRange);
-              targetRadOff = maxPullAmount * pullStr;
-              effect = 'pulled';
-            }
-          }
-        }
+        var ci = (colorIndex + p.colorOffset) % palette.length;
+        var current = palette[ci];
+        var next = palette[(ci + 1) % palette.length];
+        var r = Math.floor(current.r + (next.r - current.r) * colorProgress);
+        var g = Math.floor(current.g + (next.g - current.g) * colorProgress);
+        var b = Math.floor(current.b + (next.b - current.b) * colorProgress);
         
-        // Explosions
-        explosions.forEach(function(ex) {
-          var distToEx = Math.sqrt(Math.pow(px - ex.x, 2) + Math.pow(py - ex.y, 2));
-          if (distToEx < ex.radius) {
-            var exAngle = Math.atan2(py - ex.y, px - ex.x);
-            var exFalloff = 1 - distToEx / ex.radius;
-            var exPush = exFalloff * exFalloff * ex.strength * 0.6;
-            var exNewX = px + Math.cos(exAngle) * exPush;
-            var exNewY = py + Math.sin(exAngle) * exPush;
-            var exDx = exNewX - centerX;
-            var exDy = exNewY - centerY;
-            targetRadOff = Math.max(minRadius, Math.min(maxRadius, Math.sqrt(exDx * exDx + exDy * exDy))) - p.baseRadius;
-            targetAngOff = Math.atan2(exDy, exDx) - p.angle;
-            effect = 'pushed';
-          }
-        });
+        var fill = 'rgba(' + r + ',' + g + ',' + b + ',' + baseAlpha + ')';
+        var glow = 'rgba(' + r + ',' + g + ',' + b + ',' + glowAlpha + ')';
         
-        p.radiusOffset += (targetRadOff - p.radiusOffset) * 0.15;
-        p.angleOffset += (targetAngOff - p.angleOffset) * 0.15;
-        p.radiusOffset *= 0.95;
-        p.angleOffset *= 0.95;
-        p.effect = effect;
-        
-        // Draw particle
-        var drawR = p.baseRadius + p.radiusOffset;
-        var drawA = p.angle + p.angleOffset;
-        var x = centerX + Math.cos(drawA) * drawR;
-        var y = centerY + Math.sin(drawA) * drawR;
-        
-        var variant = p.effect;
-        var baseAlpha = 0.25;
-        var glowAlpha = 0.15;
-        if (variant === 'pushed') {
-          baseAlpha = Math.min(0.65, baseAlpha * 2.4);
-          glowAlpha = Math.min(0.55, glowAlpha * 3.0);
-        }
-        
-        var color = getCurrentColor(baseAlpha, variant, p.colorOffset);
-        var glowColor = getCurrentColor(glowAlpha, variant, p.colorOffset);
-        
-        ctx.shadowBlur = (variant === 'pushed' ? 16 : 8) * sizeScale;
-        ctx.shadowColor = glowColor;
-        ctx.fillStyle = color;
+        ctx.shadowBlur = 14 * sizeScale;
+        ctx.shadowColor = glow;
+        ctx.fillStyle = fill;
         ctx.beginPath();
         ctx.arc(x, y, p.size, 0, Math.PI * 2);
         ctx.fill();
@@ -1203,9 +1065,6 @@
     animate();
     return function() {
       if (animId) cancelAnimationFrame(animId);
-      container.removeEventListener('mousemove', handleMouseMove);
-      container.removeEventListener('mouseleave', handleMouseLeave);
-      container.removeEventListener('click', handleClick);
     };
   }
   
@@ -1294,15 +1153,15 @@
     let colorIndex = 0;
     let colorProgress = 0;
     
+    // Particles only in ring area (matching React GlassOrbAvatar)
     const particles = [];
-    const count = Math.max(30, Math.floor(300 * (size / 500)));
+    const count = Math.max(60, Math.floor(240 * (size / 420)));
     for (let i = 0; i < count; i++) {
-      const orbR = size / 2;
       particles.push({
-        baseR: orbR * 0.06 + Math.random() * (orbR * 0.84),
+        radius: ringInner + Math.random() * (ringOuter - ringInner),
         angle: Math.random() * Math.PI * 2,
-        speed: (Math.random() * 0.01 + 0.005) * (Math.random() < 0.5 ? 1 : -1),
-        sz: (Math.random() * 4 + 3) * sizeScale,
+        speed: (Math.random() * 0.010 + 0.004) * (Math.random() < 0.5 ? 1 : -1),
+        sz: (Math.random() * 2.6 + 2.0) * sizeScale,
         ci: Math.floor(Math.random() * palette.length),
       });
     }
@@ -1346,21 +1205,20 @@
     }
     
     var miniRuneNorm = miniBuildAnsuz();
-    var miniRuneRadius = orbRadius * 0.78;
+    // Rune in center disk area
+    var miniRuneRadius = centerRadiusInner * 0.78;
     var miniRuneTargets = miniRuneNorm.map(function(p) {
       return { tx: cx + p.x * miniRuneRadius, ty: cy + p.y * miniRuneRadius };
     });
     
-    // Gold dots for mini orb
+    // Gold dots for mini orb rune
     var miniGoldCount = Math.max(80, Math.min(300, Math.floor(200 * (size / 100))));
     var miniGoldDots = [];
-    var miniRingInner = orbRadius * 0.6;
-    var miniRingOuter = orbRadius * 0.95;
     
     for (var mgi = 0; mgi < miniGoldCount; mgi++) {
       var runeIdx = Math.floor((mgi / Math.max(1, miniGoldCount - 1)) * Math.max(1, miniRuneTargets.length - 1));
       var ang = Math.random() * Math.PI * 2;
-      var rr = miniRingInner + Math.random() * (miniRingOuter - miniRingInner);
+      var rr = ringInner + Math.random() * (ringOuter - ringInner);
       miniGoldDots.push({
         x: cx + Math.cos(ang) * rr,
         y: cy + Math.sin(ang) * rr,
@@ -1430,8 +1288,8 @@
       
       particles.forEach(function(p) {
         p.angle += p.speed;
-        const x = cx + Math.cos(p.angle) * p.baseR;
-        const y = cy + Math.sin(p.angle) * p.baseR;
+        const x = cx + Math.cos(p.angle) * p.radius;
+        const y = cy + Math.sin(p.angle) * p.radius;
         const ci = (colorIndex + p.ci) % palette.length;
         const c = palette[ci];
         const next = palette[(ci + 1) % palette.length];
