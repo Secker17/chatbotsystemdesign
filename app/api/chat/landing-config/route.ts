@@ -12,7 +12,7 @@ export async function GET() {
     const { data: fullData, error: fullError } = await supabase
       .from('chatbot_configs')
       .select(
-        'id, widget_title, welcome_message, primary_color, position, avatar_url, show_branding, placeholder_text, ai_enabled, is_landing_widget, landing_widget_enabled, quick_replies, greeting_message, greeting_subtext, greeting_enabled'
+        'id, widget_title, welcome_message, primary_color, position, avatar_url, show_branding, placeholder_text, ai_enabled, is_landing_widget, landing_widget_enabled, quick_replies, greeting_message, greeting_subtext'
       )
       .eq('is_landing_widget', true)
       .limit(1)
@@ -64,7 +64,7 @@ export async function GET() {
           quick_replies: data.quick_replies ?? [],
           greeting_message: data.greeting_message ?? 'Hi there!',
           greeting_subtext: data.greeting_subtext ?? 'How can I help you today?',
-          greeting_enabled: data.greeting_enabled ?? true,
+          greeting_enabled: true,
         },
       },
       {
