@@ -25,13 +25,13 @@ export async function GET(request: NextRequest) {
   const state = typingState.get(sessionId)
   const isTyping = state ? (state.is_typing && (Date.now() - state.updated_at < 5000)) : false
 
-  return NextResponse.json({ is_typing: isTyping }, {
-    headers: {
-      'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type',
-    },
-  })
+  return NextResponse.json({ is_typing: isTyping }, { headers: corsHeaders })
+}
+
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type',
 }
 
 // POST: Admin sets typing state for a session
@@ -41,7 +41,7 @@ export async function POST(request: NextRequest) {
     const { session_id, is_typing } = body
 
     if (!session_id) {
-      return NextResponse.json({ error: 'Missing session_id' }, { status: 400 })
+      return NextResponse.json({ error: 'Missing session_id' }, { status: 400, headers: corsHeaders })
     }
 
     typingState.set(session_id, {
@@ -49,18 +49,12 @@ export async function POST(request: NextRequest) {
       updated_at: Date.now(),
     })
 
-    return NextResponse.json({ ok: true })
+    return NextResponse.json({ ok: true }, { headers: corsHeaders })
   } catch {
-    return NextResponse.json({ error: 'Invalid request' }, { status: 400 })
+    return NextResponse.json({ error: 'Invalid request' }, { status: 400, headers: corsHeaders })
   }
 }
 
 export async function OPTIONS() {
-  return new NextResponse(null, {
-    headers: {
-      'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type',
-    },
-  })
+  return new NextResponse(null, { headers: corsHeaders })
 }

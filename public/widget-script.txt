@@ -1590,6 +1590,7 @@
     }
     
     let lastMessageId = null;
+    let messageCount = 0;
     let pollInterval = null;
     let typingPollInterval = null;
     
@@ -1597,13 +1598,18 @@
       if (!sessionId || !hasStartedChat) return;
       
       try {
+        // Use count-based polling with 'after' parameter (index-based)
         const url = API_BASE + '/api/chat/messages?session_id=' + sessionId + 
-          (lastMessageId ? '&after=' + lastMessageId : '');
+          '&after=' + messageCount;
         const response = await fetch(url);
-        const messages = await response.json();
+        const data = await response.json();
         
-        if (Array.isArray(messages)) {
+        // API returns { messages: [...], total: n }
+        const messages = data.messages || [];
+        
+        if (Array.isArray(messages) && messages.length > 0) {
           messages.forEach(msg => {
+            // Handle admin messages
             if (msg.sender_type === 'admin') {
               // Human agent replied - update status
               if (isWaitingForHuman) {
@@ -1612,11 +1618,19 @@
                 addSystemMessage('A human agent has joined the conversation.');
                 saveSession();
               }
+              isBotActive = false;
               showHumanTyping(false);
               addMessage(msg.content, 'admin', false);
             }
+            // Handle bot messages that were added server-side (not from AI endpoint)
+            else if (msg.sender_type === 'bot') {
+              addMessage(msg.content, 'bot', msg.is_ai_generated);
+            }
+            // Note: visitor messages are not shown here since we already display them immediately
             lastMessageId = msg.id;
           });
+          // Update message count with the total from server
+          messageCount = data.total || (messageCount + messages.length);
         }
       } catch (error) {
         console.error('VintraStudio: Failed to poll messages', error);
@@ -1692,7 +1706,10 @@
         // Load all existing messages for this session
         const msgsUrl = API_BASE + '/api/chat/messages?session_id=' + sessionId;
         const msgsRes = await fetch(msgsUrl);
-        const messages = await msgsRes.json();
+        const msgsData = await msgsRes.json();
+        
+        // API returns { messages: [...], total: n }
+        const messages = msgsData.messages || [];
         
         if (Array.isArray(messages) && messages.length > 0) {
           messages.forEach(msg => {
@@ -1705,6 +1722,8 @@
             }
             lastMessageId = msg.id;
           });
+          // Set message count for polling
+          messageCount = msgsData.total || messages.length;
         }
         
         // Start polling for new messages and typing

@@ -11,14 +11,11 @@ const nextConfig = {
   webpack: (config, { dev }) => {
     // Suppress the big string serialization warning from webpack cache
     config.infrastructureLogging = {
-      ...config.infrastructureLogging,
       level: 'error',
     }
-    // Use memory cache in development to avoid filesystem serialization warnings
+    // Disable filesystem cache entirely in development to avoid serialization warnings
     if (dev) {
-      config.cache = {
-        type: 'memory',
-      }
+      config.cache = false
     }
     return config
   },

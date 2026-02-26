@@ -3,11 +3,17 @@ import { createPublicClient } from '@/lib/supabase/public'
 import { NextRequest, NextResponse } from 'next/server'
 import { getPlanLimits, type PlanId } from '@/lib/products'
 
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type',
+}
+
 export async function GET(request: NextRequest) {
   const chatbotId = request.nextUrl.searchParams.get('chatbot_id')
 
   if (!chatbotId) {
-    return NextResponse.json({ error: 'Missing chatbot_id' }, { status: 400 })
+    return NextResponse.json({ error: 'Missing chatbot_id' }, { status: 400, headers: corsHeaders })
   }
 
   try {
@@ -20,11 +26,9 @@ export async function GET(request: NextRequest) {
       .single()
 
     if (error || !data) {
-      console.error('[v0] Config fetch error:', error)
-      return NextResponse.json({ error: 'Chatbot not found' }, { status: 404 })
+      console.error('Config fetch error:', error)
+      return NextResponse.json({ error: 'Chatbot not found' }, { status: 404, headers: corsHeaders })
     }
-    
-    console.log('[v0] Fetched config for chatbot:', chatbotId, 'primary_color:', data.primary_color, 'avatar_url:', data.avatar_url)
 
     // Fetch admin plan to enforce plan-level restrictions
     const { data: adminProfile } = await supabase
@@ -60,24 +64,16 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(configResponse, {
       headers: {
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'GET, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type',
+        ...corsHeaders,
         'Cache-Control': 'no-cache, no-store, must-revalidate',
       },
     })
   } catch (error) {
     console.error('Config API error:', error)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500, headers: corsHeaders })
   }
 }
 
 export async function OPTIONS() {
-  return new NextResponse(null, {
-    headers: {
-      'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Methods': 'GET, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type',
-    },
-  })
+  return new NextResponse(null, { headers: corsHeaders })
 }
