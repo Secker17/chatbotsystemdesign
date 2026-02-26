@@ -57,6 +57,9 @@ export default function SettingsPage() {
   const [confirmPassword, setConfirmPassword] = useState('')
   const [changingPassword, setChangingPassword] = useState(false)
 
+  // Delete account state
+  const [deletingAccount, setDeletingAccount] = useState(false)
+
   useEffect(() => {
     loadProfile()
     loadPlan()
@@ -229,6 +232,27 @@ export default function SettingsPage() {
       setConfirmPassword('')
     }
     setChangingPassword(false)
+  }
+
+  const handleDeleteAccount = async () => {
+    setDeletingAccount(true)
+    try {
+      const res = await fetch('/api/account/delete', { method: 'DELETE' })
+      const data = await res.json()
+
+      if (res.ok) {
+        toast.success('Account deleted successfully')
+        // Sign out and redirect to home
+        const supabase = createClient()
+        await supabase.auth.signOut()
+        router.push('/')
+      } else {
+        toast.error(data.error || 'Failed to delete account')
+      }
+    } catch {
+      toast.error('Failed to delete account')
+    }
+    setDeletingAccount(false)
   }
 
   if (loading) {
@@ -538,8 +562,15 @@ export default function SettingsPage() {
                     </AlertDialogDescription>
                   </AlertDialogHeader>
                   <AlertDialogFooter>
-                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                    <AlertDialogAction className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                    <AlertDialogCancel disabled={deletingAccount}>Cancel</AlertDialogCancel>
+                    <AlertDialogAction 
+                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                      onClick={handleDeleteAccount}
+                      disabled={deletingAccount}
+                    >
+                      {deletingAccount ? (
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      ) : null}
                       Delete Account
                     </AlertDialogAction>
                   </AlertDialogFooter>
