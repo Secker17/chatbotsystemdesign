@@ -15,7 +15,7 @@ const DEFAULT_CONFIG = {
   welcome_message: 'Hello! How can I help you today?',
   primary_color: '#3b82f6',
   position: 'bottom-right',
-  avatar_url: 'icon:chat',
+  avatar_url: 'icon:glass-orb',
   show_branding: true,
   placeholder_text: 'Type your message...',
   offline_message: 'We are currently offline. Please leave a message.',

@@ -76,13 +76,13 @@ const TIMEZONES = [
 ]
 
 const ICON_OPTIONS = [
+  { value: 'glass-orb', label: 'Glass Orb', icon: Sparkles, animated: true },
   { value: 'chat', label: 'Chat Bubble', icon: MessageCircle },
   { value: 'headset', label: 'Headset', icon: Headset },
   { value: 'support', label: 'Support', icon: SmilePlus },
   { value: 'message', label: 'Message', icon: MessageSquare },
   { value: 'heart', label: 'Heart', icon: Heart },
   { value: 'robot', label: 'Robot', icon: Bot },
-  { value: 'glass-orb', label: 'Glass Orb', icon: Sparkles, animated: true },
 ] as const
 
 type IconMode = 'preset' | 'upload' | 'svg' | 'code'
@@ -99,7 +99,7 @@ function getIconStyle(avatarUrl: string | null): string {
   if (avatarUrl && avatarUrl.startsWith('icon:')) {
     return avatarUrl.replace('icon:', '')
   }
-  return 'chat'
+  return 'glass-orb'
 }
 
 interface ChatbotConfig {
@@ -186,7 +186,7 @@ export default function AppearancePage() {
           welcome_message: 'Hi! How can we help you today?',
           primary_color: '#eab308',
           position: 'bottom-right',
-          avatar_url: null,
+          avatar_url: 'icon:glass-orb',
           show_branding: true,
           offline_message: 'We are currently offline. Leave a message!',
           placeholder_text: 'Type your message...',
@@ -209,7 +209,7 @@ export default function AppearancePage() {
           welcome_message: 'Welcome to the demo!',
           primary_color: '#6366f1',
           position: 'bottom-right',
-          avatar_url: null,
+          avatar_url: 'icon:glass-orb',
           show_branding: true,
           offline_message: 'We are currently offline.',
           placeholder_text: 'Type your message...',
@@ -571,7 +571,7 @@ export default function AppearancePage() {
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => setConfig({ ...config, avatar_url: 'icon:chat' })}
+                          onClick={() => setConfig({ ...config, avatar_url: 'icon:glass-orb' })}
                         >
                           <X className="mr-1 h-3 w-3" />
                           Remove
@@ -628,7 +628,7 @@ export default function AppearancePage() {
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => setConfig({ ...config, avatar_url: 'icon:chat' })}
+                          onClick={() => setConfig({ ...config, avatar_url: 'icon:glass-orb' })}
                         >
                           <X className="mr-1 h-3 w-3" />
                           Remove
@@ -686,7 +686,7 @@ export default function AppearancePage() {
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => setConfig({ ...config, avatar_url: 'icon:chat' })}
+                            onClick={() => setConfig({ ...config, avatar_url: 'icon:glass-orb' })}
                           >
                             <X className="mr-1 h-3 w-3" />
                             Remove
@@ -768,7 +768,61 @@ export default function AppearancePage() {
             </CardContent>
           </Card>
 
-
+          <Card>
+            <CardHeader>
+              <div className="flex items-center gap-2">
+                <MessageSquare className="h-5 w-5 text-muted-foreground" />
+                <CardTitle>Quick Replies</CardTitle>
+              </div>
+              <CardDescription>
+                Suggested questions that appear as buttons when the chat is empty
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-3">
+                {(config.quick_replies || ['What features do you offer?', 'Tell me about pricing', 'How does the AI work?', 'Can I see a demo?']).map((reply, index) => (
+                  <div key={index} className="flex items-center gap-2">
+                    <Input
+                      value={reply}
+                      onChange={(e) => {
+                        const newReplies = [...(config.quick_replies || ['What features do you offer?', 'Tell me about pricing', 'How does the AI work?', 'Can I see a demo?'])]
+                        newReplies[index] = e.target.value
+                        setConfig({ ...config, quick_replies: newReplies })
+                      }}
+                      placeholder={`Quick reply ${index + 1}`}
+                      className="flex-1"
+                    />
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => {
+                        const newReplies = [...(config.quick_replies || ['What features do you offer?', 'Tell me about pricing', 'How does the AI work?', 'Can I see a demo?'])]
+                        newReplies.splice(index, 1)
+                        setConfig({ ...config, quick_replies: newReplies })
+                      }}
+                      disabled={(config.quick_replies || []).length <= 1}
+                    >
+                      <Trash2 className="h-4 w-4 text-muted-foreground" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+              {(config.quick_replies || []).length < 6 && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    const newReplies = [...(config.quick_replies || ['What features do you offer?', 'Tell me about pricing', 'How does the AI work?', 'Can I see a demo?']), '']
+                    setConfig({ ...config, quick_replies: newReplies })
+                  }}
+                  className="w-full"
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add Quick Reply
+                </Button>
+              )}
+            </CardContent>
+          </Card>
 
           <Card>
             <CardHeader>
