@@ -20,13 +20,26 @@ export default function WidgetPreviewPage() {
       const { data: { user } } = await supabase.auth.getUser()
 
       if (user) {
-        const { data } = await supabase
-          .from('chatbot_configs')
-          .select('id')
-          .eq('admin_id', user.id)
+        // First get the user's active workspace
+        const { data: profile } = await supabase
+          .from('admin_profiles')
+          .select('id, active_workspace_id')
+          .eq('user_id', user.id)
           .single()
         
-        setChatbotId(data?.id || null)
+        const workspaceId = profile?.active_workspace_id || profile?.id
+        
+        if (workspaceId) {
+          // Fetch chatbot config using workspace ID (admin_id refers to workspace)
+          const { data } = await supabase
+            .from('chatbot_configs')
+            .select('id')
+            .eq('admin_id', workspaceId)
+            .limit(1)
+            .single()
+          
+          setChatbotId(data?.id || null)
+        }
       }
       setLoading(false)
     }
