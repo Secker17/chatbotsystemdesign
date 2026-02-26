@@ -9,14 +9,13 @@ const nextConfig = {
   // Empty turbopack config to silence Next.js 16 warning about webpack config
   turbopack: {},
   webpack: (config, { dev }) => {
-    // Suppress the big string serialization warning from webpack cache
+    // Suppress webpack warnings including big string serialization
     config.infrastructureLogging = {
       level: 'error',
+      debug: false,
     }
-    // Disable filesystem cache entirely in development to avoid serialization warnings
-    if (dev) {
-      config.cache = false
-    }
+    // Disable filesystem cache entirely to avoid serialization warnings
+    config.cache = false
     return config
   },
   async headers() {
