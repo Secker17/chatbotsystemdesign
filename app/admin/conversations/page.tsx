@@ -122,6 +122,11 @@ export default function ConversationsPage() {
   // Initialize: get user and their chatbot IDs
   useEffect(() => {
     async function init() {
+      if (!activeWorkspaceId) {
+        setLoading(false)
+        return
+      }
+      
       const supabase = createClient()
       const { data: { user }, error } = await supabase.auth.getUser()
       
@@ -133,7 +138,7 @@ export default function ConversationsPage() {
 
       setUserId(user.id)
 
-      // Fetch all chatbot IDs belonging to this admin
+      // Fetch all chatbot IDs belonging to this workspace
       const { data: chatbots, error: chatbotsError } = await supabase
         .from('chatbot_configs')
         .select('id, widget_title, is_landing_widget')
@@ -160,7 +165,7 @@ export default function ConversationsPage() {
     }
 
     init()
-  }, [])
+  }, [activeWorkspaceId])
 
   const loadSessions = useCallback(async (selectFirst = false) => {
     if (chatbotIds.length === 0) {
