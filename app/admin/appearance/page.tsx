@@ -147,7 +147,7 @@ export default function AppearancePage() {
     fetch('/api/plan').then(r => r.json()).then(d => {
       setPlanLimits(d.limits)
     }).catch(() => {})
-  }, [])
+  }, [activeWorkspaceId])
 
   const loadConfig = async () => {
     // Check if Supabase is configured
@@ -289,7 +289,6 @@ export default function AppearancePage() {
         updated_at: new Date().toISOString(),
       })
       .eq('id', config.id)
-
     if (error) {
       toast.error('Failed to save appearance settings')
     } else {
@@ -439,6 +438,19 @@ export default function AppearancePage() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
+              {/* Primary Color */}
+              <div className="space-y-3">
+                <Label>Widget Color</Label>
+                <p className="text-xs text-muted-foreground">
+                  Primary color for the chat button, header, and message bubbles
+                </p>
+                <ColorPicker
+                  value={config.primary_color}
+                  onChange={(color) => setConfig({ ...config, primary_color: color })}
+                  categories={DEFAULT_COLOR_CATEGORIES}
+                />
+              </div>
+
               <div className="space-y-2">
                 <Label htmlFor="position">Widget Position</Label>
                 <Select
