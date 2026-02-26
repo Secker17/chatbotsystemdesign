@@ -53,9 +53,12 @@ export async function POST(request: Request) {
       return NextResponse.json({ config: existingConfig, created: false })
     }
 
-    // Create new default config
+    // Create new default config - only include columns that exist in the base schema
+    // Additional columns (greeting_*, quick_replies, is_landing_widget, etc.) will use 
+    // their default values from migrations if those migrations have been run
     const defaultConfig = {
       admin_id: targetWorkspaceId,
+      name: 'My Chatbot',
       widget_title: 'Chat with us',
       welcome_message: 'Hello! How can I help you today?',
       primary_color: '#3b82f6',
@@ -79,12 +82,6 @@ export async function POST(request: Request) {
       ai_auto_greet: false,
       ai_greeting_message: 'Hi! I\'m an AI assistant. How can I help you today?',
       ai_handoff_keywords: ['human', 'agent', 'person', 'speak to someone'],
-      greeting_enabled: true,
-      greeting_message: 'Hi there!',
-      greeting_subtext: 'How can I help you today?',
-      quick_replies: [],
-      is_landing_widget: false,
-      landing_widget_enabled: false,
     }
 
     const { data: newConfig, error } = await db
