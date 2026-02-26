@@ -63,7 +63,6 @@ export async function GET(request: Request) {
         ai_model: 'grok-3-mini',
         ai_temperature: 0.7,
         ai_max_tokens: 500,
-        greeting_enabled: true,
         greeting_message: 'Hi there!',
         greeting_subtext: 'How can I help you today?',
       }
