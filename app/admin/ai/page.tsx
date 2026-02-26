@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { createClient } from '@/lib/supabase/client'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -70,9 +69,11 @@ export default function AIConfigPage() {
   const [planLimits, setPlanLimits] = useState<PlanLimits | null>(null)
 
   useEffect(() => {
-    loadConfig()
-    loadPlan()
-  }, [])
+    if (activeWorkspaceId) {
+      loadConfig()
+      loadPlan()
+    }
+  }, [activeWorkspaceId])
 
   const loadPlan = async () => {
     try {
@@ -88,26 +89,33 @@ export default function AIConfigPage() {
   }
 
   const loadConfig = async () => {
-    const supabase = createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return
+    if (!activeWorkspaceId) {
+      setLoading(false)
+      return
+    }
 
-    const { data } = await supabase
-      .from('chatbot_configs')
-      .select('id, ai_enabled, ai_system_prompt, ai_knowledge_base, ai_model, ai_temperature, ai_max_tokens, ai_auto_greet, ai_greeting_message, ai_handoff_keywords')
-      .eq('admin_id', activeWorkspaceId)
-      .single()
+    try {
+      const res = await fetch(`/api/chatbot/ai-config?workspaceId=${activeWorkspaceId}`)
+      if (!res.ok) {
+        setLoading(false)
+        return
+      }
 
-    if (data) {
-      setConfig({
-        ...data,
-        ai_temperature: data.ai_temperature ?? 0.7,
-        ai_max_tokens: data.ai_max_tokens ?? 500,
-        ai_model: data.ai_model ?? 'grok-3-mini',
-        ai_handoff_keywords: data.ai_handoff_keywords ?? ['human', 'agent', 'person', 'real person', 'speak to someone', 'menneske', 'snakke med noen'],
-        ai_greeting_message: data.ai_greeting_message ?? 'Hi! I\'m an AI assistant. How can I help you today? If you\'d like to speak with a human, just let me know!',
-        ai_system_prompt: data.ai_system_prompt ?? 'You are a helpful customer support assistant. Be friendly, professional, and concise. Help visitors with their questions and guide them to the right resources.',
-      })
+      const { config: data } = await res.json()
+
+      if (data) {
+        setConfig({
+          ...data,
+          ai_temperature: data.ai_temperature ?? 0.7,
+          ai_max_tokens: data.ai_max_tokens ?? 500,
+          ai_model: data.ai_model ?? 'grok-3-mini',
+          ai_handoff_keywords: data.ai_handoff_keywords ?? ['human', 'agent', 'person', 'real person', 'speak to someone', 'menneske', 'snakke med noen'],
+          ai_greeting_message: data.ai_greeting_message ?? 'Hi! I\'m an AI assistant. How can I help you today? If you\'d like to speak with a human, just let me know!',
+          ai_system_prompt: data.ai_system_prompt ?? 'You are a helpful customer support assistant. Be friendly, professional, and concise. Help visitors with their questions and guide them to the right resources.',
+        })
+      }
+    } catch (err) {
+      console.error('[v0] Failed to load AI config:', err)
     }
     setLoading(false)
   }
@@ -116,28 +124,36 @@ export default function AIConfigPage() {
     if (!config) return
     setSaving(true)
 
-    const supabase = createClient()
-    const { error } = await supabase
-      .from('chatbot_configs')
-      .update({
-        ai_enabled: config.ai_enabled,
-        ai_system_prompt: config.ai_system_prompt,
-        ai_knowledge_base: config.ai_knowledge_base,
-        ai_model: config.ai_model,
-        ai_temperature: config.ai_temperature,
-        ai_max_tokens: config.ai_max_tokens,
-        ai_auto_greet: config.ai_auto_greet,
-        ai_greeting_message: config.ai_greeting_message,
-        ai_handoff_keywords: config.ai_handoff_keywords,
-        updated_at: new Date().toISOString(),
+    try {
+      const res = await fetch('/api/chatbot/ai-config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          workspaceId: activeWorkspaceId,
+          config: {
+            id: config.id,
+            ai_enabled: config.ai_enabled,
+            ai_system_prompt: config.ai_system_prompt,
+            ai_knowledge_base: config.ai_knowledge_base,
+            ai_model: config.ai_model,
+            ai_temperature: config.ai_temperature,
+            ai_max_tokens: config.ai_max_tokens,
+            ai_auto_greet: config.ai_auto_greet,
+            ai_greeting_message: config.ai_greeting_message,
+            ai_handoff_keywords: config.ai_handoff_keywords,
+          },
+        }),
       })
-      .eq('id', config.id)
 
-    if (error) {
-      console.error('Save error:', error)
+      if (!res.ok) {
+        const data = await res.json()
+        toast.error(data.error || 'Failed to save AI configuration')
+      } else {
+        toast.success('AI configuration saved successfully')
+      }
+    } catch (err) {
+      console.error('Save error:', err)
       toast.error('Failed to save AI configuration')
-    } else {
-      toast.success('AI configuration saved successfully')
     }
 
     setSaving(false)
@@ -163,11 +179,6 @@ export default function AIConfigPage() {
     setTestResponse('')
 
     try {
-      // Create a temporary session for testing
-      const supabase = createClient()
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
-
       const res = await fetch('/api/chat/ai/test', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
