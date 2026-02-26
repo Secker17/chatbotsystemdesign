@@ -8,17 +8,16 @@ const nextConfig = {
   },
   // Empty turbopack config to silence Next.js 16 warning about webpack config
   turbopack: {},
-  webpack: (config, { isServer }) => {
+  webpack: (config, { dev }) => {
     // Suppress the big string serialization warning from webpack cache
     config.infrastructureLogging = {
       ...config.infrastructureLogging,
       level: 'error',
     }
-    // Configure cache to handle large strings better
-    if (config.cache && typeof config.cache === 'object') {
+    // Use memory cache in development to avoid filesystem serialization warnings
+    if (dev) {
       config.cache = {
-        ...config.cache,
-        compression: false,
+        type: 'memory',
       }
     }
     return config
