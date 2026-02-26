@@ -1,28 +1,30 @@
 import { NextResponse } from 'next/server'
+import { readFile } from 'fs/promises'
+import { join } from 'path'
 
-// Redirect to the static widget script in public folder
-// This avoids webpack processing the large script file
-export async function GET(request: Request) {
-  const url = new URL(request.url)
-  const origin = url.origin
+// Force dynamic to avoid build-time processing
+export const dynamic = 'force-dynamic'
+
+const CORS_HEADERS = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type',
+} as const
+
+export async function GET() {
+  // Read as Buffer to avoid webpack string serialization
+  const filePath = join(process.cwd(), 'public', 'widget-script.txt')
+  const buffer = await readFile(filePath)
   
-  // Redirect to the static file served from public folder
-  return NextResponse.redirect(`${origin}/widget-script.js`, {
-    status: 307,
+  return new NextResponse(buffer, {
     headers: {
-      'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Methods': 'GET, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type',
+      ...CORS_HEADERS,
+      'Content-Type': 'application/javascript; charset=utf-8',
+      'Cache-Control': 'public, max-age=3600',
     },
   })
 }
 
 export async function OPTIONS() {
-  return new NextResponse(null, {
-    headers: {
-      'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Methods': 'GET, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type',
-    },
-  })
+  return new NextResponse(null, { headers: CORS_HEADERS })
 }
