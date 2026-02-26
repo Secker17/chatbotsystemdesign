@@ -39,16 +39,50 @@ export async function GET(request: Request) {
 
     // Use service client to bypass RLS
     const db = getServiceClient()
-    const { data, error } = await db
+    let { data, error } = await db
       .from('chatbot_configs')
       .select('id')
       .eq('admin_id', workspaceId)
       .limit(1)
       .single()
 
-    if (error) {
-      console.error('Chatbot ID fetch error:', error)
-      return NextResponse.json({ chatbotId: null })
+    // If no config exists, create one automatically
+    if (error || !data) {
+      const defaultConfig = {
+        admin_id: workspaceId,
+        widget_title: 'Chat with us',
+        welcome_message: 'Hello! How can I help you today?',
+        primary_color: '#3b82f6',
+        position: 'bottom-right',
+        avatar_url: 'icon:chat',
+        show_branding: true,
+        placeholder_text: 'Type your message...',
+        offline_message: 'We are currently offline. Please leave a message.',
+        launcher_text: 'Chat with us',
+        launcher_text_enabled: false,
+        business_hours_enabled: false,
+        ai_enabled: false,
+        ai_system_prompt: 'You are a helpful customer support assistant.',
+        ai_model: 'grok-3-mini',
+        ai_temperature: 0.7,
+        ai_max_tokens: 500,
+        greeting_enabled: true,
+        greeting_message: 'Hi there!',
+        greeting_subtext: 'How can I help you today?',
+      }
+
+      const { data: newConfig, error: createError } = await db
+        .from('chatbot_configs')
+        .insert(defaultConfig)
+        .select('id')
+        .single()
+
+      if (createError) {
+        console.error('Failed to create chatbot config:', createError)
+        return NextResponse.json({ chatbotId: null, error: 'Failed to create config' })
+      }
+
+      return NextResponse.json({ chatbotId: newConfig?.id || null, created: true })
     }
 
     return NextResponse.json({ chatbotId: data?.id || null })

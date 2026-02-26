@@ -210,12 +210,32 @@ export default function AIConfigPage() {
   }
 
   if (!config) {
+    // Auto-create config via API
+    const createConfig = async () => {
+      try {
+        const res = await fetch('/api/chatbot/setup', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ workspaceId: activeWorkspaceId }),
+        })
+        if (res.ok) {
+          window.location.reload()
+        }
+      } catch (err) {
+        console.error('Failed to create config:', err)
+      }
+    }
+
     return (
       <div className="space-y-6">
         <div>
           <h1 className="text-2xl font-bold text-foreground">AI Assistant</h1>
-          <p className="text-muted-foreground">No chatbot configuration found.</p>
+          <p className="text-muted-foreground">Setting up your chatbot configuration...</p>
         </div>
+        <Button onClick={createConfig}>
+          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+          Creating chatbot...
+        </Button>
       </div>
     )
   }

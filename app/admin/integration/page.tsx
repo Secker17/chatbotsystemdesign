@@ -92,6 +92,32 @@ import { VintraChat } from '@vintrastudio/widget';
     )
   }
 
+  // If no chatbotId after loading, show message (the API should auto-create, but just in case)
+  if (!chatbotId) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-xl sm:text-2xl font-bold text-foreground">Integration</h1>
+          <p className="text-sm sm:text-base text-muted-foreground">
+            Add the chat widget to your website in seconds
+          </p>
+        </div>
+        <Card>
+          <CardContent className="py-8 text-center">
+            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground mx-auto mb-4" />
+            <p className="text-muted-foreground">Setting up your chatbot...</p>
+            <Button 
+              className="mt-4" 
+              onClick={() => window.location.reload()}
+            >
+              Refresh
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-6">
       <div>
