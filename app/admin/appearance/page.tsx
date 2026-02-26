@@ -893,6 +893,7 @@ export default function AppearancePage() {
           <CardContent>
             <div className="relative rounded-lg border bg-muted/50 overflow-hidden" style={{ minHeight: '600px', transform: 'translateZ(0)' }}>
               <ChatInterface
+                key={`preview-${config.primary_color}-${config.avatar_url}-${config.position}`}
                 chatbotId="preview"
                 primaryColor={config.primary_color}
                 avatarStyle={
