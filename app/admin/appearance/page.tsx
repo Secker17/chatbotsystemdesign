@@ -148,6 +148,30 @@ export default function AppearancePage() {
     }).catch(() => {})
   }, [activeWorkspaceId])
 
+  // Auto-create config if none exists
+  useEffect(() => {
+    if (!loading && configs.length === 0 && activeWorkspaceId) {
+      const createConfig = async () => {
+        try {
+          const res = await fetch('/api/chatbot/setup', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ workspaceId: activeWorkspaceId }),
+          })
+          if (res.ok) {
+            const { config: newConfig } = await res.json()
+            if (newConfig) {
+              setConfigs([newConfig])
+            }
+          }
+        } catch (err) {
+          console.error('Failed to create config:', err)
+        }
+      }
+      createConfig()
+    }
+  }, [loading, configs.length, activeWorkspaceId])
+
   const loadConfig = async () => {
     // Check if Supabase is configured
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
@@ -259,30 +283,6 @@ export default function AppearancePage() {
 
     setSaving(false)
   }
-
-  // Auto-create config if none exists (must be before early returns to follow hooks rules)
-  useEffect(() => {
-    if (!loading && configs.length === 0 && activeWorkspaceId) {
-      const createConfig = async () => {
-        try {
-          const res = await fetch('/api/chatbot/setup', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ workspaceId: activeWorkspaceId }),
-          })
-          if (res.ok) {
-            const { config: newConfig } = await res.json()
-            if (newConfig) {
-              setConfigs([newConfig])
-            }
-          }
-        } catch (err) {
-          console.error('Failed to create config:', err)
-        }
-      }
-      createConfig()
-    }
-  }, [loading, configs.length, activeWorkspaceId, setConfigs])
 
   if (loading) {
     return (
