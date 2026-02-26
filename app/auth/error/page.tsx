@@ -9,9 +9,10 @@ const VINTRA_LOGO = "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/vin
 export default async function AuthErrorPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error: string }>
+  searchParams: Promise<{ error?: string; message?: string }>
 }) {
   const params = await searchParams
+  const errorMessage = params?.message || params?.error
 
   return (
     <div className="flex min-h-svh w-full flex-col items-center justify-center bg-muted/30 p-4 sm:p-6 md:p-10">
@@ -37,9 +38,9 @@ export default async function AuthErrorPage({
             </CardDescription>
           </CardHeader>
           <CardContent className="text-center">
-            {params?.error ? (
+            {errorMessage ? (
               <p className="rounded-lg bg-muted p-3 font-mono text-xs text-muted-foreground">
-                {params.error}
+                {errorMessage}
               </p>
             ) : (
               <p className="text-sm text-muted-foreground">

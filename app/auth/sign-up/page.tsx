@@ -55,7 +55,7 @@ export default function SignUpPage() {
         options: {
           emailRedirectTo:
             process.env.NEXT_PUBLIC_DEV_SUPABASE_REDIRECT_URL ||
-            `${window.location.origin}/admin`,
+            `${window.location.origin}/auth/callback`,
           data: {
             company_name: companyName,
           },
