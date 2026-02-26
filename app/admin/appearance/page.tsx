@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { createClient } from '@/lib/supabase/client'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -209,90 +208,53 @@ export default function AppearancePage() {
       return
     }
 
-    const supabase = createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return
+    try {
+      const res = await fetch(`/api/chatbot/appearance?workspaceId=${activeWorkspaceId}`)
+      if (!res.ok) {
+        setLoading(false)
+        return
+      }
 
-    // First try to fetch with all columns
-    let { data, error } = await supabase
-      .from('chatbot_configs')
-      .select('*')
-      .eq('admin_id', activeWorkspaceId)
+      const { configs: data } = await res.json()
 
-    if (error) {
-      // Fallback: fetch only core columns if new columns don't exist yet
-      const fallback = await supabase
-        .from('chatbot_configs')
-        .select('id, widget_title, welcome_message, primary_color, position, avatar_url, show_branding, offline_message, placeholder_text, launcher_text, launcher_text_enabled, business_hours_enabled, business_hours, business_hours_timezone, outside_hours_message')
-        .eq('admin_id', activeWorkspaceId)
-
-      data = (fallback.data || []).map((c) => ({
-        ...c,
-        is_landing_widget: false,
-        landing_widget_enabled: false,
-        quick_replies: null,
-        greeting_message: 'Hi there!',
-        greeting_subtext: 'How can I help you today?',
-        greeting_enabled: true,
-      })) as ChatbotConfig[]
-    }
-
-    if (data && data.length > 0) {
-      // Sort: landing widget first
-      const sorted = [...data].sort((a, b) => {
-        if (a.is_landing_widget && !b.is_landing_widget) return -1
-        if (!a.is_landing_widget && b.is_landing_widget) return 1
-        return 0
-      })
-      setConfigs(sorted)
+      if (data && data.length > 0) {
+        // Sort: landing widget first
+        const sorted = [...data].sort((a: ChatbotConfig, b: ChatbotConfig) => {
+          if (a.is_landing_widget && !b.is_landing_widget) return -1
+          if (!a.is_landing_widget && b.is_landing_widget) return 1
+          return 0
+        })
+        setConfigs(sorted)
+      }
+    } catch (err) {
+      console.error('Failed to load config:', err)
     }
     setLoading(false)
   }
 
   const handleSave = async () => {
     if (!config) return
-    
-    // Check if Supabase is configured
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-    const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-    
-    if (!supabaseUrl || !supabaseKey) {
-      // In dev mode, just show success but don't actually save
-      toast.success('Appearance settings saved (Development Mode - not actually saved)')
-      setSaving(false)
-      return
-    }
-    
     setSaving(true)
 
-    const supabase = createClient()
-    const { error } = await supabase
-      .from('chatbot_configs')
-      .update({
-        widget_title: config.widget_title,
-        welcome_message: config.welcome_message,
-        primary_color: config.primary_color,
-        position: config.position,
-        avatar_url: config.avatar_url,
-        show_branding: config.show_branding,
-        offline_message: config.offline_message,
-        placeholder_text: config.placeholder_text,
-        business_hours_enabled: config.business_hours_enabled,
-        business_hours: config.business_hours,
-        business_hours_timezone: config.business_hours_timezone,
-        outside_hours_message: config.outside_hours_message,
-        landing_widget_enabled: config.landing_widget_enabled,
-        quick_replies: config.quick_replies,
-        greeting_message: config.greeting_message,
-        greeting_subtext: config.greeting_subtext,
-        greeting_enabled: config.greeting_enabled,
-        updated_at: new Date().toISOString(),
+    try {
+      const res = await fetch('/api/chatbot/appearance', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          workspaceId: activeWorkspaceId,
+          config: config,
+        }),
       })
-      .eq('id', config.id)
-    if (error) {
+
+      if (!res.ok) {
+        const data = await res.json()
+        toast.error(data.error || 'Failed to save appearance settings')
+      } else {
+        toast.success('Appearance settings saved successfully')
+      }
+    } catch (err) {
+      console.error('Save error:', err)
       toast.error('Failed to save appearance settings')
-    } else {
-      toast.success('Appearance settings saved successfully')
     }
 
     setSaving(false)
@@ -307,14 +269,35 @@ export default function AppearancePage() {
   }
 
   if (!config) {
+    // Try to create a chatbot config via API
+    const createConfig = async () => {
+      try {
+        const res = await fetch('/api/chatbot/setup', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ workspaceId: activeWorkspaceId }),
+        })
+        if (res.ok) {
+          // Reload the page to fetch the new config
+          window.location.reload()
+        }
+      } catch (err) {
+        console.error('Failed to create config:', err)
+      }
+    }
+
     return (
       <div className="space-y-6">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Appearance</h1>
           <p className="text-muted-foreground">
-            No chatbot configuration found. Please contact support.
+            Setting up your chatbot configuration...
           </p>
         </div>
+        <Button onClick={createConfig}>
+          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+          Creating chatbot...
+        </Button>
       </div>
     )
   }
