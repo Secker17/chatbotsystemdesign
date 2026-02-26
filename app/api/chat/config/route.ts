@@ -20,9 +20,11 @@ export async function GET(request: NextRequest) {
       .single()
 
     if (error || !data) {
-      console.error('Config fetch error:', error)
+      console.error('[v0] Config fetch error:', error)
       return NextResponse.json({ error: 'Chatbot not found' }, { status: 404 })
     }
+    
+    console.log('[v0] Fetched config for chatbot:', chatbotId, 'primary_color:', data.primary_color, 'avatar_url:', data.avatar_url)
 
     // Fetch admin plan to enforce plan-level restrictions
     const { data: adminProfile } = await supabase

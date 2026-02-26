@@ -129,37 +129,51 @@ export async function POST(request: Request) {
 
     // Use service client to bypass RLS
     const db = getServiceClient()
-    const { error } = await db
+    
+    // Build update object with only defined values
+    const updateData: Record<string, unknown> = {
+      updated_at: new Date().toISOString(),
+    }
+    
+    // Core appearance fields - these should always exist
+    if (config.widget_title !== undefined) updateData.widget_title = config.widget_title
+    if (config.welcome_message !== undefined) updateData.welcome_message = config.welcome_message
+    if (config.primary_color !== undefined) updateData.primary_color = config.primary_color
+    if (config.position !== undefined) updateData.position = config.position
+    if (config.avatar_url !== undefined) updateData.avatar_url = config.avatar_url
+    if (config.show_branding !== undefined) updateData.show_branding = config.show_branding
+    if (config.offline_message !== undefined) updateData.offline_message = config.offline_message
+    if (config.placeholder_text !== undefined) updateData.placeholder_text = config.placeholder_text
+    if (config.launcher_text !== undefined) updateData.launcher_text = config.launcher_text
+    if (config.launcher_text_enabled !== undefined) updateData.launcher_text_enabled = config.launcher_text_enabled
+    if (config.business_hours_enabled !== undefined) updateData.business_hours_enabled = config.business_hours_enabled
+    if (config.business_hours !== undefined) updateData.business_hours = config.business_hours
+    if (config.business_hours_timezone !== undefined) updateData.business_hours_timezone = config.business_hours_timezone
+    if (config.outside_hours_message !== undefined) updateData.outside_hours_message = config.outside_hours_message
+    
+    // Optional fields that may not exist in all database schemas
+    if (config.greeting_enabled !== undefined) updateData.greeting_enabled = config.greeting_enabled
+    if (config.greeting_message !== undefined) updateData.greeting_message = config.greeting_message
+    if (config.greeting_subtext !== undefined) updateData.greeting_subtext = config.greeting_subtext
+    if (config.quick_replies !== undefined) updateData.quick_replies = config.quick_replies
+
+    console.log('[v0] Updating chatbot config:', config.id, 'with data:', updateData)
+    
+    const { data: updatedData, error } = await db
       .from('chatbot_configs')
-      .update({
-        widget_title: config.widget_title,
-        welcome_message: config.welcome_message,
-        primary_color: config.primary_color,
-        position: config.position,
-        avatar_url: config.avatar_url,
-        show_branding: config.show_branding,
-        offline_message: config.offline_message,
-        placeholder_text: config.placeholder_text,
-        launcher_text: config.launcher_text,
-        launcher_text_enabled: config.launcher_text_enabled,
-        business_hours_enabled: config.business_hours_enabled,
-        business_hours: config.business_hours,
-        business_hours_timezone: config.business_hours_timezone,
-        outside_hours_message: config.outside_hours_message,
-        greeting_enabled: config.greeting_enabled,
-        greeting_message: config.greeting_message,
-        greeting_subtext: config.greeting_subtext,
-        quick_replies: config.quick_replies,
-        updated_at: new Date().toISOString(),
-      })
+      .update(updateData)
       .eq('id', config.id)
+      .select()
+      .single()
 
     if (error) {
-      console.error('Appearance config save error:', error)
-      return NextResponse.json({ error: 'Failed to save' }, { status: 500 })
+      console.error('[v0] Appearance config save error:', error)
+      return NextResponse.json({ error: 'Failed to save: ' + error.message }, { status: 500 })
     }
 
-    return NextResponse.json({ success: true })
+    console.log('[v0] Successfully updated config:', updatedData?.id, 'primary_color:', updatedData?.primary_color, 'avatar_url:', updatedData?.avatar_url)
+
+    return NextResponse.json({ success: true, config: updatedData })
   } catch (err) {
     console.error('Appearance config POST error:', err)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
