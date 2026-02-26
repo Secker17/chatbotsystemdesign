@@ -491,9 +491,18 @@ export default function AppearancePage() {
 
           <Card>
             <CardHeader>
-              <div className="flex items-center gap-2">
-                <Bot className="h-5 w-5 text-muted-foreground" />
-                <CardTitle>Launcher Icon</CardTitle>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Bot className="h-5 w-5" />
+                  <CardTitle>Launcher Icon</CardTitle>
+                </div>
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <span>Current color:</span>
+                  <span 
+                    className="h-5 w-5 rounded-full border border-border shadow-sm"
+                    style={{ backgroundColor: config.primary_color }}
+                  />
+                </div>
               </div>
               <CardDescription>
                 Choose the icon style for your chat launcher button
