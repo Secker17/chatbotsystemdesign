@@ -152,20 +152,27 @@ export async function POST(request: Request) {
     let emailSent = false
     let emailError: string | undefined
     try {
+      console.log('[v0] Calling sendInviteEmail with:', {
+        to: normalizedEmail,
+        inviteLink,
+        inviterEmail: user.email || 'A team admin',
+        role: role === 'admin' ? 'Admin' : 'Member',
+      })
       const emailResult = await sendInviteEmail({
         to: normalizedEmail,
         inviteLink,
         inviterEmail: user.email || 'A team admin',
         role: role === 'admin' ? 'Admin' : 'Member',
       })
+      console.log('[v0] sendInviteEmail result:', emailResult)
       emailSent = emailResult.success
       if (!emailResult.success) {
         emailError = emailResult.error
-        console.error('Email send failed:', emailResult.error)
+        console.error('[v0] Email send failed:', emailResult.error)
       }
     } catch (err) {
       emailError = err instanceof Error ? err.message : 'Unknown error'
-      console.error('Email send threw:', err)
+      console.error('[v0] Email send threw:', err)
     }
 
     return NextResponse.json({
