@@ -151,7 +151,7 @@ export async function POST(request: Request) {
     if (config.outside_hours_message !== undefined) updateData.outside_hours_message = config.outside_hours_message
     
     // Optional fields that may not exist in all database schemas
-    if (config.greeting_enabled !== undefined) updateData.greeting_enabled = config.greeting_enabled
+    // Note: greeting_enabled is not stored in DB - it's derived from greeting_message being empty/null
     if (config.greeting_message !== undefined) updateData.greeting_message = config.greeting_message
     if (config.greeting_subtext !== undefined) updateData.greeting_subtext = config.greeting_subtext
     if (config.quick_replies !== undefined) updateData.quick_replies = config.quick_replies
