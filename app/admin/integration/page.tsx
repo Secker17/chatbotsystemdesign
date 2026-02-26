@@ -10,31 +10,64 @@ import { Check, Copy, Code2, Globe, Loader2, CheckCircle2 } from 'lucide-react'
 import { useWorkspace } from '@/components/admin/workspace-provider'
 
 export default function IntegrationPage() {
-  const { activeWorkspaceId } = useWorkspace()
+  const { activeWorkspaceId, loading: workspaceLoading } = useWorkspace()
   const [chatbotId, setChatbotId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [copied, setCopied] = useState<string | null>(null)
 
   useEffect(() => {
-    loadChatbotId()
-  }, [])
+    const loadChatbotId = async () => {
+      // Wait for workspace to be loaded
+      if (workspaceLoading) {
+        return
+      }
+      
+      if (!activeWorkspaceId) {
+        setLoading(false)
+        return
+      }
+      
+      const supabase = createClient()
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) {
+        setLoading(false)
+        return
+      }
 
-  const loadChatbotId = async () => {
-    const supabase = createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return
+      const { data, error } = await supabase
+        .from('chatbot_configs')
+        .select('id')
+        .eq('admin_id', activeWorkspaceId)
+        .single()
 
-    const { data } = await supabase
-      .from('chatbot_configs')
-      .select('id')
-      .eq('admin_id', activeWorkspaceId)
-      .single()
+      if (data) {
+        setChatbotId(data.id)
+      } else if (error?.code === 'PGRST116') {
+        // No chatbot config found - create one as a fallback
+        const { data: newConfig } = await supabase
+          .from('chatbot_configs')
+          .insert({
+            admin_id: activeWorkspaceId,
+            name: 'My Chatbot',
+            widget_title: 'Chat with us',
+            welcome_message: 'Hello! How can I help you today?',
+            primary_color: '#3b82f6',
+            position: 'bottom-right',
+            show_branding: true,
+            placeholder_text: 'Type your message...',
+          })
+          .select('id')
+          .single()
 
-    if (data) {
-      setChatbotId(data.id)
+        if (newConfig) {
+          setChatbotId(newConfig.id)
+        }
+      }
+      setLoading(false)
     }
-    setLoading(false)
-  }
+    
+    loadChatbotId()
+  }, [activeWorkspaceId, workspaceLoading])
 
   const copyToClipboard = (text: string, type: string) => {
     navigator.clipboard.writeText(text)
@@ -76,7 +109,7 @@ import { VintraChat } from '@vintrastudio/widget';
 
 <VintraChat chatbotId="${chatbotId || 'YOUR_CHATBOT_ID'}" />`
 
-  if (loading) {
+  if (loading || workspaceLoading) {
     return (
       <div className="flex items-center justify-center py-20">
         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
@@ -105,22 +138,30 @@ import { VintraChat } from '@vintrastudio/widget';
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="flex items-center gap-3">
-            <code className="flex-1 overflow-x-auto rounded-lg bg-muted px-3 sm:px-4 py-3 font-mono text-xs sm:text-sm">
-              {chatbotId}
-            </code>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => copyToClipboard(chatbotId || '', 'id')}
-            >
-              {copied === 'id' ? (
-                <Check className="h-4 w-4" />
-              ) : (
-                <Copy className="h-4 w-4" />
-              )}
-            </Button>
-          </div>
+          {chatbotId ? (
+            <div className="flex items-center gap-3">
+              <code className="flex-1 overflow-x-auto rounded-lg bg-muted px-3 sm:px-4 py-3 font-mono text-xs sm:text-sm">
+                {chatbotId}
+              </code>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => copyToClipboard(chatbotId || '', 'id')}
+              >
+                {copied === 'id' ? (
+                  <Check className="h-4 w-4" />
+                ) : (
+                  <Copy className="h-4 w-4" />
+                )}
+              </Button>
+            </div>
+          ) : (
+            <div className="rounded-lg border border-dashed border-border bg-muted/50 p-4 text-center">
+              <p className="text-sm text-muted-foreground">
+                No chatbot configuration found. Please go to the Appearance page to set up your chatbot first.
+              </p>
+            </div>
+          )}
         </CardContent>
       </Card>
 
