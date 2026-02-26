@@ -148,6 +148,30 @@ export default function AppearancePage() {
     }).catch(() => {})
   }, [activeWorkspaceId])
 
+  // Auto-create config if none exists
+  useEffect(() => {
+    if (!loading && configs.length === 0 && activeWorkspaceId) {
+      const createConfig = async () => {
+        try {
+          const res = await fetch('/api/chatbot/setup', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ workspaceId: activeWorkspaceId }),
+          })
+          if (res.ok) {
+            const { config: newConfig } = await res.json()
+            if (newConfig) {
+              setConfigs([newConfig])
+            }
+          }
+        } catch (err) {
+          console.error('Failed to create config:', err)
+        }
+      }
+      createConfig()
+    }
+  }, [loading, configs.length, activeWorkspaceId])
+
   const loadConfig = async () => {
     // Check if Supabase is configured
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
@@ -269,35 +293,12 @@ export default function AppearancePage() {
   }
 
   if (!config) {
-    // Try to create a chatbot config via API
-    const createConfig = async () => {
-      try {
-        const res = await fetch('/api/chatbot/setup', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ workspaceId: activeWorkspaceId }),
-        })
-        if (res.ok) {
-          // Reload the page to fetch the new config
-          window.location.reload()
-        }
-      } catch (err) {
-        console.error('Failed to create config:', err)
-      }
-    }
-
     return (
-      <div className="space-y-6">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Appearance</h1>
-          <p className="text-muted-foreground">
-            Setting up your chatbot configuration...
-          </p>
+      <div className="flex items-center justify-center py-20">
+        <div className="flex flex-col items-center gap-4">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+          <p className="text-muted-foreground">Setting up your chatbot...</p>
         </div>
-        <Button onClick={createConfig}>
-          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-          Creating chatbot...
-        </Button>
       </div>
     )
   }
