@@ -3,6 +3,15 @@
 import { useEffect, useState } from 'react'
 import ChatInterface from '@/components/chat-interface'
 
+// Helper to extract icon style from avatar_url (e.g., "icon:glass-orb" -> "glass-orb")
+function getAvatarStyle(avatarUrl: string | null): 'glass-orb' | 'default' {
+  if (avatarUrl && avatarUrl.startsWith('icon:')) {
+    const style = avatarUrl.replace('icon:', '')
+    if (style === 'glass-orb') return 'glass-orb'
+  }
+  return 'default'
+}
+
 interface LandingConfig {
   enabled: boolean
   chatbot_id: string | null
@@ -63,7 +72,7 @@ export function LandingChatWidget() {
     <ChatInterface
       chatbotId={landingConfig.chatbot_id || 'demo-chatbot'}
       primaryColor={cfg.primary_color}
-      avatarStyle="glass-orb"
+      avatarStyle={getAvatarStyle(cfg.avatar_url)}
       position={cfg.position as 'bottom-right' | 'bottom-left'}
       widgetTitle={cfg.widget_title}
       welcomeMessage={cfg.welcome_message}

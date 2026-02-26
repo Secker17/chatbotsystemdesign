@@ -2,8 +2,6 @@ import { Resend } from 'resend'
 
 const resendApiKey = process.env.RESEND_API_KEY
 
-console.log('[v0] RESEND_API_KEY available:', !!resendApiKey)
-
 export const resend = resendApiKey ? new Resend(resendApiKey) : null
 
 interface SendInviteEmailParams {
@@ -14,16 +12,11 @@ interface SendInviteEmailParams {
 }
 
 export async function sendInviteEmail({ to, inviteLink, inviterEmail, role }: SendInviteEmailParams) {
-  console.log('[v0] sendInviteEmail called:', { to, inviterEmail, role })
-  console.log('[v0] resend client initialized:', !!resend)
-  
   if (!resend) {
-    console.warn('[v0] RESEND_API_KEY not set — skipping email send')
     return { success: false, error: 'Email service not configured' }
   }
 
   try {
-    console.log('[v0] Attempting to send email via Resend...')
     const { data, error } = await resend.emails.send({
       from: 'Vintra <noreply@chat.vintrastudio.com>',
       to,
@@ -31,17 +24,12 @@ export async function sendInviteEmail({ to, inviteLink, inviterEmail, role }: Se
       html: buildInviteHtml({ inviteLink, inviterEmail, role }),
     })
 
-    console.log('[v0] Resend response:', { data, error })
-
     if (error) {
-      console.error('[v0] Resend API error:', error)
       return { success: false, error: error.message }
     }
 
-    console.log('[v0] Email sent successfully, id:', data?.id)
     return { success: true, id: data?.id }
   } catch (err) {
-    console.error('[v0] Resend threw:', err)
     return { success: false, error: err instanceof Error ? err.message : 'Unknown error' }
   }
 }
