@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { createClient } from '@/lib/supabase/client'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -10,31 +9,40 @@ import { Check, Copy, Code2, Globe, Loader2, CheckCircle2 } from 'lucide-react'
 import { useWorkspace } from '@/components/admin/workspace-provider'
 
 export default function IntegrationPage() {
-  const { activeWorkspaceId } = useWorkspace()
+  const { activeWorkspaceId, loading: workspaceLoading } = useWorkspace()
   const [chatbotId, setChatbotId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [copied, setCopied] = useState<string | null>(null)
 
   useEffect(() => {
-    loadChatbotId()
-  }, [])
-
-  const loadChatbotId = async () => {
-    const supabase = createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return
-
-    const { data } = await supabase
-      .from('chatbot_configs')
-      .select('id')
-      .eq('admin_id', activeWorkspaceId)
-      .single()
-
-    if (data) {
-      setChatbotId(data.id)
+    const loadChatbotId = async () => {
+      // Wait for workspace to be loaded
+      if (workspaceLoading) {
+        return
+      }
+      
+      if (!activeWorkspaceId) {
+        setLoading(false)
+        return
+      }
+      
+      try {
+        // Use API route to fetch chatbot ID (bypasses RLS issues)
+        const res = await fetch(`/api/chatbot/id?workspaceId=${activeWorkspaceId}`)
+        if (res.ok) {
+          const data = await res.json()
+          if (data.chatbotId) {
+            setChatbotId(data.chatbotId)
+          }
+        }
+      } catch (err) {
+        console.error('Failed to load chatbot ID:', err)
+      }
+      setLoading(false)
     }
-    setLoading(false)
-  }
+    
+    loadChatbotId()
+  }, [activeWorkspaceId, workspaceLoading])
 
   const copyToClipboard = (text: string, type: string) => {
     navigator.clipboard.writeText(text)
@@ -76,7 +84,7 @@ import { VintraChat } from '@vintrastudio/widget';
 
 <VintraChat chatbotId="${chatbotId || 'YOUR_CHATBOT_ID'}" />`
 
-  if (loading) {
+  if (loading || workspaceLoading) {
     return (
       <div className="flex items-center justify-center py-20">
         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
@@ -105,22 +113,30 @@ import { VintraChat } from '@vintrastudio/widget';
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="flex items-center gap-3">
-            <code className="flex-1 overflow-x-auto rounded-lg bg-muted px-3 sm:px-4 py-3 font-mono text-xs sm:text-sm">
-              {chatbotId}
-            </code>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => copyToClipboard(chatbotId || '', 'id')}
-            >
-              {copied === 'id' ? (
-                <Check className="h-4 w-4" />
-              ) : (
-                <Copy className="h-4 w-4" />
-              )}
-            </Button>
-          </div>
+          {chatbotId ? (
+            <div className="flex items-center gap-3">
+              <code className="flex-1 overflow-x-auto rounded-lg bg-muted px-3 sm:px-4 py-3 font-mono text-xs sm:text-sm">
+                {chatbotId}
+              </code>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => copyToClipboard(chatbotId || '', 'id')}
+              >
+                {copied === 'id' ? (
+                  <Check className="h-4 w-4" />
+                ) : (
+                  <Copy className="h-4 w-4" />
+                )}
+              </Button>
+            </div>
+          ) : (
+            <div className="rounded-lg border border-dashed border-border bg-muted/50 p-4 text-center">
+              <p className="text-sm text-muted-foreground">
+                No chatbot configuration found. Please go to the Appearance page to set up your chatbot first.
+              </p>
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -217,7 +233,7 @@ import { VintraChat } from '@vintrastudio/widget';
         <CardContent>
           <ul className="space-y-3">
             {[
-              { label: 'Chatbot created', done: true },
+              { label: 'Chatbot created', done: !!chatbotId },
               { label: 'Widget script added to your website', done: false },
               { label: 'Customize appearance (optional)', done: false },
               { label: 'Add canned responses (optional)', done: false },
