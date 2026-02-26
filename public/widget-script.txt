@@ -769,7 +769,7 @@
     return launcherIcons[style] || launcherIcons.chat;
   }
   
-  // Glass Orb animated launcher - faithful port of GlassOrbAvatar
+  // Glass Orb animated launcher - faithful port of GlassOrbAvatar with RUNE
   function initGlassOrb(container, primaryColor) {
     container.style.overflow = 'hidden';
     container.style.padding = '0';
@@ -782,9 +782,15 @@
     canvas.height = sizePx;
     canvas.style.cssText = 'width:100%;height:100%;border-radius:50%;position:absolute;inset:0;background:none;';
     
+    // Second canvas for gold rune dots (on top)
+    const canvas2 = document.createElement('canvas');
+    canvas2.width = sizePx;
+    canvas2.height = sizePx;
+    canvas2.style.cssText = 'width:100%;height:100%;border-radius:50%;position:absolute;inset:0;background:none;z-index:2;pointer-events:none;';
+    
     // Glass overlay - matching React GlassOrbAvatar
     const glass = document.createElement('div');
-    glass.style.cssText = 'position:absolute;inset:0;border-radius:50%;pointer-events:none;z-index:1;overflow:hidden;' +
+    glass.style.cssText = 'position:absolute;inset:0;border-radius:50%;pointer-events:none;z-index:3;overflow:hidden;' +
       'background:radial-gradient(circle at 30% 30%,rgba(255,255,255,0.2) 0%,rgba(0,255,255,0.1) 30%,rgba(0,200,255,0.05) 60%,rgba(0,100,200,0.1) 100%);' +
       'box-shadow:inset 0 0 50px rgba(255,255,255,0.1),inset 20px 20px 60px rgba(255,255,255,0.05);' +
       'border:2px solid rgba(255,255,255,0.15);';
@@ -793,9 +799,11 @@
     wrapper.innerHTML = '';
     wrapper.style.cssText = 'width:100%;height:100%;position:absolute;inset:0;';
     wrapper.appendChild(canvas);
+    wrapper.appendChild(canvas2);
     wrapper.appendChild(glass);
     
     const ctx = canvas.getContext('2d');
+    const ctx2 = canvas2.getContext('2d');
     
     // Physics constants
     const centerX = sizePx / 2;
@@ -862,6 +870,88 @@
         colorOffset: Math.floor(Math.random() * 9999),
       });
     }
+    
+    // -----------------------------
+    // RUNE (Ansuz ᚨ) - Gold dots
+    // -----------------------------
+    function sampleLine(ax, ay, bx, by, steps) {
+      var pts = [];
+      for (var i = 0; i <= steps; i++) {
+        var t = i / steps;
+        pts.push({ x: ax + (bx - ax) * t, y: ay + (by - ay) * t });
+      }
+      return pts;
+    }
+    
+    function buildAnsuzPoints() {
+      var pts = [];
+      function addStroke(linePts, dxs, dys) {
+        var out = [];
+        for (var pi = 0; pi < linePts.length; pi++) {
+          var p = linePts[pi];
+          for (var dxi = 0; dxi < dxs.length; dxi++) {
+            for (var dyi = 0; dyi < dys.length; dyi++) {
+              out.push({ x: p.x + dxs[dxi], y: p.y + dys[dyi] });
+            }
+          }
+        }
+        return out;
+      }
+      
+      var xStem = -0.35;
+      var stem = sampleLine(xStem, -0.85, xStem, 0.85, 140);
+      var topArm = sampleLine(xStem, -0.35, 0.55, -0.6, 110);
+      var midArm = sampleLine(xStem, 0.05, 0.45, -0.12, 95);
+      
+      var stemDX = [-0.08, -0.05, -0.025, 0, 0.025, 0.05, 0.08];
+      var stemDY = [-0.03, 0, 0.03];
+      var armDX = [-0.05, -0.025, 0, 0.025, 0.05];
+      var armDY = [-0.03, 0, 0.03];
+      
+      pts = pts.concat(addStroke(stem, stemDX, stemDY));
+      pts = pts.concat(addStroke(topArm, armDX, armDY));
+      pts = pts.concat(addStroke(midArm, armDX, armDY));
+      return pts;
+    }
+    
+    var runeNorm = buildAnsuzPoints();
+    var runeRadius = orbRadius * 0.78;
+    var runeTargets = runeNorm.map(function(p) {
+      return { tx: centerX + p.x * runeRadius, ty: centerY + p.y * runeRadius };
+    });
+    
+    // Gold dots
+    var ringInner = orbRadius * 0.6;
+    var ringOuter = orbRadius * 0.95;
+    var goldDotCount = Math.max(260, Math.min(900, Math.floor(400 * (sizePx / 420))));
+    var goldDots = [];
+    
+    // Initialize gold dots
+    for (var gi = 0; gi < goldDotCount; gi++) {
+      var runeIdx = Math.floor((gi / Math.max(1, goldDotCount - 1)) * Math.max(1, runeTargets.length - 1));
+      var ang = Math.random() * Math.PI * 2;
+      var rr = ringInner + Math.random() * (ringOuter - ringInner);
+      goldDots.push({
+        x: centerX + Math.cos(ang) * rr,
+        y: centerY + Math.sin(ang) * rr,
+        vx: 0,
+        vy: 0,
+        ringAngle: ang,
+        ringRadius: rr,
+        ringSpeed: (Math.random() * 0.006 + 0.002) * (Math.random() < 0.5 ? 1 : -1),
+        runeIndex: runeIdx,
+        size: (Math.random() * 2 + 1.5) * sizeScale,
+      });
+    }
+    // Shuffle gold dots
+    for (var shi = goldDots.length - 1; shi > 0; shi--) {
+      var shj = Math.floor(Math.random() * (shi + 1));
+      var tmp = goldDots[shi];
+      goldDots[shi] = goldDots[shj];
+      goldDots[shj] = tmp;
+    }
+    
+    function mix(a, b, t) { return a + (b - a) * t; }
     
     // Mouse tracking
     function handleMouseMove(e) {
@@ -1013,6 +1103,42 @@
       });
       
       ctx.shadowBlur = 0;
+      
+      // -----------------------------
+      // Draw Gold Rune Dots
+      // -----------------------------
+      ctx2.clearRect(0, 0, sizePx, sizePx);
+      
+      // Update and draw gold dots - always converged to rune position
+      var goldSpring = 0.18;
+      var goldDamp = 0.82;
+      var goldDotRadius = 3.5 * sizeScale;
+      
+      for (var gdi = 0; gdi < goldDots.length; gdi++) {
+        var gd = goldDots[gdi];
+        
+        // Target is always the rune position (goldBlend = 1)
+        var target = runeTargets[gd.runeIndex];
+        var targetX = target.tx;
+        var targetY = target.ty;
+        
+        // Spring physics
+        var gdx = targetX - gd.x;
+        var gdy = targetY - gd.y;
+        gd.vx += gdx * goldSpring;
+        gd.vy += gdy * goldSpring;
+        gd.vx *= goldDamp;
+        gd.vy *= goldDamp;
+        gd.x += gd.vx;
+        gd.y += gd.vy;
+        
+        // Draw gold dot
+        ctx2.fillStyle = 'rgba(255, 196, 70, 1)';
+        ctx2.beginPath();
+        ctx2.arc(gd.x, gd.y, goldDotRadius, 0, Math.PI * 2);
+        ctx2.fill();
+      }
+      
       animId = requestAnimationFrame(animate);
     }
     
@@ -1062,7 +1188,7 @@
     }
   }
   
-  // Mini glass orb for avatars in header and messages
+  // Mini glass orb for avatars in header and messages (with rune)
   function initMiniGlassOrb(container, primaryColor, size) {
     container.innerHTML = '';
     container.style.background = 'transparent';
@@ -1073,18 +1199,27 @@
     canvas.height = size;
     canvas.style.cssText = 'width:100%;height:100%;border-radius:50%;position:absolute;inset:0;background:none;';
     
+    // Second canvas for rune
+    const canvas2 = document.createElement('canvas');
+    canvas2.width = size;
+    canvas2.height = size;
+    canvas2.style.cssText = 'width:100%;height:100%;border-radius:50%;position:absolute;inset:0;background:none;z-index:2;pointer-events:none;';
+    
     const glass = document.createElement('div');
-    glass.style.cssText = 'position:absolute;inset:0;border-radius:50%;pointer-events:none;z-index:1;' +
+    glass.style.cssText = 'position:absolute;inset:0;border-radius:50%;pointer-events:none;z-index:3;' +
       'background:radial-gradient(circle at 30% 30%,rgba(255,255,255,0.2) 0%,rgba(0,255,255,0.1) 30%,rgba(0,200,255,0.05) 60%,rgba(0,100,200,0.1) 100%);' +
       'box-shadow:inset 0 0 ' + Math.max(8, size * 0.5) + 'px rgba(255,255,255,0.1);' +
       'border:1px solid rgba(255,255,255,0.15);';
     
     container.appendChild(canvas);
+    container.appendChild(canvas2);
     container.appendChild(glass);
     
     const ctx = canvas.getContext('2d');
+    const ctx2 = canvas2.getContext('2d');
     const cx = size / 2, cy = size / 2;
     const sizeScale = size / 500;
+    const orbRadius = size / 2;
     
     // Idle palette matching React GlassOrbAvatar (cyan/teal)
     const palette = [
@@ -1109,6 +1244,68 @@
         speed: (Math.random() * 0.01 + 0.005) * (Math.random() < 0.5 ? 1 : -1),
         sz: (Math.random() * 4 + 3) * sizeScale,
         ci: Math.floor(Math.random() * palette.length),
+      });
+    }
+    
+    // Build rune targets for mini orb
+    function miniSampleLine(ax, ay, bx, by, steps) {
+      var pts = [];
+      for (var i = 0; i <= steps; i++) {
+        var t = i / steps;
+        pts.push({ x: ax + (bx - ax) * t, y: ay + (by - ay) * t });
+      }
+      return pts;
+    }
+    
+    function miniBuildAnsuz() {
+      var pts = [];
+      function addStroke(linePts, dxs, dys) {
+        var out = [];
+        for (var pi = 0; pi < linePts.length; pi++) {
+          var p = linePts[pi];
+          for (var dxi = 0; dxi < dxs.length; dxi++) {
+            for (var dyi = 0; dyi < dys.length; dyi++) {
+              out.push({ x: p.x + dxs[dxi], y: p.y + dys[dyi] });
+            }
+          }
+        }
+        return out;
+      }
+      var xStem = -0.35;
+      var stem = miniSampleLine(xStem, -0.85, xStem, 0.85, 80);
+      var topArm = miniSampleLine(xStem, -0.35, 0.55, -0.6, 60);
+      var midArm = miniSampleLine(xStem, 0.05, 0.45, -0.12, 50);
+      var stemDX = [-0.08, -0.025, 0.025, 0.08];
+      var stemDY = [-0.03, 0.03];
+      var armDX = [-0.05, 0, 0.05];
+      var armDY = [-0.03, 0.03];
+      pts = pts.concat(addStroke(stem, stemDX, stemDY));
+      pts = pts.concat(addStroke(topArm, armDX, armDY));
+      pts = pts.concat(addStroke(midArm, armDX, armDY));
+      return pts;
+    }
+    
+    var miniRuneNorm = miniBuildAnsuz();
+    var miniRuneRadius = orbRadius * 0.78;
+    var miniRuneTargets = miniRuneNorm.map(function(p) {
+      return { tx: cx + p.x * miniRuneRadius, ty: cy + p.y * miniRuneRadius };
+    });
+    
+    // Gold dots for mini orb
+    var miniGoldCount = Math.max(80, Math.min(300, Math.floor(200 * (size / 100))));
+    var miniGoldDots = [];
+    var miniRingInner = orbRadius * 0.6;
+    var miniRingOuter = orbRadius * 0.95;
+    
+    for (var mgi = 0; mgi < miniGoldCount; mgi++) {
+      var runeIdx = Math.floor((mgi / Math.max(1, miniGoldCount - 1)) * Math.max(1, miniRuneTargets.length - 1));
+      var ang = Math.random() * Math.PI * 2;
+      var rr = miniRingInner + Math.random() * (miniRingOuter - miniRingInner);
+      miniGoldDots.push({
+        x: cx + Math.cos(ang) * rr,
+        y: cy + Math.sin(ang) * rr,
+        vx: 0, vy: 0,
+        runeIndex: runeIdx,
       });
     }
     
@@ -1140,6 +1337,31 @@
         ctx.fill();
       });
       ctx.shadowBlur = 0;
+      
+      // Draw gold rune dots
+      ctx2.clearRect(0, 0, size, size);
+      var miniGoldSpring = 0.18;
+      var miniGoldDamp = 0.82;
+      var miniGoldDotR = Math.max(1.5, 3.5 * sizeScale);
+      
+      for (var mgdi = 0; mgdi < miniGoldDots.length; mgdi++) {
+        var mgd = miniGoldDots[mgdi];
+        var mTarget = miniRuneTargets[mgd.runeIndex];
+        var mdx = mTarget.tx - mgd.x;
+        var mdy = mTarget.ty - mgd.y;
+        mgd.vx += mdx * miniGoldSpring;
+        mgd.vy += mdy * miniGoldSpring;
+        mgd.vx *= miniGoldDamp;
+        mgd.vy *= miniGoldDamp;
+        mgd.x += mgd.vx;
+        mgd.y += mgd.vy;
+        
+        ctx2.fillStyle = 'rgba(255, 196, 70, 1)';
+        ctx2.beginPath();
+        ctx2.arc(mgd.x, mgd.y, miniGoldDotR, 0, Math.PI * 2);
+        ctx2.fill();
+      }
+      
       animId = requestAnimationFrame(animate);
     }
     animate();
@@ -1270,12 +1492,12 @@
     const offlineMsg = container.querySelector('.vintra-offline-msg');
     let greetingDismissed = false;
     
-    // Show greeting bubble after 2s
-    setTimeout(() => {
-      if (!isOpen && !greetingDismissed) {
-        greetingBubble.classList.add('show');
-      }
-    }, 2000);
+  // Show greeting bubble after 2s (only if greeting_enabled is not explicitly false)
+  setTimeout(() => {
+  if (!isOpen && !greetingDismissed && (config && config.greeting_enabled !== false)) {
+  greetingBubble.classList.add('show');
+  }
+  }, 2000);
     
     greetingClose.addEventListener('click', (e) => {
       e.stopPropagation();
@@ -1328,12 +1550,12 @@
         if (hasStartedChat) {
           input.focus();
         }
-      } else {
-        // Re-show greeting bubble when chat is closed (if not dismissed)
-        if (!greetingDismissed) {
-          greetingBubble.classList.add('show');
-        }
-      }
+  } else {
+  // Re-show greeting bubble when chat is closed (if not dismissed and enabled)
+  if (!greetingDismissed && (config && config.greeting_enabled !== false)) {
+  greetingBubble.classList.add('show');
+  }
+  }
     }
     
     function updateStatus(mode) {
