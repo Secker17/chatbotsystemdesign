@@ -8,6 +8,14 @@ const nextConfig = {
   },
   // Empty turbopack config to silence Next.js 16 warning about webpack config
   turbopack: {},
+  webpack: (config, { isServer }) => {
+    // Suppress the big string serialization warning
+    config.infrastructureLogging = {
+      ...config.infrastructureLogging,
+      level: 'error',
+    }
+    return config
+  },
   async headers() {
     return [
       {
