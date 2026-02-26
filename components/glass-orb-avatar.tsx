@@ -149,7 +149,9 @@ const GlassOrbAvatar: React.FC<GlassOrbAvatarProps> = ({
     const clampDpr = () => Math.min(window.devicePixelRatio || 1, 1.35);
 
     const updateDimensions = () => {
-      sizePx = Math.min(container.offsetWidth, container.offsetHeight);
+      // Ensure minimum size to prevent negative radius errors
+      const rawSize = Math.min(container.offsetWidth, container.offsetHeight);
+      sizePx = Math.max(rawSize, 10); // Minimum 10px to avoid calculation issues
       dpr = clampDpr();
 
       canvas.width = Math.floor(sizePx * dpr);
@@ -499,8 +501,9 @@ const GlassOrbAvatar: React.FC<GlassOrbAvatarProps> = ({
       ctx2.shadowColor = portal.rimGlow;
       ctx2.strokeStyle = portal.rimStroke;
       ctx2.lineWidth = Math.max(2, sizePx / 140);
+      const rimRadius = Math.max(0, casingOuter - ctx2.lineWidth * 0.5);
       ctx2.beginPath();
-      ctx2.arc(centerX, centerY, casingOuter - ctx2.lineWidth * 0.5, 0, Math.PI * 2);
+      ctx2.arc(centerX, centerY, rimRadius, 0, Math.PI * 2);
       ctx2.stroke();
       ctx2.restore();
     };
