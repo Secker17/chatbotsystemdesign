@@ -769,41 +769,26 @@
     return launcherIcons[style] || launcherIcons.chat;
   }
   
-  // Glass Orb animated launcher - faithful port of GlassOrbAvatar with RUNE
+  // Glass Orb animated launcher - exact port of React GlassOrbAvatar
   function initGlassOrb(container, primaryColor) {
     container.style.overflow = 'hidden';
     container.style.padding = '0';
     container.style.background = 'transparent';
-    container.style.boxShadow = '0 0 80px rgba(0,255,255,0.3), 0 0 120px rgba(0,200,255,0.2)';
+    container.style.boxShadow = '0 0 70px rgba(30,255,190,0.18), 0 0 140px rgba(30,255,190,0.12)';
     
     const sizePx = 60;
     const canvas = document.createElement('canvas');
-    canvas.width = sizePx;
-    canvas.height = sizePx;
+    canvas.width = sizePx * 2; // Higher res
+    canvas.height = sizePx * 2;
     canvas.style.cssText = 'width:100%;height:100%;border-radius:50%;position:absolute;inset:0;background:none;';
-    
-    // Second canvas for gold rune dots (on top)
-    const canvas2 = document.createElement('canvas');
-    canvas2.width = sizePx;
-    canvas2.height = sizePx;
-    canvas2.style.cssText = 'width:100%;height:100%;border-radius:50%;position:absolute;inset:0;background:none;z-index:2;pointer-events:none;';
-    
-    // Glass overlay - matching React GlassOrbAvatar
-    const glass = document.createElement('div');
-    glass.style.cssText = 'position:absolute;inset:0;border-radius:50%;pointer-events:none;z-index:3;overflow:hidden;' +
-      'background:radial-gradient(circle at 30% 30%,rgba(255,255,255,0.2) 0%,rgba(0,255,255,0.1) 30%,rgba(0,200,255,0.05) 60%,rgba(0,100,200,0.1) 100%);' +
-      'box-shadow:inset 0 0 50px rgba(255,255,255,0.1),inset 20px 20px 60px rgba(255,255,255,0.05);' +
-      'border:2px solid rgba(255,255,255,0.15);';
     
     const wrapper = container.querySelector('.vintra-icon-open');
     wrapper.innerHTML = '';
     wrapper.style.cssText = 'width:100%;height:100%;position:absolute;inset:0;';
     wrapper.appendChild(canvas);
-    wrapper.appendChild(canvas2);
-    wrapper.appendChild(glass);
     
     const ctx = canvas.getContext('2d');
-    const ctx2 = canvas2.getContext('2d');
+    ctx.scale(2, 2); // Scale for higher res
     
     // Physics constants
     const centerX = sizePx / 2;
@@ -987,6 +972,64 @@
     
     let animId;
     
+    // Portal colors matching React GlassOrbAvatar
+    var portal = {
+      rimStroke: 'rgba(175, 185, 200, 0.70)',
+      rimGlow: 'rgba(110, 130, 155, 0.35)',
+      casing1: 'rgba(10, 12, 18, 1)',
+      casing2: 'rgba(18, 22, 32, 1)',
+      deep1: 'rgba(6, 8, 14, 1)',
+      deep2: 'rgba(10, 13, 22, 1)',
+      deep3: 'rgba(14, 20, 40, 1)',
+    };
+    
+    var casingOuter = orbRadius * 0.995;
+    var casingInner = orbRadius * 0.9;
+    var centerRadiusInner = ringInner * 0.985;
+    
+    function drawPortalBase() {
+      // Deep background
+      var g = ctx.createRadialGradient(centerX, centerY, orbRadius * 0.08, centerX, centerY, orbRadius);
+      g.addColorStop(0, portal.deep2);
+      g.addColorStop(0.55, portal.deep3);
+      g.addColorStop(1, portal.deep1);
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.arc(centerX, centerY, casingOuter, 0, Math.PI * 2);
+      ctx.fill();
+      
+      // Casing ring
+      var cg = ctx.createRadialGradient(centerX, centerY, casingInner, centerX, centerY, casingOuter);
+      cg.addColorStop(0, portal.casing2);
+      cg.addColorStop(1, portal.casing1);
+      ctx.fillStyle = cg;
+      ctx.beginPath();
+      ctx.arc(centerX, centerY, casingOuter, 0, Math.PI * 2);
+      ctx.arc(centerX, centerY, casingInner, 0, Math.PI * 2, true);
+      ctx.fill('evenodd');
+      
+      // Center disk
+      var dg = ctx.createRadialGradient(centerX, centerY, centerRadiusInner * 0.05, centerX, centerY, centerRadiusInner);
+      dg.addColorStop(0, portal.deep3);
+      dg.addColorStop(0.65, portal.deep2);
+      dg.addColorStop(1, portal.deep1);
+      ctx.fillStyle = dg;
+      ctx.beginPath();
+      ctx.arc(centerX, centerY, centerRadiusInner, 0, Math.PI * 2);
+      ctx.fill();
+      
+      // Rim
+      ctx.save();
+      ctx.shadowBlur = 18 * sizeScale;
+      ctx.shadowColor = portal.rimGlow;
+      ctx.strokeStyle = portal.rimStroke;
+      ctx.lineWidth = Math.max(1, sizePx / 140);
+      ctx.beginPath();
+      ctx.arc(centerX, centerY, casingOuter - ctx.lineWidth * 0.5, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
+    }
+    
     function animate() {
       colorProgress += 0.003;
       if (colorProgress >= 1) {
@@ -996,11 +1039,21 @@
       
       ctx.clearRect(0, 0, sizePx, sizePx);
       
+      // Draw portal background first
+      drawPortalBase();
+      
       // Update and clean explosions
       explosions = explosions.filter(function(ex) {
         ex.strength *= ex.decay;
         return ex.strength > 0.3;
       });
+      
+      // Clip to ring area for particles
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(centerX, centerY, ringOuter, 0, Math.PI * 2);
+      ctx.arc(centerX, centerY, ringInner, 0, Math.PI * 2, true);
+      ctx.clip('evenodd');
       
       particles.forEach(function(p) {
         // Update particle
@@ -1103,11 +1156,15 @@
       });
       
       ctx.shadowBlur = 0;
+      ctx.restore(); // End particle ring clipping
       
       // -----------------------------
-      // Draw Gold Rune Dots
+      // Draw Gold Rune Dots (on center disk)
       // -----------------------------
-      ctx2.clearRect(0, 0, sizePx, sizePx);
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(centerX, centerY, casingOuter, 0, Math.PI * 2);
+      ctx.clip();
       
       // Update and draw gold dots - always converged to rune position
       var goldSpring = 0.18;
@@ -1133,11 +1190,12 @@
         gd.y += gd.vy;
         
         // Draw gold dot
-        ctx2.fillStyle = 'rgba(255, 196, 70, 1)';
-        ctx2.beginPath();
-        ctx2.arc(gd.x, gd.y, goldDotRadius, 0, Math.PI * 2);
-        ctx2.fill();
+        ctx.fillStyle = 'rgba(255, 196, 70, 1)';
+        ctx.beginPath();
+        ctx.arc(gd.x, gd.y, goldDotRadius, 0, Math.PI * 2);
+        ctx.fill();
       }
+      ctx.restore();
       
       animId = requestAnimationFrame(animate);
     }
@@ -1192,34 +1250,36 @@
   function initMiniGlassOrb(container, primaryColor, size) {
     container.innerHTML = '';
     container.style.background = 'transparent';
-    container.style.boxShadow = '0 0 ' + Math.max(6, size * 0.4) + 'px rgba(0,255,255,0.3)';
+    container.style.boxShadow = '0 0 ' + Math.max(6, size * 0.4) + 'px rgba(30,255,190,0.2)';
     
     const canvas = document.createElement('canvas');
-    canvas.width = size;
-    canvas.height = size;
+    canvas.width = size * 2;
+    canvas.height = size * 2;
     canvas.style.cssText = 'width:100%;height:100%;border-radius:50%;position:absolute;inset:0;background:none;';
     
-    // Second canvas for rune
-    const canvas2 = document.createElement('canvas');
-    canvas2.width = size;
-    canvas2.height = size;
-    canvas2.style.cssText = 'width:100%;height:100%;border-radius:50%;position:absolute;inset:0;background:none;z-index:2;pointer-events:none;';
-    
-    const glass = document.createElement('div');
-    glass.style.cssText = 'position:absolute;inset:0;border-radius:50%;pointer-events:none;z-index:3;' +
-      'background:radial-gradient(circle at 30% 30%,rgba(255,255,255,0.2) 0%,rgba(0,255,255,0.1) 30%,rgba(0,200,255,0.05) 60%,rgba(0,100,200,0.1) 100%);' +
-      'box-shadow:inset 0 0 ' + Math.max(8, size * 0.5) + 'px rgba(255,255,255,0.1);' +
-      'border:1px solid rgba(255,255,255,0.15);';
-    
     container.appendChild(canvas);
-    container.appendChild(canvas2);
-    container.appendChild(glass);
     
     const ctx = canvas.getContext('2d');
-    const ctx2 = canvas2.getContext('2d');
+    ctx.scale(2, 2);
     const cx = size / 2, cy = size / 2;
     const sizeScale = size / 500;
     const orbRadius = size / 2;
+    
+    // Portal colors
+    var portal = {
+      casing1: 'rgba(10, 12, 18, 1)',
+      casing2: 'rgba(18, 22, 32, 1)',
+      deep1: 'rgba(6, 8, 14, 1)',
+      deep2: 'rgba(10, 13, 22, 1)',
+      deep3: 'rgba(14, 20, 40, 1)',
+      rimStroke: 'rgba(175, 185, 200, 0.50)',
+    };
+    
+    var casingOuter = orbRadius * 0.995;
+    var casingInner = orbRadius * 0.9;
+    var ringOuter = orbRadius * 0.95;
+    var ringInner = orbRadius * 0.5;
+    var centerRadiusInner = ringInner * 0.985;
     
     // Idle palette matching React GlassOrbAvatar (cyan/teal)
     const palette = [
@@ -1309,6 +1369,45 @@
       });
     }
     
+    function drawMiniPortal() {
+      // Deep background
+      var g = ctx.createRadialGradient(cx, cy, orbRadius * 0.08, cx, cy, orbRadius);
+      g.addColorStop(0, portal.deep2);
+      g.addColorStop(0.55, portal.deep3);
+      g.addColorStop(1, portal.deep1);
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.arc(cx, cy, casingOuter, 0, Math.PI * 2);
+      ctx.fill();
+      
+      // Casing ring
+      var cg = ctx.createRadialGradient(cx, cy, casingInner, cx, cy, casingOuter);
+      cg.addColorStop(0, portal.casing2);
+      cg.addColorStop(1, portal.casing1);
+      ctx.fillStyle = cg;
+      ctx.beginPath();
+      ctx.arc(cx, cy, casingOuter, 0, Math.PI * 2);
+      ctx.arc(cx, cy, casingInner, 0, Math.PI * 2, true);
+      ctx.fill('evenodd');
+      
+      // Center disk
+      var dg = ctx.createRadialGradient(cx, cy, centerRadiusInner * 0.05, cx, cy, centerRadiusInner);
+      dg.addColorStop(0, portal.deep3);
+      dg.addColorStop(0.65, portal.deep2);
+      dg.addColorStop(1, portal.deep1);
+      ctx.fillStyle = dg;
+      ctx.beginPath();
+      ctx.arc(cx, cy, centerRadiusInner, 0, Math.PI * 2);
+      ctx.fill();
+      
+      // Rim
+      ctx.strokeStyle = portal.rimStroke;
+      ctx.lineWidth = Math.max(0.5, size / 140);
+      ctx.beginPath();
+      ctx.arc(cx, cy, casingOuter - ctx.lineWidth * 0.5, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+    
     let animId;
     function animate() {
       colorProgress += 0.003;
@@ -1318,6 +1417,17 @@
       }
       
       ctx.clearRect(0, 0, size, size);
+      
+      // Draw portal background
+      drawMiniPortal();
+      
+      // Clip to ring for particles
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(cx, cy, ringOuter, 0, Math.PI * 2);
+      ctx.arc(cx, cy, ringInner, 0, Math.PI * 2, true);
+      ctx.clip('evenodd');
+      
       particles.forEach(function(p) {
         p.angle += p.speed;
         const x = cx + Math.cos(p.angle) * p.baseR;
@@ -1337,9 +1447,14 @@
         ctx.fill();
       });
       ctx.shadowBlur = 0;
+      ctx.restore();
       
       // Draw gold rune dots
-      ctx2.clearRect(0, 0, size, size);
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(cx, cy, casingOuter, 0, Math.PI * 2);
+      ctx.clip();
+      
       var miniGoldSpring = 0.18;
       var miniGoldDamp = 0.82;
       var miniGoldDotR = Math.max(1.5, 3.5 * sizeScale);
@@ -1356,11 +1471,12 @@
         mgd.x += mgd.vx;
         mgd.y += mgd.vy;
         
-        ctx2.fillStyle = 'rgba(255, 196, 70, 1)';
-        ctx2.beginPath();
-        ctx2.arc(mgd.x, mgd.y, miniGoldDotR, 0, Math.PI * 2);
-        ctx2.fill();
+        ctx.fillStyle = 'rgba(255, 196, 70, 1)';
+        ctx.beginPath();
+        ctx.arc(mgd.x, mgd.y, miniGoldDotR, 0, Math.PI * 2);
+        ctx.fill();
       }
+      ctx.restore();
       
       animId = requestAnimationFrame(animate);
     }
