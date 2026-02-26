@@ -260,15 +260,7 @@ export default function AppearancePage() {
     setSaving(false)
   }
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center py-20">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-      </div>
-    )
-  }
-
-  // Auto-create config if none exists
+  // Auto-create config if none exists (must be before early returns to follow hooks rules)
   useEffect(() => {
     if (!loading && configs.length === 0 && activeWorkspaceId) {
       const createConfig = async () => {
@@ -290,7 +282,15 @@ export default function AppearancePage() {
       }
       createConfig()
     }
-  }, [loading, configs.length, activeWorkspaceId])
+  }, [loading, configs.length, activeWorkspaceId, setConfigs])
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    )
+  }
 
   if (!config) {
     return (
