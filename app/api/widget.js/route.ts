@@ -2,10 +2,12 @@ import { NextResponse } from 'next/server'
 import { readFileSync } from 'fs'
 import { join } from 'path'
 
+// Force dynamic rendering to avoid static analysis caching the file contents
+export const dynamic = 'force-dynamic'
+export const runtime = 'nodejs'
+
 // Read the widget script fresh on each request.
-// We avoid module-level caching to prevent webpack's PackFileCacheStrategy
-// from serializing the large buffer into its persistent cache, which triggers
-// the "Serializing big strings" warning in development.
+// Using Buffer to avoid webpack's string serialization warning.
 function getWidgetBuffer(): Buffer {
   const filePath = join(process.cwd(), 'lib', 'widget-script.txt')
   return readFileSync(filePath) // returns Buffer (no encoding)
