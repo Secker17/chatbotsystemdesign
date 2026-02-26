@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { createClient } from '@/lib/supabase/client'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -27,41 +26,17 @@ export default function IntegrationPage() {
         return
       }
       
-      const supabase = createClient()
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) {
-        setLoading(false)
-        return
-      }
-
-      const { data, error } = await supabase
-        .from('chatbot_configs')
-        .select('id')
-        .eq('admin_id', activeWorkspaceId)
-        .single()
-
-      if (data) {
-        setChatbotId(data.id)
-      } else if (error?.code === 'PGRST116') {
-        // No chatbot config found - create one as a fallback
-        const { data: newConfig } = await supabase
-          .from('chatbot_configs')
-          .insert({
-            admin_id: activeWorkspaceId,
-            name: 'My Chatbot',
-            widget_title: 'Chat with us',
-            welcome_message: 'Hello! How can I help you today?',
-            primary_color: '#3b82f6',
-            position: 'bottom-right',
-            show_branding: true,
-            placeholder_text: 'Type your message...',
-          })
-          .select('id')
-          .single()
-
-        if (newConfig) {
-          setChatbotId(newConfig.id)
+      try {
+        // Use API route to fetch chatbot ID (bypasses RLS issues)
+        const res = await fetch(`/api/chatbot/id?workspaceId=${activeWorkspaceId}`)
+        if (res.ok) {
+          const data = await res.json()
+          if (data.chatbotId) {
+            setChatbotId(data.chatbotId)
+          }
         }
+      } catch (err) {
+        console.error('Failed to load chatbot ID:', err)
       }
       setLoading(false)
     }
@@ -258,7 +233,7 @@ import { VintraChat } from '@vintrastudio/widget';
         <CardContent>
           <ul className="space-y-3">
             {[
-              { label: 'Chatbot created', done: true },
+              { label: 'Chatbot created', done: !!chatbotId },
               { label: 'Widget script added to your website', done: false },
               { label: 'Customize appearance (optional)', done: false },
               { label: 'Add canned responses (optional)', done: false },
