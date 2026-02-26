@@ -151,7 +151,7 @@ const GlassOrbAvatar: React.FC<GlassOrbAvatarProps> = ({
     const updateDimensions = () => {
       // Ensure minimum size to prevent negative radius errors
       const rawSize = Math.min(container.offsetWidth, container.offsetHeight);
-      sizePx = Math.max(rawSize, 10); // Minimum 10px to avoid calculation issues
+      sizePx = Math.max(rawSize, 40); // Minimum 40px to ensure positive radii after line width subtraction
       dpr = clampDpr();
 
       canvas.width = Math.floor(sizePx * dpr);
@@ -575,6 +575,12 @@ const GlassOrbAvatar: React.FC<GlassOrbAvatarProps> = ({
     // Animation loop (NO React state inside)
     // -----------------------------
     const animate = () => {
+      // Skip rendering if container has no valid dimensions yet
+      if (container.offsetWidth === 0 || container.offsetHeight === 0) {
+        animationRef.current = requestAnimationFrame(animate);
+        return;
+      }
+
       // palette timing
       colorProgress += 0.0032;
       if (colorProgress >= 1) {
