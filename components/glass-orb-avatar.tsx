@@ -339,7 +339,7 @@ const GlassOrbAvatar: React.FC<GlassOrbAvatarProps> = ({
     // Gold dots (no respawn)
     // -----------------------------
     let goldDots: GoldDot[] = [];
-    let goldBlend = 0;
+    let goldBlend = 1; // Start with rune visible (was 0)
     let goldTargets: RuneTarget[] = runeTargets();
 
     const shuffleInPlace = <T,>(arr: T[]): T[] => {
