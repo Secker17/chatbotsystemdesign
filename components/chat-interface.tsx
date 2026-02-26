@@ -29,6 +29,7 @@ interface ChatInterfaceProps {
   chatbotId?: string
   primaryColor?: string
   avatarStyle?: 'default' | 'glass-orb' | 'juleskin'
+  avatarGlyph?: string
   position?: 'bottom-right' | 'bottom-left'
   isOpen?: boolean
   onToggle?: () => void
@@ -54,6 +55,7 @@ export default function ChatInterface({
   chatbotId,
   primaryColor = '#3b82f6',
   avatarStyle = 'glass-orb',
+  avatarGlyph = 'A',
   position = 'bottom-right',
   isOpen: controlledIsOpen,
   onToggle,
@@ -426,8 +428,7 @@ export default function ChatInterface({
                 isTyping={isBotTyping}
                 size={56}
                 skin="default"
-                className="scale-90"
-                style={{}}
+                glyph={avatarGlyph}
               />
             </div>
           ) : (
@@ -475,6 +476,7 @@ export default function ChatInterface({
                     isTyping={isBotTyping}
                     size={36}
                     skin="default"
+                    glyph={avatarGlyph}
                     style={{}}
                     className=""
                   />
@@ -532,6 +534,7 @@ export default function ChatInterface({
                           isTyping={false}
                           size={64}
                           skin="default"
+                          glyph={avatarGlyph}
                           style={{}}
                           className=""
                         />

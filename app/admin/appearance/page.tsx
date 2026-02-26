@@ -109,6 +109,7 @@ interface ChatbotConfig {
   primary_color: string
   position: string
   avatar_url: string | null
+  avatar_glyph: string | null
   show_branding: boolean
   offline_message: string
   placeholder_text: string
@@ -187,6 +188,7 @@ export default function AppearancePage() {
           primary_color: '#eab308',
           position: 'bottom-right',
           avatar_url: 'icon:glass-orb',
+          avatar_glyph: 'A',
           show_branding: true,
           offline_message: 'We are currently offline. Leave a message!',
           placeholder_text: 'Type your message...',
@@ -210,6 +212,7 @@ export default function AppearancePage() {
           primary_color: '#6366f1',
           position: 'bottom-right',
           avatar_url: 'icon:glass-orb',
+          avatar_glyph: 'A',
           show_branding: true,
           offline_message: 'We are currently offline.',
           placeholder_text: 'Type your message...',
@@ -520,6 +523,7 @@ export default function AppearancePage() {
                             sender="bot"
                             size={40}
                             skin="default"
+                            glyph={config.avatar_glyph || 'A'}
                             style={{}}
                             className=""
                           />
@@ -534,6 +538,36 @@ export default function AppearancePage() {
                   )
                 })}
               </div>
+
+              {/* Glass Orb Glyph Settings */}
+              {getIconStyle(config.avatar_url) === 'glass-orb' && (
+                <div className="space-y-3">
+                  <div className="space-y-2">
+                    <Label htmlFor="avatar-glyph">Glyph Character</Label>
+                    <div className="flex items-center gap-3">
+                      <Input
+                        id="avatar-glyph"
+                        value={config.avatar_glyph || 'A'}
+                        onChange={(e) => setConfig({ ...config, avatar_glyph: e.target.value.toUpperCase().slice(0, 1) })}
+                        maxLength={1}
+                        placeholder="A"
+                        className="w-20"
+                      />
+                      <div className="flex h-12 w-12 items-center justify-center rounded-full border border-border">
+                        <GlassOrbAvatar
+                          sender="bot"
+                          size={48}
+                          skin="default"
+                          glyph={config.avatar_glyph || 'A'}
+                        />
+                      </div>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Enter a single character to display in the glass orb
+                    </p>
+                  </div>
+                </div>
+              )}
 
               {/* Custom icon - Pro+ only */}
               <div className="relative rounded-lg border-2 border-dashed border-border p-4">
@@ -951,7 +985,7 @@ export default function AppearancePage() {
           <CardContent>
             <div className="relative rounded-lg border bg-muted/50 overflow-hidden" style={{ minHeight: '600px', transform: 'translateZ(0)' }}>
               <ChatInterface
-                key={`preview-${config.primary_color}-${config.avatar_url}-${config.position}`}
+                key={`preview-${config.primary_color}-${config.avatar_url}-${config.position}-${config.avatar_glyph}`}
                 chatbotId="preview"
                 primaryColor={config.primary_color}
                 avatarStyle={
@@ -959,6 +993,7 @@ export default function AppearancePage() {
                     ? 'glass-orb'
                     : 'default'
                 }
+                avatarGlyph={config.avatar_glyph || 'A'}
                 position={config.position as 'bottom-right' | 'bottom-left'}
                 widgetTitle={config.widget_title}
                 welcomeMessage={config.welcome_message}

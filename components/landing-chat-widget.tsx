@@ -21,6 +21,7 @@ interface LandingConfig {
     primary_color: string
     position: string
     avatar_url: string | null
+    avatar_glyph: string | null
     show_branding: boolean
     placeholder_text: string
     ai_enabled: boolean
@@ -73,6 +74,7 @@ export function LandingChatWidget() {
       chatbotId={landingConfig.chatbot_id || 'demo-chatbot'}
       primaryColor={cfg.primary_color}
       avatarStyle={getAvatarStyle(cfg.avatar_url)}
+      avatarGlyph={cfg.avatar_glyph || 'A'}
       position={cfg.position as 'bottom-right' | 'bottom-left'}
       widgetTitle={cfg.widget_title}
       welcomeMessage={cfg.welcome_message}

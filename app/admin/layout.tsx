@@ -60,21 +60,23 @@ export default async function AdminLayout({
     }
 
     return (
-      <SidebarProvider>
-        <AdminSidebar user={mockUser} profile={mockProfile} />
-        <SidebarInset>
-          <AdminHeader user={mockUser} chatbotId={mockChatbot?.id} />
-          <main className="flex-1 overflow-auto p-3 sm:p-6">
-            <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
-              <p className="text-sm text-amber-800">
-                <strong>Development Mode:</strong> Du bruker mock data. 
-                Endringer blir ikke lagret. Konfigurer Supabase for ekte funksjonalitet.
-              </p>
-            </div>
-            {children}
-          </main>
-        </SidebarInset>
-      </SidebarProvider>
+      <WorkspaceProvider userId={mockUser.id}>
+        <SidebarProvider>
+          <AdminSidebar user={mockUser} profile={mockProfile} />
+          <SidebarInset>
+            <AdminHeader user={mockUser} chatbotId={mockChatbot?.id} />
+            <main className="flex-1 overflow-auto p-3 sm:p-6">
+              <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                <p className="text-sm text-amber-800">
+                  <strong>Development Mode:</strong> Du bruker mock data. 
+                  Endringer blir ikke lagret. Konfigurer Supabase for ekte funksjonalitet.
+                </p>
+              </div>
+              {children}
+            </main>
+          </SidebarInset>
+        </SidebarProvider>
+      </WorkspaceProvider>
     )
   }
 
