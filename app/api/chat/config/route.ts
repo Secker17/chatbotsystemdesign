@@ -19,9 +19,11 @@ export async function GET(request: NextRequest) {
   try {
     const supabase = createPublicClient()
 
+    // Query without greeting_enabled column (doesn't exist in DB)
+    // greeting_enabled is derived from greeting_message being set
     const { data, error } = await supabase
       .from('chatbot_configs')
-      .select('admin_id, widget_title, welcome_message, primary_color, position, avatar_url, show_branding, placeholder_text, offline_message, ai_enabled, business_hours_enabled, business_hours, business_hours_timezone, outside_hours_message, greeting_message, greeting_subtext, greeting_enabled')
+      .select('admin_id, widget_title, welcome_message, primary_color, position, avatar_url, show_branding, placeholder_text, offline_message, ai_enabled, business_hours_enabled, business_hours, business_hours_timezone, outside_hours_message, greeting_message, greeting_subtext')
       .eq('id', chatbotId)
       .single()
 
@@ -55,7 +57,8 @@ export async function GET(request: NextRequest) {
       ai_enabled: planLimits.aiEnabled ? data.ai_enabled : false,
       greeting_message: data.greeting_message,
       greeting_subtext: data.greeting_subtext,
-      greeting_enabled: data.greeting_enabled ?? true,
+      // Derive greeting_enabled from whether greeting_message is set (null/empty = disabled)
+      greeting_enabled: Boolean(data.greeting_message),
       business_hours_enabled: data.business_hours_enabled,
       business_hours: data.business_hours,
       business_hours_timezone: data.business_hours_timezone,

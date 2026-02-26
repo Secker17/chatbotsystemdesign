@@ -8,18 +8,19 @@ export async function GET() {
     // Find the chatbot config flagged as the landing widget
     let data: Record<string, unknown> | null = null
 
-    // Try with all columns first
+    // Try without greeting_enabled first (column may not exist)
     const { data: fullData, error: fullError } = await supabase
       .from('chatbot_configs')
       .select(
-        'id, widget_title, welcome_message, primary_color, position, avatar_url, show_branding, placeholder_text, ai_enabled, is_landing_widget, landing_widget_enabled, quick_replies, greeting_message, greeting_subtext, greeting_enabled'
+        'id, widget_title, welcome_message, primary_color, position, avatar_url, show_branding, placeholder_text, ai_enabled, is_landing_widget, landing_widget_enabled, quick_replies, greeting_message, greeting_subtext'
       )
       .eq('is_landing_widget', true)
       .limit(1)
       .single()
 
     if (!fullError && fullData) {
-      data = fullData
+      // Derive greeting_enabled from greeting_message being set
+      data = { ...fullData, greeting_enabled: Boolean(fullData.greeting_message) }
     } else {
       // Fallback: columns may not exist yet, try without them
       const { data: fallbackData } = await supabase
@@ -64,7 +65,7 @@ export async function GET() {
           quick_replies: data.quick_replies ?? [],
           greeting_message: data.greeting_message ?? 'Hi there!',
           greeting_subtext: data.greeting_subtext ?? 'How can I help you today?',
-          greeting_enabled: data.greeting_enabled ?? true,
+          greeting_enabled: Boolean(data.greeting_message),
         },
       },
       {

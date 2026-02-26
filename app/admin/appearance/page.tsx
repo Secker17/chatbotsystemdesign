@@ -736,14 +736,18 @@ export default function AppearancePage() {
                   </p>
                 </div>
                 <Switch
-                  checked={config.greeting_enabled}
+                  checked={Boolean(config.greeting_message)}
                   onCheckedChange={(checked) =>
-                    setConfig({ ...config, greeting_enabled: checked })
+                    setConfig({ 
+                      ...config, 
+                      greeting_message: checked ? (config.greeting_message || 'Hi there!') : null,
+                      greeting_enabled: checked 
+                    })
                   }
                 />
               </div>
 
-              {config.greeting_enabled && (
+              {config.greeting_message && (
               <>
               <div className="space-y-2">
                 <Label htmlFor="greeting-msg">Greeting Title</Label>

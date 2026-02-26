@@ -20,7 +20,7 @@ export async function GET() {
     headers: {
       ...CORS_HEADERS,
       'Content-Type': 'application/javascript; charset=utf-8',
-      'Cache-Control': 'public, max-age=3600',
+      'Cache-Control': 'no-cache, no-store, must-revalidate',
     },
   })
 }
