@@ -2,17 +2,13 @@ import { NextResponse } from 'next/server'
 import { readFileSync } from 'fs'
 import { join } from 'path'
 
-// Cache the widget script as a Buffer instead of a string.
-// Webpack's PackFileCacheStrategy warns when serializing large strings (>100 KiB)
-// but Buffers are serialized as binary and avoid the performance penalty.
-let _cachedBuf: Buffer | null = null
-
+// Read the widget script fresh on each request.
+// We avoid module-level caching to prevent webpack's PackFileCacheStrategy
+// from serializing the large buffer into its persistent cache, which triggers
+// the "Serializing big strings" warning in development.
 function getWidgetBuffer(): Buffer {
-  if (!_cachedBuf) {
-    const filePath = join(process.cwd(), 'lib', 'widget-script.txt')
-    _cachedBuf = readFileSync(filePath)           // returns Buffer (no encoding)
-  }
-  return _cachedBuf
+  const filePath = join(process.cwd(), 'lib', 'widget-script.txt')
+  return readFileSync(filePath) // returns Buffer (no encoding)
 }
 
 const CORS_HEADERS = {
