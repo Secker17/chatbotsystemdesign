@@ -20,26 +20,41 @@ export default function WidgetPreviewPage() {
       const { data: { user } } = await supabase.auth.getUser()
 
       if (user) {
-        // First get the user's active workspace
-        const { data: profile } = await supabase
-          .from('admin_profiles')
-          .select('id, active_workspace_id')
-          .eq('user_id', user.id)
+        // Get the active workspace from the cookie, or fall back to user's own ID
+        // This matches the server-side getActiveWorkspaceId() logic
+        const workspaceCookie = document.cookie
+          .split('; ')
+          .find(row => row.startsWith('active_workspace='))
+          ?.split('=')[1]
+        
+        const workspaceId = workspaceCookie || user.id
+        
+        // Fetch chatbot config using workspace ID (admin_id can be user.id or team workspace)
+        let { data } = await supabase
+          .from('chatbot_configs')
+          .select('id')
+          .eq('admin_id', workspaceId)
+          .limit(1)
           .single()
         
-        const workspaceId = profile?.active_workspace_id || profile?.id
-        
-        if (workspaceId) {
-          // Fetch chatbot config using workspace ID (admin_id refers to workspace)
-          const { data } = await supabase
-            .from('chatbot_configs')
-            .select('id')
-            .eq('admin_id', workspaceId)
-            .limit(1)
-            .single()
-          
-          setChatbotId(data?.id || null)
+        // If no chatbot exists, create one via the setup API
+        if (!data) {
+          try {
+            const setupRes = await fetch('/api/chatbot/setup', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ workspaceId }),
+            })
+            if (setupRes.ok) {
+              const setupData = await setupRes.json()
+              data = setupData.config
+            }
+          } catch (e) {
+            console.error('Failed to setup chatbot:', e)
+          }
         }
+        
+        setChatbotId(data?.id || null)
       }
       setLoading(false)
     }

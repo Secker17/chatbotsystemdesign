@@ -26,7 +26,7 @@ export async function GET(request: NextRequest) {
       .single()
 
     if (error || !data) {
-      console.error('Config fetch error:', error)
+      console.error('Config fetch error for chatbot_id:', chatbotId, 'error:', error?.message)
       return NextResponse.json({ error: 'Chatbot not found' }, { status: 404, headers: corsHeaders })
     }
 

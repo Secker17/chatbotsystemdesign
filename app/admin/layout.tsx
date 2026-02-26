@@ -112,6 +112,26 @@ export default async function AdminLayout({
       .limit(1)
 
     chatbot = chatbotData?.[0] ?? null
+    
+    // If no chatbot exists for this workspace, create one via setup API
+    if (!chatbot) {
+      try {
+        const origin = process.env.NEXT_PUBLIC_APP_URL || process.env.VERCEL_URL 
+          ? `https://${process.env.VERCEL_URL}` 
+          : 'http://localhost:3000'
+        const setupRes = await fetch(`${origin}/api/chatbot/setup`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ workspaceId }),
+        })
+        if (setupRes.ok) {
+          const setupData = await setupRes.json()
+          chatbot = setupData.config
+        }
+      } catch (setupError) {
+        console.error('Failed to create chatbot:', setupError)
+      }
+    }
   } catch (e) {
     // If it's a redirect, rethrow it
     if (e && typeof e === 'object' && 'digest' in e) throw e
