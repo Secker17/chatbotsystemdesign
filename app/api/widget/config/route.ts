@@ -15,21 +15,22 @@ export async function GET(request: NextRequest) {
 
     const supabase = createClient()
     
-    // Get chatbot configuration
+    // Get chatbot configuration from chatbot_configs table
     const { data: chatbot, error } = await supabase
-      .from('chatbots')
+      .from('chatbot_configs')
       .select('*')
       .eq('id', chatbotId)
       .single()
 
     if (error || !chatbot) {
+      console.error('Widget config error:', error?.message)
       return NextResponse.json(
         { error: 'Chatbot not found' },
         { status: 404 }
       )
     }
 
-    // Return configuration
+    // Return configuration - derive greeting_enabled from greeting_message
     return NextResponse.json({
       config: {
         id: chatbot.id,
@@ -38,7 +39,6 @@ export async function GET(request: NextRequest) {
         primary_color: chatbot.primary_color,
         position: chatbot.position,
         avatar_url: chatbot.avatar_url,
-        avatar_glyph: chatbot.avatar_glyph,
         show_branding: chatbot.show_branding,
         offline_message: chatbot.offline_message,
         placeholder_text: chatbot.placeholder_text,
@@ -50,8 +50,9 @@ export async function GET(request: NextRequest) {
         outside_hours_message: chatbot.outside_hours_message,
         greeting_message: chatbot.greeting_message,
         greeting_subtext: chatbot.greeting_subtext,
-        greeting_enabled: chatbot.greeting_enabled,
-        quick_replies: chatbot.quick_replies
+        greeting_enabled: Boolean(chatbot.greeting_message),
+        quick_replies: chatbot.quick_replies,
+        ai_enabled: chatbot.ai_enabled,
       }
     })
 

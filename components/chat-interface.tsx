@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback, useMemo, memo } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
@@ -15,7 +15,10 @@ import {
   RotateCcw,
   ChevronDown,
 } from 'lucide-react'
-import GlassOrbAvatar from './glass-orb-avatar'
+import dynamic from 'next/dynamic'
+
+// Lazy load GlassOrbAvatar for better performance
+const GlassOrbAvatar = dynamic(() => import('./glass-orb-avatar'), { ssr: false })
 
 interface Message {
   id: string
@@ -51,6 +54,78 @@ const DEFAULT_QUICK_REPLIES = [
   'Can I see a demo?',
 ]
 
+// Memoized message component for better performance
+const ChatMessage = memo(({
+  message,
+  primaryColor,
+  onReaction,
+  formatTime,
+  index,
+}: {
+  message: Message
+  primaryColor: string
+  onReaction: (id: string, reaction: 'up' | 'down') => void
+  formatTime: (date: Date) => string
+  index: number
+}) => (
+  <div
+    className={`flex ${message.sender === 'user' ? 'justify-end' : 'justify-start'} animate-message-in`}
+    style={{ animationDelay: `${index * 30}ms` }}
+  >
+    <div className="group flex flex-col gap-1 max-w-[82%]">
+      <div
+        className={`
+          relative rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed
+          transition-shadow duration-200
+          ${message.sender === 'user'
+            ? 'rounded-br-md text-primary-foreground'
+            : 'rounded-bl-md bg-muted text-foreground'
+          }
+        `}
+        style={message.sender === 'user' ? { backgroundColor: primaryColor } : undefined}
+      >
+        <p>{message.content}</p>
+      </div>
+      
+      {/* Timestamp & Reactions */}
+      <div className={`flex items-center gap-1.5 ${message.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
+        <span className="text-[10px] text-muted-foreground/60">
+          {formatTime(message.timestamp)}
+        </span>
+        
+        {message.sender === 'bot' && (
+          <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+            <button
+              onClick={() => onReaction(message.id, 'up')}
+              className={`h-5 w-5 rounded flex items-center justify-center transition-colors ${
+                message.reaction === 'up' 
+                  ? 'text-green-500 bg-green-500/10' 
+                  : 'text-muted-foreground/50 hover:text-foreground hover:bg-muted'
+              }`}
+              aria-label="Thumbs up"
+            >
+              <ThumbsUp className="h-3 w-3" />
+            </button>
+            <button
+              onClick={() => onReaction(message.id, 'down')}
+              className={`h-5 w-5 rounded flex items-center justify-center transition-colors ${
+                message.reaction === 'down' 
+                  ? 'text-red-500 bg-red-500/10' 
+                  : 'text-muted-foreground/50 hover:text-foreground hover:bg-muted'
+              }`}
+              aria-label="Thumbs down"
+            >
+              <ThumbsDown className="h-3 w-3" />
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  </div>
+))
+
+ChatMessage.displayName = 'ChatMessage'
+
 export default function ChatInterface({
   chatbotId,
   primaryColor = '#3b82f6',
@@ -68,8 +143,11 @@ export default function ChatInterface({
   greetingSubtext = 'How can I help you today?',
   greetingEnabled = true,
 }: ChatInterfaceProps) {
-  const activeQuickReplies = quickReplies && quickReplies.length > 0 ? quickReplies : DEFAULT_QUICK_REPLIES
-  const isLiveMode = !!chatbotId && chatbotId !== 'demo-chatbot'
+  const activeQuickReplies = useMemo(
+    () => quickReplies && quickReplies.length > 0 ? quickReplies : DEFAULT_QUICK_REPLIES,
+    [quickReplies]
+  )
+  const isLiveMode = useMemo(() => !!chatbotId && chatbotId !== 'demo-chatbot', [chatbotId])
 
   const [isInternalOpen, setIsInternalOpen] = useState(false)
   const [messages, setMessages] = useState<Message[]>([])
@@ -92,17 +170,25 @@ export default function ChatInterface({
   const inputRef = useRef<HTMLInputElement>(null)
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const sessionCreatingRef = useRef(false)
+  const scrollTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const isControlled = controlledIsOpen !== undefined
   const isOpen = isControlled ? controlledIsOpen : isInternalOpen
 
-  const positionClasses = {
-    'bottom-right': 'bottom-2 right-2 sm:bottom-6 sm:right-6',
-    'bottom-left': 'bottom-2 left-2 sm:bottom-6 sm:left-6',
-  }
+  const positionClasses = useMemo(
+    () => ({
+      'bottom-right': 'bottom-2 right-2 sm:bottom-6 sm:right-6',
+      'bottom-left': 'bottom-2 left-2 sm:bottom-6 sm:left-6',
+    }),
+    []
+  )
 
+  // Throttled scroll to bottom for better performance
   const scrollToBottom = useCallback((smooth = true) => {
-    messagesEndRef.current?.scrollIntoView({ behavior: smooth ? 'smooth' : 'instant' })
+    if (scrollTimeoutRef.current) clearTimeout(scrollTimeoutRef.current)
+    scrollTimeoutRef.current = setTimeout(() => {
+      messagesEndRef.current?.scrollIntoView({ behavior: smooth ? 'smooth' : 'instant' })
+    }, 0)
   }, [])
 
   useEffect(() => {
@@ -371,7 +457,11 @@ export default function ChatInterface({
     }
   }
 
-  const handleReaction = (messageId: string, reaction: 'up' | 'down') => {
+  const formatTime = useCallback((date: Date) => {
+    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+  }, [])
+
+  const handleReaction = useCallback((messageId: string, reaction: 'up' | 'down') => {
     setMessages(prev =>
       prev.map(msg =>
         msg.id === messageId
@@ -379,15 +469,7 @@ export default function ChatInterface({
           : msg
       )
     )
-  }
-
-  const handleClearChat = () => {
-    setMessages([])
-  }
-
-  const formatTime = (date: Date) => {
-    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-  }
+  }, [])
 
   return (
     <div className={`fixed ${positionClasses[position]} z-50 flex flex-col items-end`}>
@@ -550,61 +632,14 @@ export default function ChatInterface({
                   )}
                   
                   {messages.map((message, index) => (
-                    <div
+                    <ChatMessage
                       key={message.id}
-                      className={`flex ${message.sender === 'user' ? 'justify-end' : 'justify-start'} animate-message-in`}
-                      style={{ animationDelay: `${index * 30}ms` }}
-                    >
-                      <div className="group flex flex-col gap-1 max-w-[82%]">
-                        <div
-                          className={`
-                            relative rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed
-                            transition-shadow duration-200
-                            ${message.sender === 'user'
-                              ? 'rounded-br-md text-primary-foreground'
-                              : 'rounded-bl-md bg-muted text-foreground'
-                            }
-                          `}
-                          style={message.sender === 'user' ? { backgroundColor: primaryColor } : undefined}
-                        >
-                          <p>{message.content}</p>
-                        </div>
-                        
-                        {/* Timestamp & Reactions */}
-                        <div className={`flex items-center gap-1.5 ${message.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
-                          <span className="text-[10px] text-muted-foreground/60">
-                            {formatTime(message.timestamp)}
-                          </span>
-                          
-                          {message.sender === 'bot' && (
-                            <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                              <button
-                                onClick={() => handleReaction(message.id, 'up')}
-                                className={`h-5 w-5 rounded flex items-center justify-center transition-colors ${
-                                  message.reaction === 'up' 
-                                    ? 'text-green-500 bg-green-500/10' 
-                                    : 'text-muted-foreground/50 hover:text-foreground hover:bg-muted'
-                                }`}
-                                aria-label="Thumbs up"
-                              >
-                                <ThumbsUp className="h-3 w-3" />
-                              </button>
-                              <button
-                                onClick={() => handleReaction(message.id, 'down')}
-                                className={`h-5 w-5 rounded flex items-center justify-center transition-colors ${
-                                  message.reaction === 'down' 
-                                    ? 'text-red-500 bg-red-500/10' 
-                                    : 'text-muted-foreground/50 hover:text-foreground hover:bg-muted'
-                                }`}
-                                aria-label="Thumbs down"
-                              >
-                                <ThumbsDown className="h-3 w-3" />
-                              </button>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </div>
+                      message={message}
+                      primaryColor={primaryColor}
+                      onReaction={handleReaction}
+                      formatTime={formatTime}
+                      index={index}
+                    />
                   ))}
                   
                   {/* Typing indicator */}
