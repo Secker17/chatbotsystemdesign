@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback, useMemo } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -136,11 +136,17 @@ export default function AppearancePage() {
   const [saving, setSaving] = useState(false)
   const [planLimits, setPlanLimits] = useState<PlanLimits | null>(null)
 
-  const config = configs[activeConfigIndex] ?? null
+  const config = useMemo(() => configs[activeConfigIndex] ?? null, [configs, activeConfigIndex])
 
-  const setConfig = (updated: ChatbotConfig) => {
-    setConfigs(prev => prev.map((c, i) => i === activeConfigIndex ? updated : c))
-  }
+  // Optimized setConfig with useCallback to prevent unnecessary re-renders
+  const setConfig = useCallback((updated: ChatbotConfig | ((prev: ChatbotConfig) => ChatbotConfig)) => {
+    setConfigs(prev => {
+      const newConfigs = [...prev]
+      const updater = typeof updated === 'function' ? updated : () => updated
+      newConfigs[activeConfigIndex] = updater(prev[activeConfigIndex])
+      return newConfigs
+    })
+  }, [activeConfigIndex])
 
   useEffect(() => {
     loadConfig()
@@ -173,7 +179,7 @@ export default function AppearancePage() {
     }
   }, [loading, configs.length, activeWorkspaceId])
 
-  const loadConfig = async () => {
+  const loadConfig = useCallback(async () => {
     // Always try to load from database first
     try {
       const res = await fetch(`/api/chatbot/appearance?workspaceId=${activeWorkspaceId}`)
@@ -232,9 +238,9 @@ export default function AppearancePage() {
     }
 
     setLoading(false)
-  }
+  }, [activeWorkspaceId])
 
-  const handleSave = async () => {
+  const handleSave = useCallback(async () => {
     if (!config) return
     setSaving(true)
 
@@ -268,7 +274,7 @@ export default function AppearancePage() {
     }
 
     setSaving(false)
-  }
+  }, [config, activeWorkspaceId])
 
   if (loading) {
     return (
