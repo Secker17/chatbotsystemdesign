@@ -174,67 +174,7 @@ export default function AppearancePage() {
   }, [loading, configs.length, activeWorkspaceId])
 
   const loadConfig = async () => {
-    // Check if Supabase is configured
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-    const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-    
-    if (!supabaseUrl || !supabaseKey) {
-      // Use mock data in development mode
-      const mockConfigs: ChatbotConfig[] = [
-        {
-          id: 'dev-chatbot-landing',
-          widget_title: 'Chat with us',
-          welcome_message: 'Hi! How can we help you today?',
-          primary_color: '#eab308',
-          position: 'bottom-right',
-          avatar_url: 'icon:glass-orb',
-          avatar_glyph: 'A',
-          show_branding: true,
-          offline_message: 'We are currently offline. Leave a message!',
-          placeholder_text: 'Type your message...',
-          launcher_text: 'Talk to us',
-          launcher_text_enabled: true,
-          business_hours_enabled: false,
-          business_hours: DEFAULT_BUSINESS_HOURS,
-          business_hours_timezone: 'Europe/Oslo',
-          outside_hours_message: null,
-          is_landing_widget: true,
-          landing_widget_enabled: true,
-          quick_replies: ['What features do you offer?', 'Tell me about pricing'],
-          greeting_message: 'Hi there!',
-          greeting_subtext: 'How can I help you today?',
-          greeting_enabled: true,
-        },
-        {
-          id: 'dev-chatbot-demo',
-          widget_title: 'Chat Demo Bot',
-          welcome_message: 'Welcome to the demo!',
-          primary_color: '#6366f1',
-          position: 'bottom-right',
-          avatar_url: 'icon:glass-orb',
-          avatar_glyph: 'A',
-          show_branding: true,
-          offline_message: 'We are currently offline.',
-          placeholder_text: 'Type your message...',
-          launcher_text: 'Chat with us',
-          launcher_text_enabled: true,
-          business_hours_enabled: false,
-          business_hours: DEFAULT_BUSINESS_HOURS,
-          business_hours_timezone: 'Europe/Oslo',
-          outside_hours_message: null,
-          is_landing_widget: false,
-          landing_widget_enabled: false,
-          quick_replies: ['Show me a demo', 'What can you do?'],
-          greeting_message: 'Welcome!',
-          greeting_subtext: 'Try out our features here.',
-          greeting_enabled: true,
-          },
-      ]
-      setConfigs(mockConfigs)
-      setLoading(false)
-      return
-    }
-
+    // Always try to load from database first
     try {
       const res = await fetch(`/api/chatbot/appearance?workspaceId=${activeWorkspaceId}`)
       if (!res.ok) {
@@ -268,26 +208,29 @@ export default function AppearancePage() {
           }
         }
         setConfigs(withDerivedFields)
+        setLoading(false)
+        return
       }
     } catch (err) {
-      console.error('Failed to load config:', err)
-      // Try to load from localStorage as fallback
-      if (typeof window !== 'undefined' && activeWorkspaceId) {
-        try {
-          // Look for any saved config in localStorage
-          const keys = Object.keys(localStorage).filter(k => k.startsWith('vintra-config-'))
-          if (keys.length > 0) {
-            const savedConfigs = keys.map(k => JSON.parse(localStorage.getItem(k) || '{}'))
-            setConfigs(savedConfigs)
-            toast.info('Loaded config from local storage (offline)')
-            setLoading(false)
-            return
-          }
-        } catch (e) {
-          // Ignore fallback errors
+      console.error('Failed to load config from database:', err)
+    }
+
+    // Fallback: Try to load from localStorage if database fails
+    if (typeof window !== 'undefined' && activeWorkspaceId) {
+      try {
+        const keys = Object.keys(localStorage).filter(k => k.startsWith('vintra-config-'))
+        if (keys.length > 0) {
+          const savedConfigs = keys.map(k => JSON.parse(localStorage.getItem(k) || '{}'))
+          setConfigs(savedConfigs)
+          toast.info('Loaded config from local storage (offline)')
+          setLoading(false)
+          return
         }
+      } catch (e) {
+        // Ignore fallback errors
       }
     }
+
     setLoading(false)
   }
 
