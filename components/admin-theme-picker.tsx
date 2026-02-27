@@ -556,7 +556,7 @@ export default function AdminThemePicker() {
     applyTheme(newTheme)
     localStorage.setItem('admin-theme', JSON.stringify(newTheme))
     localStorage.setItem('admin-theme-preset', preset.name)
-    toast.success(`Tema "${preset.name}" aktivert`)
+    toast.success(`Theme "${preset.name}" activated`)
   }
 
   const applyAnimationPreset = (preset: AnimationPreset) => {
@@ -564,7 +564,7 @@ export default function AdminThemePicker() {
     setCurrentTheme(newTheme)
     injectAnimationCSS(preset.css)
     localStorage.setItem('admin-theme', JSON.stringify(newTheme))
-    toast.success(`Animasjon: ${preset.name}`)
+    toast.success(`Animation: ${preset.name}`)
   }
 
   const handleColorChange = (property: string, color: string) => {
@@ -572,7 +572,7 @@ export default function AdminThemePicker() {
     setCurrentTheme(newTheme)
     applyTheme(newTheme)
     setCustomColors({ ...customColors, [property]: color })
-    setActivePresetName('Egendefinert')
+    setActivePresetName('Custom')
   }
 
   const saveCustomTheme = () => {
@@ -581,7 +581,7 @@ export default function AdminThemePicker() {
     localStorage.setItem('admin-theme', JSON.stringify(finalTheme))
     localStorage.setItem('admin-theme-preset', activePresetName)
     setCustomColors({})
-    toast.success('Egendefinert tema lagret!')
+    toast.success('Custom theme saved!')
   }
 
   const resetToDefault = () => {
@@ -593,7 +593,7 @@ export default function AdminThemePicker() {
     localStorage.removeItem('admin-theme')
     localStorage.removeItem('admin-theme-preset')
     setCustomColors({})
-    toast.success('Tema tilbakestilt til standard')
+    toast.success('Theme reset to default')
   }
 
   const toggleSection = (section: string) => {
@@ -608,7 +608,7 @@ export default function AdminThemePicker() {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Palette className="h-5 w-5 text-muted-foreground" />
-            <CardTitle>Admin Panel Tema</CardTitle>
+            <CardTitle>Admin Panel Theme</CardTitle>
           </div>
           <Badge
             variant="outline"
@@ -619,7 +619,7 @@ export default function AdminThemePicker() {
           </Badge>
         </div>
         <CardDescription>
-          Tilpass farger, animasjoner og utseende på admin-panelet ditt
+          Customize colors, animations, and appearance of your admin panel
         </CardDescription>
       </CardHeader>
 
@@ -629,7 +629,7 @@ export default function AdminThemePicker() {
         <Collapsible open={expandedSections.presets} onOpenChange={() => toggleSection('presets')}>
           <CollapsibleTrigger asChild>
             <Button variant="ghost" className="w-full justify-between font-medium">
-              Fargetemaer
+              Color Themes
               {expandedSections.presets ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
             </Button>
           </CollapsibleTrigger>
@@ -683,7 +683,7 @@ export default function AdminThemePicker() {
           <CollapsibleTrigger asChild>
             <Button variant="ghost" className="w-full justify-between font-medium">
               <span className="flex items-center gap-2">
-                Animasjoner
+                Animations
                 <Badge variant="secondary" className="text-[10px] font-normal">
                   {activeAnimation.emoji} {activeAnimation.name}
                 </Badge>
@@ -693,7 +693,7 @@ export default function AdminThemePicker() {
           </CollapsibleTrigger>
           <CollapsibleContent className="mt-3 space-y-3">
             <p className="text-xs text-muted-foreground px-1">
-              Påvirker alle knapper, lenker, kort og sidefelt-elementer i admin-panelet.
+              Affects all buttons, links, cards, and sidebar elements in the admin panel.
             </p>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
               {ANIMATION_PRESETS.map((preset) => {
@@ -743,17 +743,17 @@ export default function AdminThemePicker() {
         <Collapsible open={expandedSections.primary} onOpenChange={() => toggleSection('primary')}>
           <CollapsibleTrigger asChild>
             <Button variant="ghost" className="w-full justify-between font-medium">
-              Primærfarger
+              Primary Colors
               {expandedSections.primary ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
             </Button>
           </CollapsibleTrigger>
           <CollapsibleContent className="space-y-4 mt-3">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {[
-                { id: 'primary', label: 'Primærfarge', prop: 'primary', placeholder: '#06b6d4' },
-                { id: 'primary-fg', label: 'Tekst på primær', prop: 'primaryForeground', placeholder: '#ffffff' },
-                { id: 'accent', label: 'Aksentfarge', prop: 'accent', placeholder: '#0e7490' },
-                { id: 'foreground', label: 'Global tekst', prop: 'foreground', placeholder: '#f1f5f9' },
+                { id: 'primary', label: 'Primary Color', prop: 'primary', placeholder: '#06b6d4' },
+                { id: 'primary-fg', label: 'Text on Primary', prop: 'primaryForeground', placeholder: '#ffffff' },
+                { id: 'accent', label: 'Accent Color', prop: 'accent', placeholder: '#0e7490' },
+                { id: 'foreground', label: 'Global Text', prop: 'foreground', placeholder: '#f1f5f9' },
               ].map(({ id, label, prop, placeholder }) => (
                 <div key={id} className="space-y-2">
                   <Label htmlFor={id}>{label}</Label>
@@ -777,17 +777,17 @@ export default function AdminThemePicker() {
         <Collapsible open={expandedSections.sidebar} onOpenChange={() => toggleSection('sidebar')}>
           <CollapsibleTrigger asChild>
             <Button variant="ghost" className="w-full justify-between font-medium">
-              Sidefelt-farger
+              Sidebar Colors
               {expandedSections.sidebar ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
             </Button>
           </CollapsibleTrigger>
           <CollapsibleContent className="space-y-4 mt-3">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {[
-                { id: 'sb-bg', label: 'Bakgrunn', prop: 'sidebarBackground' },
-                { id: 'sb-primary', label: 'Aksent / aktiv', prop: 'sidebarPrimary' },
-                { id: 'sb-fg', label: 'Tekst', prop: 'sidebarForeground' },
-                { id: 'sb-border', label: 'Kantlinje', prop: 'sidebarBorder' },
+                { id: 'sb-bg', label: 'Background', prop: 'sidebarBackground' },
+                { id: 'sb-primary', label: 'Accent / Active', prop: 'sidebarPrimary' },
+                { id: 'sb-fg', label: 'Text', prop: 'sidebarForeground' },
+                { id: 'sb-border', label: 'Border', prop: 'sidebarBorder' },
               ].map(({ id, label, prop }) => (
                 <div key={id} className="space-y-2">
                   <Label htmlFor={id}>{label}</Label>

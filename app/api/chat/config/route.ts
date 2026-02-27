@@ -19,15 +19,35 @@ export async function GET(request: NextRequest) {
   try {
     const supabase = createPublicClient()
 
-    // Use SELECT * to get all available columns
+    // Query only existing columns - NEVER use SELECT * (greeting_enabled doesn't exist)
     const { data: rawData, error } = await supabase
       .from('chatbot_configs')
-      .select('*')
+      .select(`
+        id,
+        widget_title,
+        welcome_message,
+        primary_color,
+        position,
+        avatar_url,
+        show_branding,
+        placeholder_text,
+        offline_message,
+        ai_enabled,
+        business_hours_enabled,
+        business_hours,
+        business_hours_timezone,
+        outside_hours_message,
+        greeting_message,
+        greeting_subtext,
+        launcher_text,
+        launcher_text_enabled,
+        quick_replies,
+        admin_id
+      `)
       .eq('id', chatbotId)
       .single()
 
     if (error || !rawData) {
-      // Return a safer error to avoid exposing schema
       console.error('[v0] Config fetch error for chatbot_id:', chatbotId, 'error:', error?.message)
       return NextResponse.json({ error: 'Chatbot not found' }, { status: 404, headers: corsHeaders })
     }
@@ -42,7 +62,7 @@ export async function GET(request: NextRequest) {
     const adminPlan = (adminProfile?.plan as PlanId) || 'starter'
     const planLimits = getPlanLimits(adminPlan)
 
-    // Build response with only safe fields - derive greeting_enabled
+    // Build response - derive greeting_enabled from greeting_message
     const configResponse = {
       id: rawData.id,
       widget_title: rawData.widget_title || 'Chat Support',

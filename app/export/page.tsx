@@ -112,8 +112,8 @@ export default function App() {
               <p className="text-sm mb-3">
                 Create a new file at <code className="bg-muted px-2 py-1 rounded text-xs font-mono">app/chat/page.tsx</code> and paste:
               </p>
-              <div className="relative rounded-lg bg-zinc-900 p-4 overflow-x-auto">
-                <pre className="text-zinc-100 text-xs">
+              <div className="relative rounded-lg bg-muted p-4 overflow-x-auto border border-border">
+                <pre className="text-foreground text-xs font-mono">
                   <code>{nextJsPageTemplate}</code>
                 </pre>
                 <Button
@@ -130,7 +130,7 @@ export default function App() {
                 </Button>
               </div>
             </div>
-            <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-900 rounded-lg p-3">
+            <div className="bg-primary/10 dark:bg-primary/20 border border-primary/30 rounded-lg p-3">
               <p className="text-sm">
                 <span className="font-semibold">Note:</span> You'll also need to copy <code className="bg-muted px-1 py-0.5 rounded text-xs">vintra-chat-embed.tsx</code> to your <code className="bg-muted px-1 py-0.5 rounded text-xs">components</code> folder
               </p>
@@ -155,8 +155,8 @@ export default function App() {
               <p className="text-sm mb-3">
                 Add this script anywhere in your HTML page:
               </p>
-              <div className="relative rounded-lg bg-zinc-900 p-4 overflow-x-auto">
-                <pre className="text-zinc-100 text-xs">
+              <div className="relative rounded-lg bg-muted p-4 overflow-x-auto border border-border">
+                <pre className="text-foreground text-xs font-mono">
                   <code>{htmlSnippet}</code>
                 </pre>
                 <Button
@@ -173,7 +173,7 @@ export default function App() {
                 </Button>
               </div>
             </div>
-            <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900 rounded-lg p-3">
+            <div className="bg-accent/10 dark:bg-accent/20 border border-accent/30 rounded-lg p-3">
               <p className="text-sm">
                 <span className="font-semibold">Note:</span> Replace both instances of <code className="bg-muted px-1 py-0.5 rounded text-xs">YOUR_CHATBOT_ID</code> with your actual ID
               </p>
@@ -190,8 +190,8 @@ export default function App() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="flex items-center gap-2 bg-white dark:bg-zinc-950 p-3 rounded-lg border">
-              <code className="flex-1 font-mono text-sm font-semibold">
+            <div className="flex items-center gap-2 bg-background p-3 rounded-lg border border-border">
+              <code className="flex-1 font-mono text-sm font-semibold text-foreground">
                 YOUR_CHATBOT_ID
               </code>
               <Button
