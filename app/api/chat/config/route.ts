@@ -20,7 +20,6 @@ export async function GET(request: NextRequest) {
     const supabase = createPublicClient()
 
     // Use SELECT * to get all available columns
-    // Filter out greeting_enabled if it exists
     const { data: rawData, error } = await supabase
       .from('chatbot_configs')
       .select('*')
@@ -28,69 +27,43 @@ export async function GET(request: NextRequest) {
       .single()
 
     if (error || !rawData) {
-      console.error('Config fetch error for chatbot_id:', chatbotId, 'error:', error?.message)
+      // Return a safer error to avoid exposing schema
+      console.error('[v0] Config fetch error for chatbot_id:', chatbotId, 'error:', error?.message)
       return NextResponse.json({ error: 'Chatbot not found' }, { status: 404, headers: corsHeaders })
-    }
-
-    // Extract only the fields we need
-    const data = {
-      id: rawData.id,
-      admin_id: rawData.admin_id,
-      widget_title: rawData.widget_title,
-      welcome_message: rawData.welcome_message,
-      primary_color: rawData.primary_color,
-      position: rawData.position,
-      avatar_url: rawData.avatar_url,
-      show_branding: rawData.show_branding,
-      placeholder_text: rawData.placeholder_text,
-      offline_message: rawData.offline_message,
-      ai_enabled: rawData.ai_enabled,
-      business_hours_enabled: rawData.business_hours_enabled,
-      business_hours: rawData.business_hours,
-      business_hours_timezone: rawData.business_hours_timezone,
-      outside_hours_message: rawData.outside_hours_message,
-      greeting_message: rawData.greeting_message,
-      greeting_subtext: rawData.greeting_subtext,
-      launcher_text: rawData.launcher_text,
-      launcher_text_enabled: rawData.launcher_text_enabled,
-      quick_replies: rawData.quick_replies,
     }
 
     // Fetch admin plan to enforce plan-level restrictions
     const { data: adminProfile } = await supabase
       .from('admin_profiles')
       .select('plan')
-      .eq('id', data.admin_id)
+      .eq('id', rawData.admin_id)
       .single()
 
     const adminPlan = (adminProfile?.plan as PlanId) || 'starter'
     const planLimits = getPlanLimits(adminPlan)
 
-    // Enforce plan limits on the config response
+    // Build response with only safe fields - derive greeting_enabled
     const configResponse = {
-      id: data.id,
-      widget_title: data.widget_title,
-      welcome_message: data.welcome_message,
-      primary_color: data.primary_color,
-      position: data.position,
-      avatar_url: data.avatar_url,
-      // Force branding on if plan doesn't allow removal
-      show_branding: planLimits.removeBranding ? data.show_branding : true,
-      placeholder_text: data.placeholder_text,
-      offline_message: data.offline_message,
-      // Disable AI if plan doesn't support it
-      ai_enabled: planLimits.aiEnabled ? data.ai_enabled : false,
-      greeting_message: data.greeting_message,
-      greeting_subtext: data.greeting_subtext,
-      // Derive greeting_enabled from whether greeting_message is set (null/empty = disabled)
-      greeting_enabled: Boolean(data.greeting_message),
-      launcher_text: data.launcher_text,
-      launcher_text_enabled: data.launcher_text_enabled,
-      quick_replies: data.quick_replies || [],
-      business_hours_enabled: data.business_hours_enabled,
-      business_hours: data.business_hours,
-      business_hours_timezone: data.business_hours_timezone,
-      outside_hours_message: data.outside_hours_message,
+      id: rawData.id,
+      widget_title: rawData.widget_title || 'Chat Support',
+      welcome_message: rawData.welcome_message || 'How can we help you?',
+      primary_color: rawData.primary_color || '#3b82f6',
+      position: (rawData.position || 'bottom-right') as 'bottom-right' | 'bottom-left',
+      avatar_url: rawData.avatar_url || null,
+      show_branding: planLimits.removeBranding ? rawData.show_branding : true,
+      placeholder_text: rawData.placeholder_text || 'Type your message...',
+      offline_message: rawData.offline_message || 'We are offline. Leave a message.',
+      ai_enabled: planLimits.aiEnabled ? rawData.ai_enabled : false,
+      greeting_message: rawData.greeting_message || null,
+      greeting_subtext: rawData.greeting_subtext || '',
+      greeting_enabled: Boolean(rawData.greeting_message),
+      launcher_text: rawData.launcher_text || null,
+      launcher_text_enabled: rawData.launcher_text_enabled ?? false,
+      quick_replies: rawData.quick_replies || [],
+      business_hours_enabled: rawData.business_hours_enabled ?? false,
+      business_hours: rawData.business_hours || null,
+      business_hours_timezone: rawData.business_hours_timezone || 'UTC',
+      outside_hours_message: rawData.outside_hours_message || null,
     }
 
     return NextResponse.json(configResponse, {
@@ -102,7 +75,7 @@ export async function GET(request: NextRequest) {
       },
     })
   } catch (error) {
-    console.error('Config API error:', error)
+    console.error('[v0] Config API error:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500, headers: corsHeaders })
   }
 }
