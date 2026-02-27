@@ -974,7 +974,19 @@ export default function AppearancePage() {
           </Card>
         </div>
 
-        {/* Preview */}
+        {/* Chat Interface Preview */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Chat Interface</CardTitle>
+            <CardDescription>
+              Preview how the chat interface looks with your current theme settings.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ChatInterface />
+          </CardContent>
+        </Card>
+
         <Card>
           <CardHeader>
             <CardTitle>Preview</CardTitle>
