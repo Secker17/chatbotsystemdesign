@@ -23,7 +23,7 @@ export async function GET(request: NextRequest) {
     // greeting_enabled is derived from greeting_message being set
     const { data, error } = await supabase
       .from('chatbot_configs')
-      .select('admin_id, widget_title, welcome_message, primary_color, position, avatar_url, show_branding, placeholder_text, offline_message, ai_enabled, business_hours_enabled, business_hours, business_hours_timezone, outside_hours_message, greeting_message, greeting_subtext')
+      .select('admin_id, widget_title, welcome_message, primary_color, position, avatar_url, show_branding, placeholder_text, offline_message, ai_enabled, business_hours_enabled, business_hours, business_hours_timezone, outside_hours_message, greeting_message, greeting_subtext, launcher_text, launcher_text_enabled, quick_replies')
       .eq('id', chatbotId)
       .single()
 
@@ -44,6 +44,7 @@ export async function GET(request: NextRequest) {
 
     // Enforce plan limits on the config response
     const configResponse = {
+      id: data.id,
       widget_title: data.widget_title,
       welcome_message: data.welcome_message,
       primary_color: data.primary_color,
@@ -59,6 +60,9 @@ export async function GET(request: NextRequest) {
       greeting_subtext: data.greeting_subtext,
       // Derive greeting_enabled from whether greeting_message is set (null/empty = disabled)
       greeting_enabled: Boolean(data.greeting_message),
+      launcher_text: data.launcher_text,
+      launcher_text_enabled: data.launcher_text_enabled,
+      quick_replies: data.quick_replies || [],
       business_hours_enabled: data.business_hours_enabled,
       business_hours: data.business_hours,
       business_hours_timezone: data.business_hours_timezone,
