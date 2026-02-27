@@ -48,12 +48,12 @@ interface AnimationPreset {
 const ANIMATION_PRESETS: AnimationPreset[] = [
   {
     id: 'professional',
-    name: 'Profesjonell',
+    name: 'Professional',
     emoji: '🎯',
-    description: 'Rolig og effektiv',
-    detail: 'Subtile overganger – ingenting distraherer deg fra jobben',
+    description: 'Calm and efficient',
+    detail: 'Subtle transitions – nothing distracts you from work',
     css: `
-      /* PROFESJONELL – subtle, fast, business-like */
+      /* PROFESSIONAL – subtle, fast, business-like */
       button, a[role="button"], [data-slot="sidebar-menu-button"] {
         transition: opacity 0.15s ease, background-color 0.15s ease, border-color 0.15s ease !important;
       }
@@ -82,8 +82,8 @@ const ANIMATION_PRESETS: AnimationPreset[] = [
     id: 'smooth',
     name: 'Smooth',
     emoji: '🌊',
-    description: 'Flytende og avslappet',
-    detail: 'Myke ease-out kurver på alt – som smør',
+    description: 'Flowing and relaxed',
+    detail: 'Soft ease-out curves on everything – like butter',
     css: `
       /* SMOOTH – slow ease-out everything */
       *, *::before, *::after {
@@ -116,8 +116,8 @@ const ANIMATION_PRESETS: AnimationPreset[] = [
     id: 'snappy',
     name: 'Snappy',
     emoji: '⚡',
-    description: 'Rask og responsiv',
-    detail: 'Øyeblikkelig feedback – alt reagerer lynraskt',
+    description: 'Fast and responsive',
+    detail: 'Instant feedback – everything reacts instantly',
     css: `
       /* SNAPPY – instant, spring-like */
       button, a[role="button"], [data-slot="sidebar-menu-button"] {
@@ -149,10 +149,10 @@ const ANIMATION_PRESETS: AnimationPreset[] = [
   },
   {
     id: 'bouncy',
-    name: 'Morsom',
+    name: 'Playful',
     emoji: '🎉',
-    description: 'Leken og energisk',
-    detail: 'Spring-animasjoner med bounce – holder humøret oppe',
+    description: 'Playful and energetic',
+    detail: 'Spring animations with bounce – keeps the mood up',
     css: `
       /* BOUNCY – spring physics, playful */
       @keyframes admin-bounce-in {
@@ -196,8 +196,8 @@ const ANIMATION_PRESETS: AnimationPreset[] = [
     id: 'glow',
     name: 'Neon Glow',
     emoji: '✨',
-    description: 'Glød og lyseffekter',
-    detail: 'Primærfarge-glød på hover – perfekt for mørke temaer',
+    description: 'Glow and light effects',
+    detail: 'Primary color glow on hover – perfect for dark themes',
     css: `
       /* GLOW – neon glow effects using currentColor */
       :root {
@@ -241,8 +241,8 @@ const ANIMATION_PRESETS: AnimationPreset[] = [
     id: 'corporate',
     name: 'Corporate',
     emoji: '🏢',
-    description: 'Ingen animasjoner',
-    detail: 'Helt statisk – for den som vil ha full kontroll',
+    description: 'No animations',
+    detail: 'Completely static – for those who want full control',
     css: `
       /* CORPORATE – no animations whatsoever */
       *, *::before, *::after {
