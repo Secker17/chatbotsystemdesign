@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Copy, Check, ExternalLink } from 'lucide-react'
+import { Copy, Check, ExternalLink, Code } from 'lucide-react'
 import Link from 'next/link'
 
 export default function ExportPage() {
@@ -15,6 +15,49 @@ export default function ExportPage() {
     setCopiedIndex(index)
     setTimeout(() => setCopiedIndex(null), 2000)
   }
+
+  const nextJsPageTemplate = `'use client'
+
+import dynamic from 'next/dynamic'
+
+const VintraChatEmbed = dynamic(
+  () => import('@/components/vintra-chat-embed'),
+  { ssr: false }
+)
+
+export default function ChatPage() {
+  return <VintraChatEmbed chatbotId="YOUR_CHATBOT_ID" />
+}`
+
+  const htmlSnippet = `<!-- Add this script to any HTML page -->
+<script>
+  (function() {
+    const chatbotId = 'YOUR_CHATBOT_ID'
+    const apiEndpoint = 'https://chat.vintrastudio.com'
+    
+    // Create container
+    const container = document.createElement('div')
+    container.id = 'vintra-chat-widget'
+    document.body.appendChild(container)
+    
+    // Load iframe
+    const iframe = document.createElement('iframe')
+    iframe.src = \`\${apiEndpoint}/embed/\${chatbotId}\`
+    iframe.style.cssText = \`
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      width: 400px;
+      height: 600px;
+      border: none;
+      border-radius: 12px;
+      box-shadow: 0 5px 40px rgba(0,0,0,0.16);
+      z-index: 999999;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+    \`
+    container.appendChild(iframe)
+  })()
+</script>`
 
   const installationCode = `import VintraChatWidget from '@/components/vintra-chat-widget'
 
@@ -29,240 +72,224 @@ export default function App() {
   )
 }`
 
-  const environmentCode = `// .env.local
-NEXT_PUBLIC_VINTRA_API_ENDPOINT=https://chat.vintrastudio.com
-NEXT_PUBLIC_VINTRA_CHATBOT_ID=your-chatbot-id-here`
-
-  const advancedCode = `<VintraChatWidget
-  chatbotId="your-chatbot-id-here"
-  apiEndpoint="https://your-custom-domain.com"
-/>`
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-background to-muted">
       {/* Header */}
-      <header className="border-b bg-card/80 backdrop-blur-sm">
-        <div className="mx-auto flex max-w-5xl items-center justify-between px-6 py-4">
+      <header className="border-b bg-card/80 backdrop-blur-sm sticky top-0 z-50">
+        <div className="mx-auto max-w-5xl px-6 py-4">
           <Link href="/" className="text-xl font-bold text-foreground">
             Vintra
           </Link>
-          <Badge variant="secondary">Export Setup</Badge>
+          <p className="text-xs text-muted-foreground mt-1">Export & Integration Guide</p>
         </div>
       </header>
 
       {/* Main Content */}
-      <main className="mx-auto max-w-4xl px-6 py-12">
-        <div className="space-y-8">
-          {/* Header Section */}
-          <div className="text-center">
-            <h1 className="text-4xl font-bold text-foreground">Export Your Chat Widget</h1>
-            <p className="mt-3 text-lg text-muted-foreground">
-              Embed your Vintra chatbot on your own website
-            </p>
-          </div>
+      <main className="mx-auto max-w-5xl px-6 py-12">
+        <div className="text-center mb-12">
+          <h1 className="text-4xl font-bold text-foreground">
+            Embed Your Chat Widget
+          </h1>
+          <p className="text-lg text-muted-foreground mt-3">
+            Multiple ways to add your Vintra chatbot to your website
+          </p>
+        </div>
 
-          {/* Quick Start */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <span>🚀</span> Quick Start
-              </CardTitle>
-              <CardDescription>
-                Get your chat widget running in 3 simple steps
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              {/* Step 1 */}
-              <div className="space-y-2">
-                <h3 className="font-semibold text-foreground">Step 1: Copy the Component</h3>
-                <p className="text-sm text-muted-foreground">
-                  Copy the <code className="rounded bg-muted px-1 py-0.5 font-mono">vintra-chat-widget.tsx</code> file from your Vintra project to your own website's components folder.
-                </p>
-              </div>
-
-              {/* Step 2 */}
-              <div className="space-y-2">
-                <h3 className="font-semibold text-foreground">Step 2: Add to Your Layout</h3>
-                <p className="text-sm text-muted-foreground">
-                  Import and add the component to your main layout or page. Your Vintra settings will automatically sync.
-                </p>
-                <div className="relative rounded-lg bg-zinc-900 p-4">
-                  <pre className="overflow-x-auto text-xs text-zinc-100">
-                    <code>{installationCode}</code>
-                  </pre>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="absolute right-2 top-2"
-                    onClick={() => handleCopy(installationCode, 0)}
-                  >
-                    {copiedIndex === 0 ? (
-                      <Check className="h-4 w-4 text-green-500" />
-                    ) : (
-                      <Copy className="h-4 w-4" />
-                    )}
-                  </Button>
-                </div>
-              </div>
-
-              {/* Step 3 */}
-              <div className="space-y-2">
-                <h3 className="font-semibold text-foreground">Step 3: Replace Chatbot ID</h3>
-                <p className="text-sm text-muted-foreground">
-                  Replace <code className="rounded bg-muted px-1 py-0.5 font-mono">YOUR_CHATBOT_ID_HERE</code> with your actual Vintra chatbot ID from the widget preview page.
-                </p>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Features */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <span>✨</span> Features
-              </CardTitle>
-              <CardDescription>
-                Your widget comes with all these features built-in
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <ul className="grid gap-3 sm:grid-cols-2">
-                {[
-                  '🎨 Custom colors from your Vintra settings',
-                  '📍 Configurable position (bottom-right/left)',
-                  '💬 Quick reply buttons',
-                  '👋 Welcome messages & greetings',
-                  '🤖 AI-powered responses',
-                  '⏰ Business hours support',
-                  '📱 Mobile responsive',
-                  '🔗 All settings sync from admin panel',
-                ].map((feature, i) => (
-                  <li key={i} className="flex items-start gap-2 text-sm text-muted-foreground">
-                    <span className="mt-1">•</span>
-                    <span>{feature}</span>
-                  </li>
-                ))}
-              </ul>
-            </CardContent>
-          </Card>
-
-          {/* Environment Variables */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <span>🔧</span> Optional Configuration
-              </CardTitle>
-              <CardDescription>
-                Store your chatbot ID in environment variables for better security
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div>
-                <p className="text-sm font-medium text-foreground mb-2">Add to your .env.local:</p>
-                <div className="relative rounded-lg bg-zinc-900 p-4">
-                  <pre className="overflow-x-auto text-xs text-zinc-100">
-                    <code>{environmentCode}</code>
-                  </pre>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="absolute right-2 top-2"
-                    onClick={() => handleCopy(environmentCode, 1)}
-                  >
-                    {copiedIndex === 1 ? (
-                      <Check className="h-4 w-4 text-green-500" />
-                    ) : (
-                      <Copy className="h-4 w-4" />
-                    )}
-                  </Button>
-                </div>
-              </div>
-
-              <div>
-                <p className="text-sm font-medium text-foreground mb-2">Then use in your component:</p>
-                <div className="relative rounded-lg bg-zinc-900 p-4">
-                  <pre className="overflow-x-auto text-xs text-zinc-100">
-                    <code>{`<VintraChatWidget
-  chatbotId={process.env.NEXT_PUBLIC_VINTRA_CHATBOT_ID || ''}
-  apiEndpoint={process.env.NEXT_PUBLIC_VINTRA_API_ENDPOINT}
-/>`}</code>
-                  </pre>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Advanced Usage */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <span>⚙️</span> Advanced Usage
-              </CardTitle>
-              <CardDescription>
-                Customize the API endpoint for self-hosted solutions
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <p className="text-sm text-muted-foreground">
-                If you're hosting Vintra on your own domain, you can point to your custom endpoint:
+        {/* Option 1: Next.js Page (Easiest) */}
+        <Card className="mb-8 border-primary/50 bg-gradient-to-br from-primary/5 to-transparent">
+          <CardHeader>
+            <Badge className="w-fit mb-2">Recommended for Next.js</Badge>
+            <CardTitle className="flex items-center gap-2">
+              <Code className="h-5 w-5" />
+              Option 1: Next.js Page Template
+            </CardTitle>
+            <CardDescription>
+              Fastest way - copy this as a new page, no components folder needed
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div>
+              <p className="text-sm mb-3">
+                Create a new file at <code className="bg-muted px-2 py-1 rounded text-xs font-mono">app/chat/page.tsx</code> and paste:
               </p>
-              <div className="relative rounded-lg bg-zinc-900 p-4">
-                <pre className="overflow-x-auto text-xs text-zinc-100">
-                  <code>{advancedCode}</code>
+              <div className="relative rounded-lg bg-zinc-900 p-4 overflow-x-auto">
+                <pre className="text-zinc-100 text-xs">
+                  <code>{nextJsPageTemplate}</code>
                 </pre>
                 <Button
                   variant="ghost"
                   size="sm"
                   className="absolute right-2 top-2"
-                  onClick={() => handleCopy(advancedCode, 2)}
+                  onClick={() => handleCopy(nextJsPageTemplate, 0)}
                 >
-                  {copiedIndex === 2 ? (
+                  {copiedIndex === 0 ? (
                     <Check className="h-4 w-4 text-green-500" />
                   ) : (
                     <Copy className="h-4 w-4" />
                   )}
                 </Button>
               </div>
-            </CardContent>
-          </Card>
-
-          {/* Support */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <span>❓</span> Need Help?
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <p className="text-sm text-muted-foreground">
-                All chat widget settings can be changed in your Vintra admin dashboard. Changes sync automatically.
+            </div>
+            <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-900 rounded-lg p-3">
+              <p className="text-sm">
+                <span className="font-semibold">Note:</span> You'll also need to copy <code className="bg-muted px-1 py-0.5 rounded text-xs">vintra-chat-embed.tsx</code> to your <code className="bg-muted px-1 py-0.5 rounded text-xs">components</code> folder
               </p>
-              <div className="flex gap-3">
-                <Button variant="outline" asChild>
-                  <Link href="/admin/appearance">
-                    Appearance Settings
-                    <ExternalLink className="ml-2 h-4 w-4" />
-                  </Link>
-                </Button>
-                <Button variant="outline" asChild>
-                  <Link href="/widget-preview">
-                    Test Preview
-                    <ExternalLink className="ml-2 h-4 w-4" />
-                  </Link>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Option 2: HTML/JavaScript (Universal) */}
+        <Card className="mb-8">
+          <CardHeader>
+            <Badge className="w-fit mb-2">Works Everywhere</Badge>
+            <CardTitle className="flex items-center gap-2">
+              <Code className="h-5 w-5" />
+              Option 2: HTML/JavaScript Embed
+            </CardTitle>
+            <CardDescription>
+              Add to any HTML page - WordPress, static sites, etc.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div>
+              <p className="text-sm mb-3">
+                Add this script anywhere in your HTML page:
+              </p>
+              <div className="relative rounded-lg bg-zinc-900 p-4 overflow-x-auto">
+                <pre className="text-zinc-100 text-xs">
+                  <code>{htmlSnippet}</code>
+                </pre>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="absolute right-2 top-2"
+                  onClick={() => handleCopy(htmlSnippet, 1)}
+                >
+                  {copiedIndex === 1 ? (
+                    <Check className="h-4 w-4 text-green-500" />
+                  ) : (
+                    <Copy className="h-4 w-4" />
+                  )}
                 </Button>
               </div>
-            </CardContent>
-          </Card>
+            </div>
+            <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900 rounded-lg p-3">
+              <p className="text-sm">
+                <span className="font-semibold">Note:</span> Replace both instances of <code className="bg-muted px-1 py-0.5 rounded text-xs">YOUR_CHATBOT_ID</code> with your actual ID
+              </p>
+            </div>
+          </CardContent>
+        </Card>
 
-          {/* Back */}
-          <div className="text-center">
-            <Button variant="outline" asChild>
-              <Link href="/admin">
-                Back to Admin
+        {/* Your Chatbot ID */}
+        <Card className="mb-8 border-primary/50 bg-primary/5">
+          <CardHeader>
+            <CardTitle className="text-base">Your Chatbot ID</CardTitle>
+            <CardDescription>
+              Replace all <code className="bg-muted px-2 py-1 rounded text-xs">YOUR_CHATBOT_ID</code> with this value:
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center gap-2 bg-white dark:bg-zinc-950 p-3 rounded-lg border">
+              <code className="flex-1 font-mono text-sm font-semibold">
+                YOUR_CHATBOT_ID
+              </code>
+              <Button
+                onClick={() => handleCopy('YOUR_CHATBOT_ID', 'id')}
+                size="icon"
+                variant="outline"
+              >
+                {copiedIndex === 'id' ? (
+                  <Check className="h-4 w-4 text-green-500" />
+                ) : (
+                  <Copy className="h-4 w-4" />
+                )}
+              </Button>
+            </div>
+            <p className="text-xs text-muted-foreground mt-3">
+              Find this on your Widget Preview page or in the admin dashboard
+            </p>
+          </CardContent>
+        </Card>
+
+        {/* Features Grid */}
+        <Card className="mb-8">
+          <CardHeader>
+            <CardTitle>Built-in Features</CardTitle>
+            <CardDescription>
+              Your widget automatically includes:
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {[
+                { icon: '🎨', text: 'Custom colors from admin panel' },
+                { icon: '📍', text: 'Configurable position' },
+                { icon: '💬', text: 'Quick reply buttons' },
+                { icon: '👋', text: 'Welcome & greeting messages' },
+                { icon: '🤖', text: 'AI-powered responses' },
+                { icon: '⏰', text: 'Business hours support' },
+                { icon: '📱', text: 'Mobile responsive' },
+                { icon: '🔄', text: 'Auto-syncs with admin settings' },
+              ].map((feature, i) => (
+                <div key={i} className="flex items-center gap-2 text-sm">
+                  <span className="text-lg">{feature.icon}</span>
+                  <span className="text-muted-foreground">{feature.text}</span>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Configuration Guide */}
+        <Card className="mb-8">
+          <CardHeader>
+            <CardTitle>Changing Settings</CardTitle>
+            <CardDescription>
+              No code changes needed - manage everything from admin
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <p className="text-sm font-semibold">To customize your chat widget:</p>
+              <ol className="text-sm text-muted-foreground space-y-2 ml-4 list-decimal">
+                <li>Go to your Vintra Admin Dashboard</li>
+                <li>Click "Appearance" → modify any settings</li>
+                <li>Changes apply instantly to all embedded widgets</li>
+              </ol>
+            </div>
+            <Button asChild variant="outline">
+              <Link href="/admin/appearance">
+                Go to Appearance Settings
+                <ExternalLink className="ml-2 h-4 w-4" />
               </Link>
             </Button>
-          </div>
-        </div>
+          </CardContent>
+        </Card>
+
+        {/* Quick Links */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Quick Links</CardTitle>
+          </CardHeader>
+          <CardContent className="flex flex-wrap gap-2">
+            <Button asChild variant="outline">
+              <Link href="/widget-preview">
+                Widget Preview
+              </Link>
+            </Button>
+            <Button asChild variant="outline">
+              <Link href="/admin">
+                Admin Dashboard
+              </Link>
+            </Button>
+            <Button asChild variant="outline">
+              <Link href="/admin/conversations">
+                View Messages
+              </Link>
+            </Button>
+          </CardContent>
+        </Card>
       </main>
     </div>
   )
