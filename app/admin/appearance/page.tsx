@@ -238,6 +238,7 @@ export default function AppearancePage() {
     try {
       const res = await fetch(`/api/chatbot/appearance?workspaceId=${activeWorkspaceId}`)
       if (!res.ok) {
+        console.error('Failed to fetch configs:', res.statusText)
         setLoading(false)
         return
       }
@@ -251,10 +252,41 @@ export default function AppearancePage() {
           if (!a.is_landing_widget && b.is_landing_widget) return 1
           return 0
         })
-        setConfigs(sorted)
+        // Ensure greeting_enabled is derived from greeting_message
+        const withDerivedFields = sorted.map(c => ({
+          ...c,
+          greeting_enabled: Boolean(c.greeting_message),
+        }))
+        // Save to localStorage as backup
+        if (typeof window !== 'undefined') {
+          try {
+            withDerivedFields.forEach(c => {
+              localStorage.setItem(`vintra-config-${c.id}`, JSON.stringify(c))
+            })
+          } catch (e) {
+            // Ignore localStorage errors
+          }
+        }
+        setConfigs(withDerivedFields)
       }
     } catch (err) {
       console.error('Failed to load config:', err)
+      // Try to load from localStorage as fallback
+      if (typeof window !== 'undefined' && activeWorkspaceId) {
+        try {
+          // Look for any saved config in localStorage
+          const keys = Object.keys(localStorage).filter(k => k.startsWith('vintra-config-'))
+          if (keys.length > 0) {
+            const savedConfigs = keys.map(k => JSON.parse(localStorage.getItem(k) || '{}'))
+            setConfigs(savedConfigs)
+            toast.info('Loaded config from local storage (offline)')
+            setLoading(false)
+            return
+          }
+        } catch (e) {
+          // Ignore fallback errors
+        }
+      }
     }
     setLoading(false)
   }
@@ -277,6 +309,14 @@ export default function AppearancePage() {
         const data = await res.json()
         toast.error(data.error || 'Failed to save appearance settings')
       } else {
+        // Save to localStorage as backup
+        if (typeof window !== 'undefined') {
+          try {
+            localStorage.setItem(`vintra-config-${config.id}`, JSON.stringify(config))
+          } catch (e) {
+            // Ignore localStorage errors
+          }
+        }
         toast.success('Appearance settings saved successfully')
       }
     } catch (err) {
