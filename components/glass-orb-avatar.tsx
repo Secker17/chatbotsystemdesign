@@ -151,7 +151,7 @@ const GlassOrbAvatar: React.FC<GlassOrbAvatarProps> = ({
     const updateDimensions = () => {
       // Ensure minimum size to prevent negative radius errors
       const rawSize = Math.min(container.offsetWidth, container.offsetHeight);
-      sizePx = Math.max(rawSize, 40); // Minimum 40px to ensure positive radii after line width subtraction
+      sizePx = Math.max(50, rawSize); // Minimum 50px to ensure safe calculations
       dpr = clampDpr();
 
       canvas.width = Math.floor(sizePx * dpr);
@@ -164,15 +164,15 @@ const GlassOrbAvatar: React.FC<GlassOrbAvatarProps> = ({
       centerX = sizePx / 2;
       centerY = sizePx / 2;
 
-      orbRadius = sizePx / 2;
+      orbRadius = Math.max(20, sizePx / 2);
 
-      casingOuter = orbRadius * 0.995;
-      casingInner = orbRadius * 0.9;
+      casingOuter = Math.max(2, orbRadius * 0.995);
+      casingInner = Math.max(1, orbRadius * 0.9);
 
-      ringOuter = orbRadius * 0.95;
-      ringInner = orbRadius * 0.5;
+      ringOuter = Math.max(2, orbRadius * 0.95);
+      ringInner = Math.max(1, orbRadius * 0.5);
 
-      centerRadius = ringInner * 0.985;
+      centerRadius = Math.max(1, ringInner * 0.985);
     };
 
     updateDimensions();
@@ -462,37 +462,43 @@ const GlassOrbAvatar: React.FC<GlassOrbAvatarProps> = ({
     // Portal background
     // -----------------------------
     const drawPortalBase = () => {
-      const g = ctx2.createRadialGradient(centerX, centerY, orbRadius * 0.08, centerX, centerY, orbRadius);
+      // Safety check - ensure all radii are positive
+      const safeOrbRadius = Math.max(1, orbRadius);
+      const safeCasingOuter = Math.max(1, casingOuter);
+      const safeCasingInner = Math.max(1, casingInner);
+      const safeCenterRadius = Math.max(1, centerRadius);
+
+      const g = ctx2.createRadialGradient(centerX, centerY, safeOrbRadius * 0.08, centerX, centerY, safeOrbRadius);
       g.addColorStop(0, portal.deep2);
       g.addColorStop(0.55, portal.deep3);
       g.addColorStop(1, portal.deep1);
 
       ctx2.fillStyle = g;
       ctx2.beginPath();
-      ctx2.arc(centerX, centerY, casingOuter, 0, Math.PI * 2);
+      ctx2.arc(centerX, centerY, safeCasingOuter, 0, Math.PI * 2);
       ctx2.fill();
 
       ctx2.save();
-      const cg = ctx2.createRadialGradient(centerX, centerY, casingInner, centerX, centerY, casingOuter);
+      const cg = ctx2.createRadialGradient(centerX, centerY, safeCasingInner, centerX, centerY, safeCasingOuter);
       cg.addColorStop(0, portal.casing2);
       cg.addColorStop(1, portal.casing1);
 
       ctx2.fillStyle = cg;
       ctx2.beginPath();
-      ctx2.arc(centerX, centerY, casingOuter, 0, Math.PI * 2);
-      ctx2.arc(centerX, centerY, casingInner, 0, Math.PI * 2, true);
+      ctx2.arc(centerX, centerY, safeCasingOuter, 0, Math.PI * 2);
+      ctx2.arc(centerX, centerY, safeCasingInner, 0, Math.PI * 2, true);
       ctx2.fill('evenodd');
       ctx2.restore();
 
       ctx2.save();
-      const dg = ctx2.createRadialGradient(centerX, centerY, centerRadius * 0.05, centerX, centerY, centerRadius);
+      const dg = ctx2.createRadialGradient(centerX, centerY, safeCenterRadius * 0.05, centerX, centerY, safeCenterRadius);
       dg.addColorStop(0, portal.deep3);
       dg.addColorStop(0.65, portal.deep2);
       dg.addColorStop(1, portal.deep1);
 
       ctx2.fillStyle = dg;
       ctx2.beginPath();
-      ctx2.arc(centerX, centerY, centerRadius, 0, Math.PI * 2);
+      ctx2.arc(centerX, centerY, safeCenterRadius, 0, Math.PI * 2);
       ctx2.fill();
       ctx2.restore();
 
@@ -501,7 +507,7 @@ const GlassOrbAvatar: React.FC<GlassOrbAvatarProps> = ({
       ctx2.shadowColor = portal.rimGlow;
       ctx2.strokeStyle = portal.rimStroke;
       ctx2.lineWidth = Math.max(2, sizePx / 140);
-      const rimRadius = Math.max(1, casingOuter - ctx2.lineWidth * 0.5);
+      const rimRadius = Math.max(1, safeCasingOuter - ctx2.lineWidth * 0.5);
       ctx2.beginPath();
       ctx2.arc(centerX, centerY, rimRadius, 0, Math.PI * 2);
       ctx2.stroke();
