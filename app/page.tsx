@@ -36,8 +36,8 @@ const FEATURES = [
   },
   {
     icon: Palette,
-    title: 'Glass Orb Avatars',
-    description: 'Stunning animated avatars with particle physics, multiple themes, and interactive hover effects.',
+    title: 'Beautiful Design',
+    description: 'Clean, modern interface with customizable colors and styles to match your brand perfectly.',
   },
   {
     icon: Layers,

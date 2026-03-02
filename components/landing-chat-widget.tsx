@@ -50,7 +50,6 @@ export function LandingChatWidget() {
       <ChatInterface
         chatbotId="demo-chatbot"
         primaryColor="hsl(45, 100%, 60%)"
-        avatarStyle="glass-orb"
         position="bottom-right"
       />
     )
@@ -62,7 +61,6 @@ export function LandingChatWidget() {
     <ChatInterface
       chatbotId={landingConfig.chatbot_id || 'demo-chatbot'}
       primaryColor={cfg.primary_color}
-      avatarStyle="glass-orb"
       position={cfg.position as 'bottom-right' | 'bottom-left'}
       widgetTitle={cfg.widget_title}
       welcomeMessage={cfg.welcome_message}

@@ -80,7 +80,6 @@ const ICON_OPTIONS = [
   { value: 'message', label: 'Message', icon: MessageSquare },
   { value: 'heart', label: 'Heart', icon: Heart },
   { value: 'robot', label: 'Robot', icon: Bot },
-  { value: 'glass-orb', label: 'Glass Orb', icon: Sparkles, animated: true },
 ] as const
 
 type IconMode = 'preset' | 'upload' | 'svg' | 'code'
@@ -1157,9 +1156,6 @@ export default function AppearancePage() {
                           )
                         }
                         const style = getIconStyle(config.avatar_url)
-                        if (style === 'glass-orb') {
-                          return <Sparkles className="h-6 w-6 animate-pulse" />
-                        }
                         const found = ICON_OPTIONS.find(o => o.value === style)
                         const Icon = found ? found.icon : MessageCircle
                         return <Icon className="h-6 w-6" />

@@ -14,8 +14,8 @@ import {
   ThumbsDown,
   RotateCcw,
   ChevronDown,
+  Bot,
 } from 'lucide-react'
-import GlassOrbAvatar from './glass-orb-avatar'
 
 interface Message {
   id: string
@@ -28,7 +28,6 @@ interface Message {
 interface ChatInterfaceProps {
   chatbotId?: string
   primaryColor?: string
-  avatarStyle?: 'default' | 'glass-orb' | 'juleskin'
   position?: 'bottom-right' | 'bottom-left'
   isOpen?: boolean
   onToggle?: () => void
@@ -52,9 +51,8 @@ const DEFAULT_QUICK_REPLIES = [
 export default function ChatInterface({
   chatbotId,
   primaryColor = '#3b82f6',
-  avatarStyle = 'glass-orb',
   position = 'bottom-right',
-  isOpen: controlledIsOpen,
+  controlledIsOpen,
   onToggle,
   widgetTitle = 'Chat Support',
   welcomeMessage = 'Ask me anything about our platform, features, or pricing.',
@@ -381,20 +379,7 @@ export default function ChatInterface({
           style={{ backgroundColor: primaryColor }}
           aria-label="Open chat"
         >
-          {avatarStyle === 'glass-orb' ? (
-            <div className="absolute inset-0 flex items-center justify-center">
-              <GlassOrbAvatar
-                sender="bot"
-                isTyping={isBotTyping}
-                size={56}
-                skin="default"
-                className="scale-90"
-                style={{}}
-              />
-            </div>
-          ) : (
-            <MessageSquare className="h-6 w-6 text-primary-foreground mx-auto" />
-          )}
+          <MessageSquare className="h-6 w-6 text-primary-foreground mx-auto" />
           
           {unreadCount > 0 && (
             <Badge 
@@ -430,18 +415,9 @@ export default function ChatInterface({
             style={{ backgroundColor: primaryColor }}
           >
             <div className="flex items-center gap-3">
-              {avatarStyle === 'glass-orb' && (
-                <div className="relative h-9 w-9">
-                  <GlassOrbAvatar
-                    sender="bot"
-                    isTyping={isBotTyping}
-                    size={36}
-                    skin="default"
-                    style={{}}
-                    className=""
-                  />
-                </div>
-              )}
+              <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary-foreground/20">
+                <Bot className="h-5 w-5 text-primary-foreground" />
+              </div>
               <div>
                 <h3 className="text-sm font-semibold text-primary-foreground">{widgetTitle}</h3>
                 <div className="flex items-center gap-1.5">
@@ -489,15 +465,8 @@ export default function ChatInterface({
                 <div className="flex flex-col gap-3">
                   {messages.length === 0 && (
                     <div className="flex flex-col items-center justify-center py-10 animate-fade-up">
-                      <div className="relative h-16 w-16 mb-4">
-                        <GlassOrbAvatar
-                          sender="bot"
-                          isTyping={false}
-                          size={64}
-                          skin="default"
-                          style={{}}
-                          className=""
-                        />
+                      <div className="flex h-16 w-16 items-center justify-center rounded-full bg-primary/10 mb-4">
+                        <Bot className="h-8 w-8 text-primary" />
                       </div>
                       <div className="flex items-center gap-1.5 mb-1">
                         <Sparkles className="h-4 w-4 text-primary" />
