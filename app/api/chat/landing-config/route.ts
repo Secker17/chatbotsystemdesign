@@ -12,7 +12,7 @@ export async function GET() {
     const { data: fullData, error: fullError } = await supabase
       .from('chatbot_configs')
       .select(
-        'id, widget_title, welcome_message, primary_color, position, avatar_url, show_branding, placeholder_text, ai_enabled, is_landing_widget, landing_widget_enabled, quick_replies, greeting_message, greeting_subtext'
+        'id, widget_title, welcome_message, primary_color, position, avatar_url, show_branding, placeholder_text, ai_enabled, launcher_text, launcher_text_enabled, is_landing_widget, landing_widget_enabled, quick_replies, greeting_message, greeting_subtext'
       )
       .eq('is_landing_widget', true)
       .limit(1)
@@ -24,7 +24,7 @@ export async function GET() {
       // Fallback: columns may not exist yet, try without them
       const { data: fallbackData } = await supabase
         .from('chatbot_configs')
-        .select('id, widget_title, welcome_message, primary_color, position, avatar_url, show_branding, placeholder_text, ai_enabled')
+        .select('id, widget_title, welcome_message, primary_color, position, avatar_url, show_branding, placeholder_text, ai_enabled, launcher_text, launcher_text_enabled')
         .limit(1)
         .single()
 
@@ -61,6 +61,8 @@ export async function GET() {
           show_branding: data.show_branding ?? true,
           placeholder_text: data.placeholder_text ?? 'Type your message...',
           ai_enabled: data.ai_enabled ?? false,
+          launcher_text: data.launcher_text ?? 'Talk to us',
+          launcher_text_enabled: data.launcher_text_enabled ?? true,
           quick_replies: data.quick_replies ?? [],
           greeting_message: data.greeting_message ?? 'Hi there!',
           greeting_subtext: data.greeting_subtext ?? 'How can I help you today?',

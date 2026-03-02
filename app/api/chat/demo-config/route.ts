@@ -44,6 +44,8 @@ export async function GET() {
     position: config.position,
     showBranding: config.show_branding,
     placeholderText: config.placeholder_text,
+    launcherText: config.launcher_text,
+    launcherTextEnabled: config.launcher_text_enabled,
     quickReplies: config.quick_replies,
     greetingMessage: config.greeting_message,
     greetingSubtext: config.greeting_subtext,

@@ -15,7 +15,7 @@ export async function GET(request: NextRequest) {
 
     const { data, error } = await supabase
       .from('chatbot_configs')
-      .select('admin_id, widget_title, welcome_message, primary_color, position, avatar_url, show_branding, placeholder_text, offline_message, ai_enabled, business_hours_enabled, business_hours, business_hours_timezone, outside_hours_message, greeting_message, greeting_subtext')
+      .select('admin_id, widget_title, welcome_message, primary_color, position, avatar_url, show_branding, placeholder_text, offline_message, ai_enabled, launcher_text, launcher_text_enabled, business_hours_enabled, business_hours, business_hours_timezone, outside_hours_message')
       .eq('id', chatbotId)
       .single()
 
@@ -47,8 +47,8 @@ export async function GET(request: NextRequest) {
       offline_message: data.offline_message,
       // Disable AI if plan doesn't support it
       ai_enabled: planLimits.aiEnabled ? data.ai_enabled : false,
-      greeting_message: data.greeting_message,
-      greeting_subtext: data.greeting_subtext,
+      launcher_text: data.launcher_text,
+      launcher_text_enabled: data.launcher_text_enabled,
       business_hours_enabled: data.business_hours_enabled,
       business_hours: data.business_hours,
       business_hours_timezone: data.business_hours_timezone,
