@@ -518,14 +518,17 @@ const GlassOrbAvatar: React.FC<GlassOrbAvatarProps> = ({
     const clipRing = () => {
       ctx2.save();
       ctx2.beginPath();
-      ctx2.arc(centerX, centerY, ringOuter, 0, Math.PI * 2);
-      ctx2.arc(centerX, centerY, ringInner, 0, Math.PI * 2, true);
+      const safeRingOuter = Math.max(1, ringOuter);
+      const safeRingInner = Math.max(1, ringInner);
+      ctx2.arc(centerX, centerY, safeRingOuter, 0, Math.PI * 2);
+      ctx2.arc(centerX, centerY, safeRingInner, 0, Math.PI * 2, true);
       ctx2.clip('evenodd');
     };
     const clipOrb = () => {
       ctx2.save();
       ctx2.beginPath();
-      ctx2.arc(centerX, centerY, casingOuter, 0, Math.PI * 2);
+      const safeCasingOuter = Math.max(1, casingOuter);
+      ctx2.arc(centerX, centerY, safeCasingOuter, 0, Math.PI * 2);
       ctx2.clip();
     };
     const unclip = () => ctx2.restore();
