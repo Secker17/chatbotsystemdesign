@@ -177,7 +177,7 @@ export default function WidgetPreviewPage() {
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <pre className="overflow-x-auto rounded-md bg-zinc-900 p-4 text-xs text-zinc-100">
+                  <pre className="overflow-x-auto rounded-md bg-muted p-4 text-xs text-foreground border border-border font-mono">
                     <code>{`<script
   src="${typeof window !== 'undefined' ? window.location.origin : ''}/api/widget.js"
   data-chatbot-id="${chatbotId}"

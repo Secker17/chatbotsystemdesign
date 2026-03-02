@@ -963,20 +963,8 @@ export default function AppearancePage() {
           </Card>
         </div>
 
-        {/* Chat Interface Preview */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Chat Interface</CardTitle>
-            <CardDescription>
-              Preview how the chat interface looks with your current theme settings.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <ChatInterface />
-          </CardContent>
-        </Card>
 
-        <Card>
+        {/* Chat Interface Preview - Removed, using single preview below */}
           <CardHeader>
             <CardTitle>Preview</CardTitle>
             <CardDescription>
