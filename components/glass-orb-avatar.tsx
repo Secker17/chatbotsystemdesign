@@ -153,28 +153,28 @@ const GlassOrbAvatar: React.FC<GlassOrbAvatarProps> = ({
     const clampDpr = () => Math.min(window.devicePixelRatio || 1, 1.35);
  
     const updateDimensions = () => {
-      sizePx = Math.min(container.offsetWidth, container.offsetHeight);
+      sizePx = Math.max(40, Math.min(container.offsetWidth, container.offsetHeight));
       dpr = clampDpr();
- 
+
       canvas.width = Math.floor(sizePx * dpr);
       canvas.height = Math.floor(sizePx * dpr);
       canvas.style.width = `${sizePx}px`;
       canvas.style.height = `${sizePx}px`;
- 
+
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
- 
+
       centerX = sizePx / 2;
       centerY = sizePx / 2;
- 
-      orbRadius = sizePx / 2;
- 
-      casingOuter = orbRadius * 0.995;
-      casingInner = orbRadius * 0.9;
- 
-      ringOuter = orbRadius * 0.95;
-      ringInner = orbRadius * 0.5;
- 
-      centerRadius = ringInner * 0.985;
+
+      orbRadius = Math.max(20, sizePx / 2);
+
+      casingOuter = Math.max(2, orbRadius * 0.995);
+      casingInner = Math.max(1, orbRadius * 0.9);
+
+      ringOuter = Math.max(2, orbRadius * 0.95);
+      ringInner = Math.max(1, orbRadius * 0.5);
+
+      centerRadius = Math.max(1, ringInner * 0.985);
     };
  
     updateDimensions();
