@@ -27,16 +27,27 @@
   // Load configuration
   async function loadConfig() {
     try {
+      console.log('[v0-widget] Loading config for chatbot:', chatbotId);
       const response = await fetch(`/api/widget/config?chatbotId=${chatbotId}`);
+      
       if (!response.ok) {
-        throw new Error('Failed to load configuration');
+        const errorText = await response.text();
+        console.error('[v0-widget] Config load failed:', response.status, errorText);
+        throw new Error(`Failed to load configuration: ${response.status}`);
       }
+      
       const data = await response.json();
+      console.log('[v0-widget] Config loaded successfully:', data);
       config = data.config;
+      
+      if (!config) {
+        throw new Error('No config returned from API');
+      }
+      
       initializeWidget();
     } catch (error) {
-      console.error('VintraStudio Widget: Failed to load config', error);
-      showError('Failed to load chat widget');
+      console.error('[v0-widget] Failed to load config', error);
+      showError('Failed to load chat widget: ' + (error?.message || 'Unknown error'));
     }
   }
 
@@ -228,6 +239,7 @@
 
       // Send to API
       try {
+        console.log('[v0-widget] Sending message:', message);
         const response = await fetch('/api/widget', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -241,6 +253,7 @@
 
         if (response.ok) {
           const data = await response.json();
+          console.log('[v0-widget] Message sent successfully, response:', data);
           
           // Add bot response
           const botMsg = document.createElement('div');
@@ -258,9 +271,19 @@
             message,
             response: data.response
           }, '*');
+        } else {
+          const errorText = await response.text();
+          console.error('[v0-widget] Message send failed:', response.status, errorText);
+          
+          // Add error message
+          const errorMsg = document.createElement('div');
+          errorMsg.className = 'vintra-error-message';
+          errorMsg.style.cssText = 'background: #fef2f2; color: #dc2626; padding: 8px 12px; border-radius: 12px; margin: 8px 0; max-width: 80%;';
+          errorMsg.textContent = 'Sorry, there was an error sending your message.';
+          messages.appendChild(errorMsg);
         }
       } catch (error) {
-        console.error('Failed to send message:', error);
+        console.error('[v0-widget] Message send error:', error);
         
         // Add error message
         const errorMsg = document.createElement('div');
