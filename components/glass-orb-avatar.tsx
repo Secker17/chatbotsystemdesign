@@ -501,7 +501,7 @@ const GlassOrbAvatar: React.FC<GlassOrbAvatarProps> = ({
       ctx2.shadowColor = portal.rimGlow;
       ctx2.strokeStyle = portal.rimStroke;
       ctx2.lineWidth = Math.max(2, sizePx / 140);
-      const rimRadius = Math.max(0, casingOuter - ctx2.lineWidth * 0.5);
+      const rimRadius = Math.max(1, casingOuter - ctx2.lineWidth * 0.5);
       ctx2.beginPath();
       ctx2.arc(centerX, centerY, rimRadius, 0, Math.PI * 2);
       ctx2.stroke();
