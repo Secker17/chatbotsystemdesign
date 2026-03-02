@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/client'
+import { createPublicClient } from '@/lib/supabase/public'
 
 // Force dynamic to avoid build-time processing
 export const dynamic = 'force-dynamic'
@@ -38,7 +38,7 @@ export async function GET(request: Request) {
         }
       })
     } catch (fileError) {
-      console.error('Failed to read widget script:', fileError)
+      console.error('[v0] Failed to read widget script:', fileError)
       return NextResponse.json(
         { error: 'Widget script not found' },
         { status: 500, headers: CORS_HEADERS }
@@ -46,7 +46,7 @@ export async function GET(request: Request) {
     }
 
   } catch (error) {
-    console.error('Widget GET error:', error)
+    console.error('[v0] Widget GET error:', error)
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500, headers: CORS_HEADERS }
@@ -60,93 +60,49 @@ export async function POST(request: Request) {
     const { chatbotId, userId, message, sessionId } = body
     
     if (!chatbotId || !message) {
+      console.error('[v0] Widget POST: Missing chatbotId or message')
       return NextResponse.json(
         { error: 'Missing chatbotId or message' },
         { status: 400, headers: CORS_HEADERS }
       )
     }
 
-    const supabase = createClient()
+    const supabase = createPublicClient()
     
-    // Get chatbot configuration
+    // Get chatbot configuration from chatbot_configs table
     const { data: chatbot, error: chatbotError } = await supabase
-      .from('chatbots')
+      .from('chatbot_configs')
       .select('*')
       .eq('id', chatbotId)
       .single()
 
     if (chatbotError || !chatbot) {
+      console.error('[v0] Widget POST: Chatbot not found:', chatbotId, chatbotError?.message)
       return NextResponse.json(
         { error: 'Chatbot not found' },
         { status: 404, headers: CORS_HEADERS }
       )
     }
 
-    // Create or update chat session
-    let currentSessionId = sessionId
-    if (!currentSessionId && userId) {
-      const { data: existingSession } = await supabase
-        .from('chat_sessions')
-        .select('id')
-        .eq('chatbot_id', chatbotId)
-        .eq('user_id', userId)
-        .is('ended_at', null)
-        .single()
-
-      if (existingSession) {
-        currentSessionId = existingSession.id
-      } else {
-        const { data: newSession } = await supabase
-          .from('chat_sessions')
-          .insert({
-            chatbot_id: chatbotId,
-            user_id: userId,
-            started_at: new Date().toISOString()
-          })
-          .select('id')
-          .single()
-
-        currentSessionId = newSession?.id
-      }
-    }
-
-    // Store user message
-    if (currentSessionId) {
-      await supabase
-        .from('chat_messages')
-        .insert({
-          session_id: currentSessionId,
-          sender: 'user',
-          content: message,
-          timestamp: new Date().toISOString()
-        })
-    }
-
-    // Generate bot response (simplified for now)
-    let botResponse = chatbot.welcome_message || 'Thank you for your message!'
+    // For now, just return a simple response
+    // In a real implementation, this would call AI service or store message
+    const botResponse = chatbot.welcome_message || 'Thank you for your message! I received your message.'
     
-    if (message.toLowerCase().includes('help')) {
-      botResponse = 'I\'m here to help! What do you need assistance with?'
-    } else if (message.toLowerCase().includes('hello')) {
-      botResponse = 'Hello! How can I assist you today?'
-    }
-
-    // Store bot message
-    if (currentSessionId) {
-      await supabase
-        .from('chat_messages')
-        .insert({
-          session_id: currentSessionId,
-          sender: 'bot',
-          content: botResponse,
-          timestamp: new Date().toISOString()
-        })
-    }
+    console.log('[v0] Widget POST: Message received from user:', message)
 
     return NextResponse.json({
       response: botResponse,
-      sessionId: currentSessionId
+      sessionId: sessionId || 'session_' + Date.now()
     }, { headers: CORS_HEADERS })
+
+  } catch (error) {
+    console.error('[v0] Widget POST error:', error)
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500, headers: CORS_HEADERS }
+    )
+  }
+}
 
   } catch (error) {
     console.error('Widget POST error:', error)
@@ -158,5 +114,10 @@ export async function POST(request: Request) {
 }
 
 export async function OPTIONS() {
+  return new Response(null, {
+    status: 200,
+    headers: CORS_HEADERS,
+  })
+}
   return new Response(null, { headers: CORS_HEADERS })
 }
