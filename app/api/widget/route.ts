@@ -104,20 +104,9 @@ export async function POST(request: Request) {
   }
 }
 
-  } catch (error) {
-    console.error('Widget POST error:', error)
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500, headers: CORS_HEADERS }
-    )
-  }
-}
-
 export async function OPTIONS() {
   return new Response(null, {
     status: 200,
     headers: CORS_HEADERS,
   })
-}
-  return new Response(null, { headers: CORS_HEADERS })
 }
