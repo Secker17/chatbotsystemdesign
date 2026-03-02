@@ -1,427 +1,2124 @@
-// VintraStudio Widget Script - Simplified Version
-// This script loads configuration and initializes the chat widget
-
 (function() {
   'use strict';
-
-  // Get configuration from script tag or data attributes
-  const script = document.currentScript;
-  const chatbotId = script?.getAttribute('data-chatbot-id') || 
-                   script?.getAttribute('chatbot-id') || 
-                   new URLSearchParams(window.location.search).get('chatbotId');
   
-  const userId = script?.getAttribute('data-user-id') || 
-                script?.getAttribute('user-id') || 
-                new URLSearchParams(window.location.search).get('userId');
-
+  // Configuration
+  const scriptTag = document.currentScript || document.querySelector('script[data-chatbot-id]');
+  const chatbotId = scriptTag ? scriptTag.getAttribute('data-chatbot-id') : null;
+  
   if (!chatbotId) {
-    console.error('VintraStudio Widget: Chatbot ID is required');
+    console.error('VintraStudio: Missing data-chatbot-id attribute');
     return;
   }
-
-  // Widget state
+  
+  // Extract the base URL from the script src
+  let API_BASE = '';
+  try {
+    const url = new URL(scriptTag.src);
+    API_BASE = url.origin;
+  } catch (e) {
+    API_BASE = window.location.origin;
+  }
+  
+  // Styles
+  const styles = `
+    .vintra-widget-container {
+      position: fixed;
+      bottom: 20px;
+      right: 32px;
+      z-index: 999999;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    }
+    .vintra-widget-container.position-left {
+      right: auto;
+      left: 32px;
+    }
+    .vintra-launcher {
+      width: 60px;
+      height: 60px;
+      border-radius: 50%;
+      border: none;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+      transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.3s;
+      position: relative;
+    }
+    .vintra-launcher:hover {
+      transform: scale(1.08);
+      box-shadow: 0 6px 25px rgba(0, 0, 0, 0.2);
+    }
+    .vintra-launcher svg {
+      width: 28px;
+      height: 28px;
+      fill: white;
+      transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.2s;
+    }
+    .vintra-launcher .vintra-icon-open { opacity: 1; transform: scale(1) rotate(0deg); }
+    .vintra-launcher .vintra-icon-close { position: absolute; opacity: 0; transform: scale(0.5) rotate(-90deg); }
+    .vintra-launcher.is-open .vintra-icon-open { opacity: 0; transform: scale(0.5) rotate(90deg); }
+    .vintra-launcher.is-open .vintra-icon-close { opacity: 1; transform: scale(1) rotate(0deg); }
+    .vintra-unread-badge {
+      position: absolute;
+      top: -6px;
+      right: -6px;
+      min-width: 22px;
+      height: 22px;
+      padding: 0 6px;
+      background: #ef4444;
+      border-radius: 11px;
+      color: white;
+      font-size: 11px;
+      font-weight: 700;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      border: 2.5px solid white;
+      z-index: 999999;
+      box-shadow: 0 2px 12px rgba(239, 68, 68, 0.5), 0 0 0 2px rgba(239, 68, 68, 0.15);
+      animation: vintraBadgePop 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+      pointer-events: none;
+    }
+    .vintra-unread-badge.show {
+      display: flex;
+    }
+    @keyframes vintraBadgePop {
+      0% { transform: scale(0); }
+      100% { transform: scale(1); }
+    }
+    .vintra-launcher-row {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      position: relative;
+    }
+    .vintra-widget-container.position-left .vintra-launcher-row {
+      align-items: flex-start;
+    }
+    .vintra-launcher-wrapper {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .vintra-greeting-bubble {
+      position: absolute;
+      bottom: 70px;
+      right: 0;
+      max-width: 240px;
+      display: none;
+      z-index: 10;
+    }
+    .vintra-greeting-bubble.show {
+      display: block;
+      animation: vintraGreetingIn 0.4s ease;
+    }
+    .vintra-greeting-inner {
+      position: relative;
+      background: #fff;
+      border: 1px solid rgba(0,0,0,0.08);
+      border-radius: 14px;
+      padding: 10px 14px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    }
+    .vintra-greeting-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: #111;
+      margin: 0;
+    }
+    .vintra-greeting-sub {
+      font-size: 11px;
+      color: #666;
+      margin: 2px 0 0;
+    }
+    .vintra-greeting-tail {
+      position: absolute;
+      bottom: -6px;
+      right: 16px;
+      width: 12px;
+      height: 12px;
+      background: #fff;
+      border-bottom: 1px solid rgba(0,0,0,0.08);
+      border-right: 1px solid rgba(0,0,0,0.08);
+      transform: rotate(45deg);
+    }
+    .vintra-greeting-close {
+      position: absolute;
+      top: -6px;
+      right: -6px;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: #e5e5e5;
+      border: none;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 10px;
+      color: #666;
+      line-height: 1;
+      padding: 0;
+    }
+    .vintra-greeting-close:hover { background: #d4d4d4; }
+    @keyframes vintraGreetingIn {
+      from { opacity: 0; transform: translateY(8px) scale(0.95); }
+      to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+    .vintra-offline-overlay {
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      flex: 1;
+      padding: 32px 20px;
+      text-align: center;
+    }
+    .vintra-offline-overlay.show {
+      display: flex;
+    }
+    .vintra-offline-overlay .vintra-offline-icon {
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      background: #f3f4f6;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .vintra-offline-overlay .vintra-offline-icon svg {
+      width: 24px;
+      height: 24px;
+      fill: #9ca3af;
+    }
+    .vintra-offline-overlay h3 {
+      margin: 0;
+      font-size: 16px;
+      font-weight: 600;
+      color: #374151;
+    }
+    .vintra-offline-overlay p {
+      margin: 0;
+      font-size: 14px;
+      color: #6b7280;
+      line-height: 1.5;
+    }
+    .vintra-chat-window {
+      position: absolute;
+      bottom: 80px;
+      right: 0;
+      width: 400px;
+      max-width: calc(100vw - 40px);
+      height: 560px;
+      max-height: calc(100vh - 120px);
+      background: #fff;
+      border-radius: 16px;
+      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      opacity: 0;
+      transform: translateY(16px) scale(0.96);
+      pointer-events: none;
+      transition: opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1), transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+    .vintra-widget-container.position-left .vintra-chat-window {
+      right: auto;
+      left: 0;
+    }
+    .vintra-chat-window.open {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+      pointer-events: auto;
+    }
+    .vintra-header {
+      padding: 16px 20px;
+      color: white;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-shrink: 0;
+    }
+    .vintra-header-avatar {
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.2);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      overflow: hidden;
+      position: relative;
+    }
+    .vintra-header-avatar svg {
+      width: 24px;
+      height: 24px;
+      fill: white;
+    }
+    .vintra-header-avatar img {
+      width: 26px;
+      height: 26px;
+      object-fit: contain;
+      filter: brightness(0) invert(1);
+    }
+    .vintra-header-avatar iframe {
+      width: 100%;
+      height: 100%;
+      border: none;
+      border-radius: 50%;
+      pointer-events: none;
+      position: absolute;
+      inset: 0;
+    }
+    .vintra-header-avatar canvas {
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+      position: absolute;
+      inset: 0;
+    }
+    .vintra-header-info h4 {
+      margin: 0;
+      font-size: 16px;
+      font-weight: 600;
+    }
+    .vintra-header-info p {
+      margin: 2px 0 0;
+      font-size: 12px;
+      opacity: 0.85;
+    }
+    .vintra-header-status {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+    .vintra-status-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: #4ade80;
+      animation: vintraPulse 2s infinite;
+    }
+    .vintra-status-dot.ai {
+      background: #a78bfa;
+    }
+    .vintra-status-dot.waiting {
+      background: #fbbf24;
+      animation: none;
+    }
+    @keyframes vintraPulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+    .vintra-close {
+      margin-left: auto;
+      background: rgba(255, 255, 255, 0.2);
+      border: none;
+      color: white;
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.2s;
+      flex-shrink: 0;
+    }
+    .vintra-close:hover {
+      background: rgba(255, 255, 255, 0.3);
+    }
+    .vintra-messages {
+      flex: 1;
+      overflow-y: auto;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .vintra-message {
+      max-width: 100%;
+      min-width: 40px;
+      padding: 10px 14px;
+      border-radius: 16px;
+      font-size: 14px;
+      line-height: 1.5;
+      word-wrap: break-word;
+      overflow-wrap: break-word;
+      white-space: pre-wrap;
+    }
+    .vintra-message.bot {
+      background: #f0f0f0;
+      color: #333;
+      align-self: flex-start;
+      border-bottom-left-radius: 4px;
+    }
+    .vintra-message.visitor {
+      color: white;
+      align-self: flex-end;
+      border-bottom-right-radius: 4px;
+    }
+    .vintra-message.admin {
+      background: #e8f5e9;
+      color: #333;
+      align-self: flex-start;
+      border-bottom-left-radius: 4px;
+    }
+    .vintra-message.system {
+      align-self: center;
+      background: transparent;
+      color: #888;
+      font-size: 12px;
+      text-align: center;
+      padding: 8px 16px;
+      max-width: 100%;
+    }
+    .vintra-msg-label {
+      font-size: 11px;
+      color: #999;
+      margin-bottom: 2px;
+      margin-left: 36px;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .vintra-msg-label.right {
+      justify-content: flex-end;
+      margin-left: 0;
+      margin-right: 0;
+    }
+    .vintra-msg-label svg {
+      width: 12px;
+      height: 12px;
+    }
+    .vintra-msg-group {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .vintra-msg-group.visitor {
+      align-items: flex-end;
+    }
+    .vintra-msg-group.bot, .vintra-msg-group.admin {
+      align-items: flex-start;
+    }
+    .vintra-msg-row {
+      display: flex;
+      align-items: flex-end;
+      gap: 8px;
+      max-width: 85%;
+    }
+    .vintra-msg-row.visitor {
+      flex-direction: row-reverse;
+      margin-left: auto;
+    }
+    .vintra-msg-avatar {
+      width: 28px;
+      height: 28px;
+      min-width: 28px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      position: relative;
+      flex-shrink: 0;
+    }
+    .vintra-msg-avatar svg {
+      width: 16px;
+      height: 16px;
+      fill: white;
+    }
+    .vintra-msg-avatar img {
+      width: 18px;
+      height: 18px;
+      object-fit: contain;
+      filter: brightness(0) invert(1);
+    }
+    .vintra-msg-avatar iframe {
+      width: 100%;
+      height: 100%;
+      border: none;
+      border-radius: 50%;
+      pointer-events: none;
+      position: absolute;
+      inset: 0;
+    }
+    .vintra-msg-avatar canvas {
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+      position: absolute;
+      inset: 0;
+    }
+    .vintra-typing {
+      display: none;
+      align-self: flex-start;
+      margin-top: 4px;
+      align-items: flex-end;
+      gap: 8px;
+      margin-left: 0;
+    }
+    .vintra-typing.show {
+      display: flex;
+    }
+    .vintra-typing-bubble {
+      padding: 12px 16px;
+      background: #f0f0f0;
+      border-radius: 16px;
+      border-bottom-left-radius: 4px;
+    }
+    .vintra-typing-label {
+      font-size: 10px;
+      color: #999;
+      margin-bottom: 4px;
+    }
+    .vintra-typing-dots {
+      display: flex;
+      gap: 4px;
+    }
+    .vintra-typing-dots span {
+      width: 7px;
+      height: 7px;
+      background: #999;
+      border-radius: 50%;
+      animation: vintraBounce 1.4s infinite ease-in-out both;
+    }
+    .vintra-typing-dots span:nth-child(1) { animation-delay: -0.32s; }
+    .vintra-typing-dots span:nth-child(2) { animation-delay: -0.16s; }
+    @keyframes vintraBounce {
+      0%, 80%, 100% { transform: scale(0); }
+      40% { transform: scale(1); }
+    }
+    .vintra-human-typing {
+      display: none;
+      align-self: flex-start;
+      margin-top: 4px;
+      align-items: flex-end;
+      gap: 8px;
+    }
+    .vintra-human-typing.show {
+      display: flex;
+    }
+    .vintra-human-typing .vintra-typing-bubble {
+      background: #e8f5e9;
+    }
+    .vintra-human-typing .vintra-typing-label {
+      color: #4caf50;
+    }
+    .vintra-human-typing .vintra-typing-dots span {
+      background: #4caf50;
+    }
+    .vintra-input-area {
+      padding: 12px 16px;
+      border-top: 1px solid #eee;
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      flex-shrink: 0;
+    }
+    .vintra-input {
+      flex: 1;
+      border: 1px solid #ddd;
+      border-radius: 24px;
+      padding: 10px 16px;
+      font-size: 14px;
+      outline: none;
+      transition: border-color 0.2s;
+      font-family: inherit;
+    }
+    .vintra-input:focus {
+      border-color: var(--vintra-primary, #14b8a6);
+    }
+    .vintra-send {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      border: none;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: opacity 0.2s;
+      flex-shrink: 0;
+    }
+    .vintra-send:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+    .vintra-send svg {
+      width: 18px;
+      height: 18px;
+      fill: white;
+    }
+    .vintra-branding {
+      text-align: center;
+      padding: 8px;
+      font-size: 11px;
+      color: #999;
+      flex-shrink: 0;
+    }
+    .vintra-branding a {
+      color: #666;
+      text-decoration: none;
+    }
+    .vintra-branding a:hover {
+      text-decoration: underline;
+    }
+    .vintra-pre-chat {
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      flex: 1;
+    }
+    .vintra-pre-chat.hidden {
+      display: none;
+    }
+    .vintra-pre-chat h3 {
+      margin: 0;
+      font-size: 18px;
+      color: #333;
+    }
+    .vintra-pre-chat p {
+      margin: 0;
+      font-size: 14px;
+      color: #666;
+    }
+    .vintra-pre-chat input {
+      padding: 12px 16px;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      font-size: 14px;
+      outline: none;
+      font-family: inherit;
+    }
+    .vintra-pre-chat input:focus {
+      border-color: var(--vintra-primary, #14b8a6);
+    }
+    .vintra-pre-chat button {
+      padding: 12px 24px;
+      border: none;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 500;
+      color: white;
+      cursor: pointer;
+      transition: opacity 0.2s;
+      font-family: inherit;
+    }
+    .vintra-pre-chat button:hover {
+      opacity: 0.9;
+    }
+    .vintra-handoff-banner {
+      display: none;
+      padding: 10px 16px;
+      background: #fef3c7;
+      border-bottom: 1px solid #fde68a;
+      text-align: center;
+      font-size: 13px;
+      color: #92400e;
+      flex-shrink: 0;
+    }
+    .vintra-handoff-banner.show {
+      display: block;
+    }
+    .vintra-handoff-btn {
+      display: none;
+      margin: 0 16px 8px;
+      padding: 10px 16px;
+      background: transparent;
+      border: 1px dashed #ccc;
+      border-radius: 12px;
+      color: #666;
+      font-size: 13px;
+      cursor: pointer;
+      text-align: center;
+      transition: all 0.2s;
+      font-family: inherit;
+      flex-shrink: 0;
+    }
+    .vintra-handoff-btn:hover {
+      border-color: #999;
+      color: #333;
+      background: #f9f9f9;
+    }
+    .vintra-handoff-btn.show {
+      display: block;
+    }
+    .vintra-quick-actions {
+      display: none;
+      padding: 0 16px 8px;
+      flex-wrap: wrap;
+      gap: 6px;
+      flex-shrink: 0;
+    }
+    .vintra-quick-actions.show {
+      display: flex;
+    }
+    .vintra-quick-action {
+      padding: 6px 12px;
+      border: 1px solid #e0e0e0;
+      border-radius: 16px;
+      background: #fff;
+      font-size: 12px;
+      color: #555;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-family: inherit;
+    }
+    .vintra-quick-action:hover {
+      border-color: var(--vintra-primary, #14b8a6);
+      color: var(--vintra-primary, #14b8a6);
+      background: #f0fdf4;
+    }
+    @media (max-width: 480px) {
+      .vintra-chat-window {
+        width: calc(100vw - 20px);
+        height: calc(100vh - 100px);
+        bottom: 70px;
+        right: 10px;
+        border-radius: 12px;
+      }
+      .vintra-widget-container.position-left .vintra-chat-window {
+        left: 10px;
+      }
+    }
+  `;
+  
+  // Inject styles
+  const styleSheet = document.createElement('style');
+  styleSheet.textContent = styles;
+  document.head.appendChild(styleSheet);
+  
+  // Session persistence helpers
+  const STORAGE_KEY = 'vintra_session_' + chatbotId;
+  
+  function saveSession() {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({
+        sessionId,
+        visitorName,
+        visitorEmail,
+        hasStartedChat,
+        isBotActive,
+        isWaitingForHuman,
+        savedAt: Date.now(),
+      }));
+    } catch(e) {}
+  }
+  
+  function loadSavedSession() {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) return null;
+      const data = JSON.parse(raw);
+      // Expire sessions after 24 hours
+      if (data.savedAt && (Date.now() - data.savedAt) > 24 * 60 * 60 * 1000) {
+        localStorage.removeItem(STORAGE_KEY);
+        return null;
+      }
+      return data;
+    } catch(e) { return null; }
+  }
+  
+  function clearSavedSession() {
+    try { localStorage.removeItem(STORAGE_KEY); } catch(e) {}
+  }
+  
+  // State
   let config = null;
-  let widgetContainer = null;
-  let isInitialized = false;
-
-  // Load configuration
-  async function loadConfig() {
-    try {
-      console.log('[v0-widget] Loading config for chatbot:', chatbotId);
-      const response = await fetch(`/api/widget/config?chatbotId=${chatbotId}`);
-      
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('[v0-widget] Config load failed:', response.status, errorText);
-        throw new Error(`Failed to load configuration: ${response.status}`);
-      }
-      
-      const data = await response.json();
-      console.log('[v0-widget] Config loaded successfully:', data);
-      config = data.config;
-      
-      if (!config) {
-        throw new Error('No config returned from API');
-      }
-      
-      initializeWidget();
-    } catch (error) {
-      console.error('[v0-widget] Failed to load config', error);
-      showError('Failed to load chat widget: ' + (error?.message || 'Unknown error'));
-    }
+  let sessionId = null;
+  let visitorName = '';
+  let visitorEmail = '';
+  let isOpen = false;
+  let hasStartedChat = false;
+  let isBotActive = false;
+  let isWaitingForHuman = false;
+  let isSending = false;
+  let unreadCount = 0;
+  let isOffline = false;
+  let humanTypingTimeout = null;
+  
+  // Icon SVGs for different launcher styles
+  const launcherIcons = {
+    chat: '<svg viewBox="0 0 24 24"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H6l-2 2V4h16v12z"/></svg>',
+    headset: '<svg viewBox="0 0 24 24"><path d="M12 1c-4.97 0-9 4.03-9 9v7c0 1.66 1.34 3 3 3h3v-8H5v-2c0-3.87 3.13-7 7-7s7 3.13 7 7v2h-4v8h3c1.66 0 3-1.34 3-3v-7c0-4.97-4.03-9-9-9z"/></svg>',
+    support: '<svg viewBox="0 0 24 24"><path d="M21 12.22C21 6.73 16.74 3 12 3c-4.69 0-9 3.65-9 9.28-.6.34-1 .98-1 1.72v2c0 1.1.9 2 2 2h1v-6.1c0-3.87 3.13-7 7-7s7 3.13 7 7V19h-8v2h8c1.1 0 2-.9 2-2v-1.22c.59-.31 1-.92 1-1.64v-2.3c0-.7-.41-1.31-1-1.62z"/><circle cx="9" cy="13" r="1"/><circle cx="15" cy="13" r="1"/><path d="M18 11.03C17.52 8.18 15.04 6 12.05 6c-3.03 0-6.29 2.51-6.03 6.45a8.075 8.075 0 0 0 4.86-5.89c1.31 2.63 4 4.44 7.12 4.47z"/></svg>',
+    message: '<svg viewBox="0 0 24 24"><path d="M20 2H4c-1.1 0-1.99.9-1.99 2L2 22l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zM6 9h12v2H6V9zm8 5H6v-2h8v2zm4-6H6V6h12v2z"/></svg>',
+    heart: '<svg viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>',
+    robot: '<svg viewBox="0 0 24 24"><path d="M12 2a2 2 0 0 1 2 2c0 .74-.4 1.39-1 1.73V7h1a7 7 0 0 1 7 7h1a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1h-1.07A7.001 7.001 0 0 1 7.07 19H6a1 1 0 0 1-1-1v-3a1 1 0 0 1 1-1h1a7 7 0 0 1 7-7h1V5.73c-.6-.34-1-.99-1-1.73a2 2 0 0 1 2-2zM9.5 14a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3zm5 0a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3z"/></svg>',
+  };
+  
+  // Other icons
+  const icons = {
+    close: '<svg viewBox="0 0 24 24" width="18" height="18"><path fill="currentColor" d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>',
+    send: '<svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>',
+    bot: '<svg viewBox="0 0 24 24"><path d="M12 2a2 2 0 0 1 2 2c0 .74-.4 1.39-1 1.73V7h1a7 7 0 0 1 7 7h1a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1h-1.07A7.001 7.001 0 0 1 7.07 19H6a1 1 0 0 1-1-1v-3a1 1 0 0 1 1-1h1a7 7 0 0 1 7-7h1V5.73c-.6-.34-1-.99-1-1.73a2 2 0 0 1 2-2zM9.5 14a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3zm5 0a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3z"/></svg>',
+    user: '<svg viewBox="0 0 24 24" width="12" height="12"><path fill="currentColor" d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z"/></svg>',
+    sparkle: '<svg viewBox="0 0 24 24" width="12" height="12"><path fill="currentColor" d="M12 2L9.19 8.63 2 9.24l5.46 4.73L5.82 21 12 17.27 18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2z"/></svg>',
+    handoff: '<svg viewBox="0 0 24 24" width="14" height="14"><path fill="currentColor" d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg>'
+  };
+  
+  function getLauncherIcon(style) {
+    return launcherIcons[style] || launcherIcons.chat;
   }
-
-  // Initialize widget
-  function initializeWidget() {
-    if (isInitialized || !config) return;
+  
+  // Glass Orb animated launcher - exact port of React GlassOrbAvatar
+  function initGlassOrb(container, primaryColor) {
+    container.style.overflow = 'hidden';
+    container.style.padding = '0';
+    container.style.background = 'transparent';
+    container.style.boxShadow = '0 0 70px rgba(30,255,190,0.18), 0 0 140px rgba(30,255,190,0.12)';
     
-    try {
-      // Create widget container
-      widgetContainer = document.createElement('div');
-      widgetContainer.id = 'vintra-widget-container';
-      widgetContainer.style.cssText = `
-        position: fixed;
-        bottom: 20px;
-        ${config.position === 'bottom-left' ? 'left: 20px;' : 'right: 20px;'}
-        z-index: 9999;
-        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      `;
-      
-      // Create widget HTML
-      const widgetHTML = createWidgetHTML();
-      widgetContainer.innerHTML = widgetHTML;
-      
-      // Add to page
-      document.body.appendChild(widgetContainer);
-      
-      // Initialize functionality
-      initializeWidgetFunctionality();
-      
-      isInitialized = true;
-      
-      // Notify parent window
-      window.parent.postMessage({ type: 'vintra-widget-ready' }, '*');
-      
-    } catch (error) {
-      console.error('VintraStudio Widget: Failed to initialize', error);
-      showError('Failed to initialize chat widget');
-    }
-  }
-
-  // Create widget HTML
-  function createWidgetHTML() {
-    const primaryColor = config.primary_color || '#3b82f6';
-    const position = config.position || 'bottom-right';
+    const sizePx = 60;
+    const canvas = document.createElement('canvas');
+    canvas.width = sizePx * 2; // Higher res
+    canvas.height = sizePx * 2;
+    canvas.style.cssText = 'width:100%;height:100%;border-radius:50%;position:absolute;inset:0;background:none;';
     
-    return `
-      <div class="vintra-widget" style="position: relative;">
-        <!-- Launcher -->
-        <div class="vintra-launcher" 
-             style="width: 60px; height: 60px; background: ${primaryColor}; border-radius: 50%; 
-                    cursor: pointer; display: flex; align-items: center; justify-content: center;
-                    box-shadow: 0 4px 12px rgba(0,0,0,0.15); transition: all 0.3s ease;">
-          <div class="vintra-launcher-icon" style="color: white; font-size: 24px;">
-            ${getLauncherIcon()}
-          </div>
-        </div>
-        
-        <!-- Chat Window -->
-        <div class="vintra-chat-window" 
-             style="position: absolute; bottom: 80px; ${position === 'bottom-left' ? 'left: 0;' : 'right: 0;'}
-                    width: 380px; height: 500px; background: white; border-radius: 12px;
-                    box-shadow: 0 8px 24px rgba(0,0,0,0.15); display: none; flex-direction: column;
-                    overflow: hidden;">
-          
-          <!-- Header -->
-          <div class="vintra-header" style="background: ${primaryColor}; color: white; padding: 16px;">
-            <div class="vintra-header-content" style="display: flex; align-items: center; gap: 12px;">
-              <div class="vintra-avatar" style="width: 32px; height: 32px; border-radius: 50%; 
-                                                   background: rgba(255,255,255,0.2); display: flex; 
-                                                   align-items: center; justify-content: center;">
-                ${getAvatarContent()}
-              </div>
-              <div class="vintra-title" style="font-weight: 600;">
-                ${config.widget_title || 'Chat Support'}
-              </div>
-            </div>
-          </div>
-          
-          <!-- Messages -->
-          <div class="vintra-messages" style="flex: 1; padding: 16px; overflow-y: auto;">
-            <div class="vintra-welcome" style="background: #f3f4f6; padding: 12px; border-radius: 8px; margin-bottom: 12px;">
-              ${config.welcome_message || 'Hello! How can I help you today?'}
-            </div>
-          </div>
-          
-          <!-- Input -->
-          <div class="vintra-input-container" style="padding: 16px; border-top: 1px solid #e5e7eb;">
-            <div class="vintra-input-wrapper" style="display: flex; gap: 8px;">
-              <input type="text" 
-                     class="vintra-input" 
-                     placeholder="${config.placeholder_text || 'Type your message...'}"
-                     style="flex: 1; padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px;">
-              <button class="vintra-send" 
-                      style="background: ${primaryColor}; color: white; padding: 8px 16px; 
-                             border: none; border-radius: 6px; cursor: pointer;">
-                Send
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-    `;
-  }
-
-  // Get launcher icon based on avatar config
-  function getLauncherIcon() {
-    if (!config.avatar_url || config.avatar_url === 'icon:glass-orb') {
-      // Will be replaced by Glass Orb
-      return '<div class="vintra-glass-orb-placeholder">💬</div>';
-    }
+    const wrapper = container.querySelector('.vintra-icon-open');
+    wrapper.innerHTML = '';
+    wrapper.style.cssText = 'width:100%;height:100%;position:absolute;inset:0;';
+    wrapper.appendChild(canvas);
     
-    if (config.avatar_url.startsWith('icon:')) {
-      const iconType = config.avatar_url.replace('icon:', '');
-      const icons = {
-        'chat': '💬',
-        'headset': '🎧',
-        'support': '😊',
-        'message': '💭',
-        'heart': '❤️',
-        'robot': '🤖'
-      };
-      return icons[iconType] || '💬';
-    }
-    
-    return '💬';
-  }
-
-  // Get avatar content for header
-  function getAvatarContent() {
-    if (!config.avatar_url || config.avatar_url === 'icon:glass-orb') {
-      // Will be replaced by Glass Orb
-      return '<div class="vintra-glass-orb-placeholder">🤖</div>';
-    }
-    
-    if (config.avatar_url.startsWith('icon:')) {
-      const iconType = config.avatar_url.replace('icon:', '');
-      const icons = {
-        'chat': '💬',
-        'headset': '🎧',
-        'support': '😊',
-        'message': '💭',
-        'heart': '❤️',
-        'robot': '🤖'
-      };
-      return icons[iconType] || '🤖';
-    }
-    
-    if (config.avatar_url.startsWith('data:')) {
-      return `<img src="${config.avatar_url}" alt="Avatar" style="width: 100%; height: 100%; border-radius: 50%;">`;
-    }
-    
-    return config.avatar_glyph || '🤖';
-  }
-
-  // Initialize widget functionality
-  function initializeWidgetFunctionality() {
-    if (!widgetContainer) return;
-
-    const launcher = widgetContainer.querySelector('.vintra-launcher');
-    const chatWindow = widgetContainer.querySelector('.vintra-chat-window');
-    const input = widgetContainer.querySelector('.vintra-input');
-    const sendBtn = widgetContainer.querySelector('.vintra-send');
-    const messages = widgetContainer.querySelector('.vintra-messages');
-
-    // Toggle chat window
-    launcher.addEventListener('click', () => {
-      const isOpen = chatWindow.style.display === 'flex';
-      chatWindow.style.display = isOpen ? 'none' : 'flex';
-      
-      if (!isOpen) {
-        input.focus();
-      }
-    });
-
-    // Send message
-    const sendMessage = async () => {
-      const message = input.value.trim();
-      if (!message) return;
-
-      // Add user message
-      const userMsg = document.createElement('div');
-      userMsg.className = 'vintra-user-message';
-      userMsg.style.cssText = 'background: #3b82f6; color: white; padding: 8px 12px; border-radius: 12px; margin: 8px 0; max-width: 80%; margin-left: auto;';
-      userMsg.textContent = message;
-      messages.appendChild(userMsg);
-
-      // Clear input
-      input.value = '';
-
-      // Send to API
-      try {
-        console.log('[v0-widget] Sending message:', message);
-        const response = await fetch('/api/widget', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            chatbotId,
-            userId,
-            message,
-            sessionId: generateSessionId()
-          })
-        });
-
-        if (response.ok) {
-          const data = await response.json();
-          console.log('[v0-widget] Message sent successfully, response:', data);
-          
-          // Add bot response
-          const botMsg = document.createElement('div');
-          botMsg.className = 'vintra-bot-message';
-          botMsg.style.cssText = 'background: #f3f4f6; color: #1f2937; padding: 8px 12px; border-radius: 12px; margin: 8px 0; max-width: 80%;';
-          botMsg.textContent = data.response || 'Sorry, I could not process your message.';
-          messages.appendChild(botMsg);
-
-          // Scroll to bottom
-          messages.scrollTop = messages.scrollHeight;
-
-          // Notify parent
-          window.parent.postMessage({
-            type: 'vintra-widget-message',
-            message,
-            response: data.response
-          }, '*');
-        } else {
-          const errorText = await response.text();
-          console.error('[v0-widget] Message send failed:', response.status, errorText);
-          
-          // Add error message
-          const errorMsg = document.createElement('div');
-          errorMsg.className = 'vintra-error-message';
-          errorMsg.style.cssText = 'background: #fef2f2; color: #dc2626; padding: 8px 12px; border-radius: 12px; margin: 8px 0; max-width: 80%;';
-          errorMsg.textContent = 'Sorry, there was an error sending your message.';
-          messages.appendChild(errorMsg);
-        }
-      } catch (error) {
-        console.error('[v0-widget] Message send error:', error);
-        
-        // Add error message
-        const errorMsg = document.createElement('div');
-        errorMsg.className = 'vintra-error-message';
-        errorMsg.style.cssText = 'background: #fef2f2; color: #dc2626; padding: 8px 12px; border-radius: 12px; margin: 8px 0; max-width: 80%;';
-        errorMsg.textContent = 'Sorry, there was an error sending your message.';
-        messages.appendChild(errorMsg);
-      }
-    };
-
-    // Send button click
-    sendBtn.addEventListener('click', sendMessage);
-
-    // Enter key to send
-    input.addEventListener('keypress', (e) => {
-      if (e.key === 'Enter') {
-        sendMessage();
-      }
-    });
-
-    // Initialize Glass Orb if needed
-    if (config.avatar_url === 'icon:glass-orb') {
-      initializeGlassOrb();
-    }
-  }
-
-  // Initialize Glass Orb (import from glass-orb-avatar logic)
-  function initializeGlassOrb() {
-    // Find all glass orb placeholders
-    const placeholders = document.querySelectorAll('.vintra-glass-orb-placeholder');
-    
-    placeholders.forEach(placeholder => {
-      const container = placeholder.parentElement;
-      const size = container.offsetWidth || 60;
-      const glyph = config.avatar_glyph || 'A';
-      
-      // Create canvas for Glass Orb
-      const canvas = document.createElement('canvas');
-      canvas.width = size * 2;
-      canvas.height = size * 2;
-      canvas.style.cssText = 'width:100%;height:100%;border-radius:50%;position:absolute;inset:0;background:none;';
-      
-      // Replace placeholder with canvas
-      placeholder.replaceWith(canvas);
-      
-      // Initialize Glass Orb animation
-      initGlassOrbAnimation(canvas, config.primary_color || '#3b82f6', glyph, size);
-    });
-  }
-
-  // Glass Orb animation (simplified version from glass-orb-avatar)
-  function initGlassOrbAnimation(canvas, primaryColor, glyph, size) {
     const ctx = canvas.getContext('2d');
-    ctx.scale(2, 2);
+    ctx.scale(2, 2); // Scale for higher res
     
-    const centerX = size / 2;
-    const centerY = size / 2;
-    const orbRadius = size / 2;
+    // Physics constants - matching React GlassOrbAvatar exactly
+    const centerX = sizePx / 2;
+    const centerY = sizePx / 2;
+    const orbRadius = sizePx / 2;
     
-    // Simple Glass Orb implementation
-    function drawGlassOrb() {
-      ctx.clearRect(0, 0, size, size);
+    // Ring dimensions (particles only in ring area)
+    const ringOuter = orbRadius * 0.95;
+    const ringInner = orbRadius * 0.5;
+    const centerRadius = ringInner * 0.985;
+    
+    // Idle palette matching React GlassOrbAvatar (cyan/teal)
+    const palette = [
+      { r: 0, g: 255, b: 255 },
+      { r: 0, g: 240, b: 190 },
+      { r: 50, g: 255, b: 255 },
+      { r: 0, g: 200, b: 255 },
+      { r: 0, g: 255, b: 180 },
+      { r: 100, g: 255, b: 255 },
+    ];
+    
+    let colorIndex = 0;
+    let colorProgress = 0;
+    
+    // Particles - only in ring area (matching React GlassOrbAvatar)
+    const baseCount = 520;
+    const count = Math.max(240, Math.min(820, Math.floor(baseCount * (sizePx / 420))));
+    const particles = [];
+    const sizeScale = sizePx / 500;
+    
+    for (let i = 0; i < count; i++) {
+      particles.push({
+        // Particles only in ring area between ringInner and ringOuter
+        radius: ringInner + Math.random() * (ringOuter - ringInner),
+        angle: Math.random() * Math.PI * 2,
+        speed: (Math.random() * 0.010 + 0.004) * (Math.random() < 0.5 ? 1 : -1),
+        size: (Math.random() * 2.6 + 2.0) * sizeScale,
+        colorOffset: Math.floor(Math.random() * 9999),
+      });
+    }
+    
+    // -----------------------------
+    // RUNE (Ansuz ᚨ) - Gold dots
+    // -----------------------------
+    function sampleLine(ax, ay, bx, by, steps) {
+      var pts = [];
+      for (var i = 0; i <= steps; i++) {
+        var t = i / steps;
+        pts.push({ x: ax + (bx - ax) * t, y: ay + (by - ay) * t });
+      }
+      return pts;
+    }
+    
+    function buildAnsuzPoints() {
+      var pts = [];
+      function addStroke(linePts, dxs, dys) {
+        var out = [];
+        for (var pi = 0; pi < linePts.length; pi++) {
+          var p = linePts[pi];
+          for (var dxi = 0; dxi < dxs.length; dxi++) {
+            for (var dyi = 0; dyi < dys.length; dyi++) {
+              out.push({ x: p.x + dxs[dxi], y: p.y + dys[dyi] });
+            }
+          }
+        }
+        return out;
+      }
       
-      // Draw orb background
-      const gradient = ctx.createRadialGradient(centerX, centerY, 0, centerX, centerY, orbRadius);
-      gradient.addColorStop(0, 'rgba(59, 130, 246, 0.8)');
-      gradient.addColorStop(0.5, 'rgba(59, 130, 246, 0.6)');
-      gradient.addColorStop(1, 'rgba(59, 130, 246, 0.4)');
+      var xStem = -0.35;
+      var stem = sampleLine(xStem, -0.85, xStem, 0.85, 140);
+      var topArm = sampleLine(xStem, -0.35, 0.55, -0.6, 110);
+      var midArm = sampleLine(xStem, 0.05, 0.45, -0.12, 95);
       
-      ctx.fillStyle = gradient;
+      var stemDX = [-0.08, -0.05, -0.025, 0, 0.025, 0.05, 0.08];
+      var stemDY = [-0.03, 0, 0.03];
+      var armDX = [-0.05, -0.025, 0, 0.025, 0.05];
+      var armDY = [-0.03, 0, 0.03];
+      
+      pts = pts.concat(addStroke(stem, stemDX, stemDY));
+      pts = pts.concat(addStroke(topArm, armDX, armDY));
+      pts = pts.concat(addStroke(midArm, armDX, armDY));
+      return pts;
+    }
+    
+    var runeNorm = buildAnsuzPoints();
+    // Rune is drawn in center disk area (inside ringInner)
+    var runeRadius = centerRadius * 0.78;
+    var runeTargets = runeNorm.map(function(p) {
+      return { tx: centerX + p.x * runeRadius, ty: centerY + p.y * runeRadius };
+    });
+    
+    // Gold dots for rune
+    var goldDotCount = Math.max(260, Math.min(900, Math.floor(400 * (sizePx / 420))));
+    var goldDots = [];
+    
+    // Initialize gold dots
+    for (var gi = 0; gi < goldDotCount; gi++) {
+      var runeIdx = Math.floor((gi / Math.max(1, goldDotCount - 1)) * Math.max(1, runeTargets.length - 1));
+      var ang = Math.random() * Math.PI * 2;
+      var rr = ringInner + Math.random() * (ringOuter - ringInner);
+      goldDots.push({
+        x: centerX + Math.cos(ang) * rr,
+        y: centerY + Math.sin(ang) * rr,
+        vx: 0,
+        vy: 0,
+        ringAngle: ang,
+        ringRadius: rr,
+        ringSpeed: (Math.random() * 0.006 + 0.002) * (Math.random() < 0.5 ? 1 : -1),
+        runeIndex: runeIdx,
+        size: (Math.random() * 2 + 1.5) * sizeScale,
+      });
+    }
+    // Shuffle gold dots
+    for (var shi = goldDots.length - 1; shi > 0; shi--) {
+      var shj = Math.floor(Math.random() * (shi + 1));
+      var tmp = goldDots[shi];
+      goldDots[shi] = goldDots[shj];
+      goldDots[shj] = tmp;
+    }
+    
+    function mix(a, b, t) { return a + (b - a) * t; }
+    
+    let animId;
+    
+    // Portal colors matching React GlassOrbAvatar
+    var portal = {
+      rimStroke: 'rgba(175, 185, 200, 0.70)',
+      rimGlow: 'rgba(110, 130, 155, 0.35)',
+      casing1: 'rgba(10, 12, 18, 1)',
+      casing2: 'rgba(18, 22, 32, 1)',
+      deep1: 'rgba(6, 8, 14, 1)',
+      deep2: 'rgba(10, 13, 22, 1)',
+      deep3: 'rgba(14, 20, 40, 1)',
+    };
+    
+    var casingOuter = orbRadius * 0.995;
+    var casingInner = orbRadius * 0.9;
+    
+    function drawPortalBase() {
+      // Deep background
+      var g = ctx.createRadialGradient(centerX, centerY, orbRadius * 0.08, centerX, centerY, orbRadius);
+      g.addColorStop(0, portal.deep2);
+      g.addColorStop(0.55, portal.deep3);
+      g.addColorStop(1, portal.deep1);
+      ctx.fillStyle = g;
       ctx.beginPath();
-      ctx.arc(centerX, centerY, orbRadius - 2, 0, Math.PI * 2);
+      ctx.arc(centerX, centerY, casingOuter, 0, Math.PI * 2);
       ctx.fill();
       
-      // Draw glyph
-      ctx.fillStyle = 'white';
-      ctx.font = `bold ${size * 0.4}px Times New Roman`;
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText(glyph, centerX, centerY);
+      // Casing ring
+      var cg = ctx.createRadialGradient(centerX, centerY, casingInner, centerX, centerY, casingOuter);
+      cg.addColorStop(0, portal.casing2);
+      cg.addColorStop(1, portal.casing1);
+      ctx.fillStyle = cg;
+      ctx.beginPath();
+      ctx.arc(centerX, centerY, casingOuter, 0, Math.PI * 2);
+      ctx.arc(centerX, centerY, casingInner, 0, Math.PI * 2, true);
+      ctx.fill('evenodd');
       
-      // Add glow effect
-      ctx.shadowBlur = 20;
-      ctx.shadowColor = primaryColor;
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
-      ctx.lineWidth = 2;
+      // Center disk
+      var dg = ctx.createRadialGradient(centerX, centerY, centerRadius * 0.05, centerX, centerY, centerRadius);
+      dg.addColorStop(0, portal.deep3);
+      dg.addColorStop(0.65, portal.deep2);
+      dg.addColorStop(1, portal.deep1);
+      ctx.fillStyle = dg;
+      ctx.beginPath();
+      ctx.arc(centerX, centerY, centerRadius, 0, Math.PI * 2);
+      ctx.fill();
+      
+      // Rim
+      ctx.save();
+      ctx.shadowBlur = 18 * sizeScale;
+      ctx.shadowColor = portal.rimGlow;
+      ctx.strokeStyle = portal.rimStroke;
+      ctx.lineWidth = Math.max(1, sizePx / 140);
+      ctx.beginPath();
+      ctx.arc(centerX, centerY, casingOuter - ctx.lineWidth * 0.5, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
+    }
+    
+    function animate() {
+      colorProgress += 0.003;
+      if (colorProgress >= 1) {
+        colorProgress = 0;
+        colorIndex = (colorIndex + 1) % palette.length;
+      }
+      
+      ctx.clearRect(0, 0, sizePx, sizePx);
+      
+      // Draw portal background first
+      drawPortalBase();
+      
+      // Clip to ring area for particles
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(centerX, centerY, ringOuter, 0, Math.PI * 2);
+      ctx.arc(centerX, centerY, ringInner, 0, Math.PI * 2, true);
+      ctx.clip('evenodd');
+      
+      // Draw particles - simple ring rotation (matching React GlassOrbAvatar)
+      particles.forEach(function(p) {
+        p.angle += p.speed;
+        
+        var x = centerX + Math.cos(p.angle) * p.radius;
+        var y = centerY + Math.sin(p.angle) * p.radius;
+        
+        var baseAlpha = 0.26;
+        var glowAlpha = 0.12;
+        
+        var ci = (colorIndex + p.colorOffset) % palette.length;
+        var current = palette[ci];
+        var next = palette[(ci + 1) % palette.length];
+        var r = Math.floor(current.r + (next.r - current.r) * colorProgress);
+        var g = Math.floor(current.g + (next.g - current.g) * colorProgress);
+        var b = Math.floor(current.b + (next.b - current.b) * colorProgress);
+        
+        var fill = 'rgba(' + r + ',' + g + ',' + b + ',' + baseAlpha + ')';
+        var glow = 'rgba(' + r + ',' + g + ',' + b + ',' + glowAlpha + ')';
+        
+        ctx.shadowBlur = 14 * sizeScale;
+        ctx.shadowColor = glow;
+        ctx.fillStyle = fill;
+        ctx.beginPath();
+        ctx.arc(x, y, p.size, 0, Math.PI * 2);
+        ctx.fill();
+      });
+      
+      ctx.shadowBlur = 0;
+      ctx.restore(); // End particle ring clipping
+      
+      // -----------------------------
+      // Draw Gold Rune Dots (on center disk)
+      // -----------------------------
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(centerX, centerY, casingOuter, 0, Math.PI * 2);
+      ctx.clip();
+      
+      // Update and draw gold dots - always converged to rune position
+      var goldSpring = 0.18;
+      var goldDamp = 0.82;
+      var goldDotRadius = 3.5 * sizeScale;
+      
+      for (var gdi = 0; gdi < goldDots.length; gdi++) {
+        var gd = goldDots[gdi];
+        
+        // Target is always the rune position (goldBlend = 1)
+        var target = runeTargets[gd.runeIndex];
+        var targetX = target.tx;
+        var targetY = target.ty;
+        
+        // Spring physics
+        var gdx = targetX - gd.x;
+        var gdy = targetY - gd.y;
+        gd.vx += gdx * goldSpring;
+        gd.vy += gdy * goldSpring;
+        gd.vx *= goldDamp;
+        gd.vy *= goldDamp;
+        gd.x += gd.vx;
+        gd.y += gd.vy;
+        
+        // Draw gold dot
+        ctx.fillStyle = 'rgba(255, 196, 70, 1)';
+        ctx.beginPath();
+        ctx.arc(gd.x, gd.y, goldDotRadius, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.restore();
+      
+      animId = requestAnimationFrame(animate);
+    }
+    
+    animate();
+    return function() {
+      if (animId) cancelAnimationFrame(animId);
+    };
+  }
+  
+  // Helper: populate an avatar container based on icon config 
+  function setAvatarContent(el, cfg, size) {
+    if (!cfg || !cfg.avatar_url) {
+      el.innerHTML = icons.bot;
+      return;
+    }
+    const av = cfg.avatar_url;
+    if (av.startsWith('code:')) {
+      el.innerHTML = '';
+      const iframe = document.createElement('iframe');
+      iframe.sandbox = 'allow-scripts';
+      iframe.style.cssText = 'width:100%;height:100%;border:none;border-radius:50%;pointer-events:none;background:transparent;position:absolute;inset:0;';
+      iframe.srcdoc = av.substring(5);
+      el.appendChild(iframe);
+    } else if (av.startsWith('data:')) {
+      el.innerHTML = '<img src="' + av + '" alt="" />';
+    } else if (av.startsWith('svg:')) {
+      const svgCode = av.replace('svg:', '');
+      el.innerHTML = svgCode;
+      const svgEl = el.querySelector('svg');
+      if (svgEl) {
+        svgEl.setAttribute('width', String(size || 24));
+        svgEl.setAttribute('height', String(size || 24));
+        svgEl.style.fill = 'white';
+      }
+    } else if (av.startsWith('icon:')) {
+      const style = av.replace('icon:', '');
+      if (style === 'glass-orb') {
+        initMiniGlassOrb(el, cfg.primary_color, size || 28);
+      } else {
+        el.innerHTML = launcherIcons[style] || icons.bot;
+      }
+    } else {
+      el.innerHTML = icons.bot;
+    }
+  }
+  
+  // Mini glass orb for avatars in header and messages (with rune)
+  function initMiniGlassOrb(container, primaryColor, size) {
+    container.innerHTML = '';
+    container.style.background = 'transparent';
+    container.style.boxShadow = '0 0 ' + Math.max(6, size * 0.4) + 'px rgba(30,255,190,0.2)';
+    
+    const canvas = document.createElement('canvas');
+    canvas.width = size * 2;
+    canvas.height = size * 2;
+    canvas.style.cssText = 'width:100%;height:100%;border-radius:50%;position:absolute;inset:0;background:none;';
+    
+    container.appendChild(canvas);
+    
+    const ctx = canvas.getContext('2d');
+    ctx.scale(2, 2);
+    const cx = size / 2, cy = size / 2;
+    const sizeScale = size / 500;
+    const orbRadius = size / 2;
+    
+    // Portal colors
+    var portal = {
+      casing1: 'rgba(10, 12, 18, 1)',
+      casing2: 'rgba(18, 22, 32, 1)',
+      deep1: 'rgba(6, 8, 14, 1)',
+      deep2: 'rgba(10, 13, 22, 1)',
+      deep3: 'rgba(14, 20, 40, 1)',
+      rimStroke: 'rgba(175, 185, 200, 0.50)',
+    };
+    
+    var casingOuter = orbRadius * 0.995;
+    var casingInner = orbRadius * 0.9;
+    var ringOuter = orbRadius * 0.95;
+    var ringInner = orbRadius * 0.5;
+    var centerRadiusInner = ringInner * 0.985;
+    
+    // Idle palette matching React GlassOrbAvatar (cyan/teal)
+    const palette = [
+      { r: 0, g: 255, b: 255 },
+      { r: 0, g: 240, b: 190 },
+      { r: 50, g: 255, b: 255 },
+      { r: 0, g: 200, b: 255 },
+      { r: 0, g: 255, b: 180 },
+      { r: 100, g: 255, b: 255 },
+    ];
+    
+    let colorIndex = 0;
+    let colorProgress = 0;
+    
+    // Particles only in ring area (matching React GlassOrbAvatar)
+    const particles = [];
+    const count = Math.max(60, Math.floor(240 * (size / 420)));
+    for (let i = 0; i < count; i++) {
+      particles.push({
+        radius: ringInner + Math.random() * (ringOuter - ringInner),
+        angle: Math.random() * Math.PI * 2,
+        speed: (Math.random() * 0.010 + 0.004) * (Math.random() < 0.5 ? 1 : -1),
+        sz: (Math.random() * 2.6 + 2.0) * sizeScale,
+        ci: Math.floor(Math.random() * palette.length),
+      });
+    }
+    
+    // Build rune targets for mini orb
+    function miniSampleLine(ax, ay, bx, by, steps) {
+      var pts = [];
+      for (var i = 0; i <= steps; i++) {
+        var t = i / steps;
+        pts.push({ x: ax + (bx - ax) * t, y: ay + (by - ay) * t });
+      }
+      return pts;
+    }
+    
+    function miniBuildAnsuz() {
+      var pts = [];
+      function addStroke(linePts, dxs, dys) {
+        var out = [];
+        for (var pi = 0; pi < linePts.length; pi++) {
+          var p = linePts[pi];
+          for (var dxi = 0; dxi < dxs.length; dxi++) {
+            for (var dyi = 0; dyi < dys.length; dyi++) {
+              out.push({ x: p.x + dxs[dxi], y: p.y + dys[dyi] });
+            }
+          }
+        }
+        return out;
+      }
+      var xStem = -0.35;
+      var stem = miniSampleLine(xStem, -0.85, xStem, 0.85, 80);
+      var topArm = miniSampleLine(xStem, -0.35, 0.55, -0.6, 60);
+      var midArm = miniSampleLine(xStem, 0.05, 0.45, -0.12, 50);
+      var stemDX = [-0.08, -0.025, 0.025, 0.08];
+      var stemDY = [-0.03, 0.03];
+      var armDX = [-0.05, 0, 0.05];
+      var armDY = [-0.03, 0.03];
+      pts = pts.concat(addStroke(stem, stemDX, stemDY));
+      pts = pts.concat(addStroke(topArm, armDX, armDY));
+      pts = pts.concat(addStroke(midArm, armDX, armDY));
+      return pts;
+    }
+    
+    var miniRuneNorm = miniBuildAnsuz();
+    // Rune in center disk area
+    var miniRuneRadius = centerRadiusInner * 0.78;
+    var miniRuneTargets = miniRuneNorm.map(function(p) {
+      return { tx: cx + p.x * miniRuneRadius, ty: cy + p.y * miniRuneRadius };
+    });
+    
+    // Gold dots for mini orb rune
+    var miniGoldCount = Math.max(80, Math.min(300, Math.floor(200 * (size / 100))));
+    var miniGoldDots = [];
+    
+    for (var mgi = 0; mgi < miniGoldCount; mgi++) {
+      var runeIdx = Math.floor((mgi / Math.max(1, miniGoldCount - 1)) * Math.max(1, miniRuneTargets.length - 1));
+      var ang = Math.random() * Math.PI * 2;
+      var rr = ringInner + Math.random() * (ringOuter - ringInner);
+      miniGoldDots.push({
+        x: cx + Math.cos(ang) * rr,
+        y: cy + Math.sin(ang) * rr,
+        vx: 0, vy: 0,
+        runeIndex: runeIdx,
+      });
+    }
+    
+    function drawMiniPortal() {
+      // Deep background
+      var g = ctx.createRadialGradient(cx, cy, orbRadius * 0.08, cx, cy, orbRadius);
+      g.addColorStop(0, portal.deep2);
+      g.addColorStop(0.55, portal.deep3);
+      g.addColorStop(1, portal.deep1);
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.arc(cx, cy, casingOuter, 0, Math.PI * 2);
+      ctx.fill();
+      
+      // Casing ring
+      var cg = ctx.createRadialGradient(cx, cy, casingInner, cx, cy, casingOuter);
+      cg.addColorStop(0, portal.casing2);
+      cg.addColorStop(1, portal.casing1);
+      ctx.fillStyle = cg;
+      ctx.beginPath();
+      ctx.arc(cx, cy, casingOuter, 0, Math.PI * 2);
+      ctx.arc(cx, cy, casingInner, 0, Math.PI * 2, true);
+      ctx.fill('evenodd');
+      
+      // Center disk
+      var dg = ctx.createRadialGradient(cx, cy, centerRadiusInner * 0.05, cx, cy, centerRadiusInner);
+      dg.addColorStop(0, portal.deep3);
+      dg.addColorStop(0.65, portal.deep2);
+      dg.addColorStop(1, portal.deep1);
+      ctx.fillStyle = dg;
+      ctx.beginPath();
+      ctx.arc(cx, cy, centerRadiusInner, 0, Math.PI * 2);
+      ctx.fill();
+      
+      // Rim
+      ctx.strokeStyle = portal.rimStroke;
+      ctx.lineWidth = Math.max(0.5, size / 140);
+      ctx.beginPath();
+      ctx.arc(cx, cy, casingOuter - ctx.lineWidth * 0.5, 0, Math.PI * 2);
       ctx.stroke();
     }
     
-    // Animate
-    let animationId;
+    let animId;
     function animate() {
-      drawGlassOrb();
-      animationId = requestAnimationFrame(animate);
+      colorProgress += 0.003;
+      if (colorProgress >= 1) {
+        colorProgress = 0;
+        colorIndex = (colorIndex + 1) % palette.length;
+      }
+      
+      ctx.clearRect(0, 0, size, size);
+      
+      // Draw portal background
+      drawMiniPortal();
+      
+      // Clip to ring for particles
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(cx, cy, ringOuter, 0, Math.PI * 2);
+      ctx.arc(cx, cy, ringInner, 0, Math.PI * 2, true);
+      ctx.clip('evenodd');
+      
+      particles.forEach(function(p) {
+        p.angle += p.speed;
+        const x = cx + Math.cos(p.angle) * p.radius;
+        const y = cy + Math.sin(p.angle) * p.radius;
+        const ci = (colorIndex + p.ci) % palette.length;
+        const c = palette[ci];
+        const next = palette[(ci + 1) % palette.length];
+        const r = Math.floor(c.r + (next.r - c.r) * colorProgress);
+        const g = Math.floor(c.g + (next.g - c.g) * colorProgress);
+        const b = Math.floor(c.b + (next.b - c.b) * colorProgress);
+        
+        ctx.shadowBlur = 8 * sizeScale;
+        ctx.shadowColor = 'rgba(' + r + ',' + g + ',' + b + ',0.15)';
+        ctx.fillStyle = 'rgba(' + r + ',' + g + ',' + b + ',0.3)';
+        ctx.beginPath();
+        ctx.arc(x, y, p.sz, 0, Math.PI * 2);
+        ctx.fill();
+      });
+      ctx.shadowBlur = 0;
+      ctx.restore();
+      
+      // Draw gold rune dots
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(cx, cy, casingOuter, 0, Math.PI * 2);
+      ctx.clip();
+      
+      var miniGoldSpring = 0.18;
+      var miniGoldDamp = 0.82;
+      var miniGoldDotR = Math.max(1.5, 3.5 * sizeScale);
+      
+      for (var mgdi = 0; mgdi < miniGoldDots.length; mgdi++) {
+        var mgd = miniGoldDots[mgdi];
+        var mTarget = miniRuneTargets[mgd.runeIndex];
+        var mdx = mTarget.tx - mgd.x;
+        var mdy = mTarget.ty - mgd.y;
+        mgd.vx += mdx * miniGoldSpring;
+        mgd.vy += mdy * miniGoldSpring;
+        mgd.vx *= miniGoldDamp;
+        mgd.vy *= miniGoldDamp;
+        mgd.x += mgd.vx;
+        mgd.y += mgd.vy;
+        
+        ctx.fillStyle = 'rgba(255, 196, 70, 1)';
+        ctx.beginPath();
+        ctx.arc(mgd.x, mgd.y, miniGoldDotR, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.restore();
+      
+      animId = requestAnimationFrame(animate);
     }
     animate();
-    
-    // Cleanup function
-    return () => {
-      if (animationId) {
-        cancelAnimationFrame(animationId);
-      }
-    };
   }
 
-  // Generate session ID
-  function generateSessionId() {
-    return 'session_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
-  }
-
-  // Show error message
-  function showError(message) {
-    const errorDiv = document.createElement('div');
-    errorDiv.style.cssText = `
-      position: fixed;
-      bottom: 20px;
-      right: 20px;
-      background: #dc2626;
-      color: white;
-      padding: 12px 16px;
-      border-radius: 8px;
-      z-index: 10000;
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      font-size: 14px;
+  // Create widget
+  function createWidget() {
+    const container = document.createElement('div');
+    container.className = 'vintra-widget-container';
+    container.innerHTML = `
+      <div class="vintra-chat-window">
+        <div class="vintra-header">
+          <div class="vintra-header-avatar">${icons.bot}</div>
+          <div class="vintra-header-info">
+            <h4 class="vintra-title">Chat with us</h4>
+            <div class="vintra-header-status">
+              <div class="vintra-status-dot ai"></div>
+              <p class="vintra-status-text">AI Assistant</p>
+            </div>
+          </div>
+          <button class="vintra-close">${icons.close}</button>
+        </div>
+        <div class="vintra-handoff-banner">
+          ${icons.handoff} Waiting for a human agent to join...
+        </div>
+        <div class="vintra-pre-chat">
+          <h3>Start a conversation</h3>
+          <p>Please provide your details to begin chatting.</p>
+          <input type="text" class="vintra-name-input" placeholder="Your name">
+          <input type="email" class="vintra-email-input" placeholder="Your email (optional)">
+          <button class="vintra-start-btn">Start Chat</button>
+        </div>
+        <div class="vintra-offline-overlay">
+          <div class="vintra-offline-icon">${icons.bot}</div>
+          <h3>We're currently offline</h3>
+          <p class="vintra-offline-msg">We're currently offline. Leave a message and we'll get back to you!</p>
+        </div>
+        <div class="vintra-messages" style="display: none;"></div>
+        <div class="vintra-typing">
+          <div class="vintra-typing-avatar vintra-msg-avatar" style="background:var(--vintra-primary, #14b8a6)"></div>
+          <div class="vintra-typing-bubble">
+            <div class="vintra-typing-label">AI is thinking...</div>
+            <div class="vintra-typing-dots">
+              <span></span><span></span><span></span>
+            </div>
+          </div>
+        </div>
+        <div class="vintra-human-typing">
+          <div class="vintra-human-typing-avatar vintra-msg-avatar" style="background:#4caf50"></div>
+          <div class="vintra-typing-bubble">
+            <div class="vintra-typing-label">Agent is typing...</div>
+            <div class="vintra-typing-dots">
+              <span></span><span></span><span></span>
+            </div>
+          </div>
+        </div>
+        <div class="vintra-quick-actions">
+          <button class="vintra-quick-action" data-msg="What services do you offer?">What services do you offer?</button>
+          <button class="vintra-quick-action" data-msg="What are your pricing plans?">Pricing</button>
+          <button class="vintra-quick-action" data-msg="I need help with my account">Account help</button>
+        </div>
+        <button class="vintra-handoff-btn">${icons.handoff} Talk to a human agent</button>
+        <div class="vintra-input-area" style="display: none;">
+          <input type="text" class="vintra-input" placeholder="Type your message...">
+          <button class="vintra-send">${icons.send}</button>
+        </div>
+        <div class="vintra-branding" style="display: none;">
+          Powered by <a href="https://vintrastudio.com" target="_blank">VintraStudio</a>
+        </div>
+      </div>
+      <div class="vintra-launcher-row">
+        <div class="vintra-launcher-wrapper">
+          <div class="vintra-greeting-bubble">
+            <div class="vintra-greeting-inner">
+              <button class="vintra-greeting-close" aria-label="Dismiss">&times;</button>
+              <p class="vintra-greeting-title">Hi there!</p>
+              <p class="vintra-greeting-sub">How can I help you today?</p>
+              <div class="vintra-greeting-tail"></div>
+            </div>
+          </div>
+          <button class="vintra-launcher">
+            <span class="vintra-icon-open">${launcherIcons.chat}</span>
+            <span class="vintra-icon-close">${icons.close}</span>
+          </button>
+          <span class="vintra-unread-badge">0</span>
+        </div>
+      </div>
     `;
-    errorDiv.textContent = message;
-    document.body.appendChild(errorDiv);
+    document.body.appendChild(container);
     
-    setTimeout(() => {
-      errorDiv.remove();
-    }, 5000);
+    // Elements
+    const launcher = container.querySelector('.vintra-launcher');
+    const launcherIconOpen = container.querySelector('.vintra-icon-open');
+    const chatWindow = container.querySelector('.vintra-chat-window');
+    const closeBtn = container.querySelector('.vintra-close');
+    const messagesContainer = container.querySelector('.vintra-messages');
+    const input = container.querySelector('.vintra-input');
+    const sendBtn = container.querySelector('.vintra-send');
+    const preChat = container.querySelector('.vintra-pre-chat');
+    const inputArea = container.querySelector('.vintra-input-area');
+    const branding = container.querySelector('.vintra-branding');
+    const nameInput = container.querySelector('.vintra-name-input');
+    const emailInput = container.querySelector('.vintra-email-input');
+    const startBtn = container.querySelector('.vintra-start-btn');
+    const header = container.querySelector('.vintra-header');
+    const title = container.querySelector('.vintra-title');
+    const typingIndicator = container.querySelector('.vintra-typing');
+    const humanTypingIndicator = container.querySelector('.vintra-human-typing');
+    
+    // Populate typing indicator avatars after DOM creation
+    const aiTypingAvatar = container.querySelector('.vintra-typing-avatar');
+    if (aiTypingAvatar) aiTypingAvatar.innerHTML = icons.bot;
+    const humanTypingAvatar = container.querySelector('.vintra-human-typing-avatar');
+    if (humanTypingAvatar) humanTypingAvatar.innerHTML = icons.user;
+    
+    const statusDot = container.querySelector('.vintra-status-dot');
+    const statusText = container.querySelector('.vintra-status-text');
+    const handoffBanner = container.querySelector('.vintra-handoff-banner');
+    const handoffBtn = container.querySelector('.vintra-handoff-btn');
+    const unreadBadge = container.querySelector('.vintra-unread-badge');
+    const quickActions = container.querySelector('.vintra-quick-actions');
+    const quickActionBtns = container.querySelectorAll('.vintra-quick-action');
+    const greetingBubble = container.querySelector('.vintra-greeting-bubble');
+    const greetingTitle = container.querySelector('.vintra-greeting-title');
+    const greetingSub = container.querySelector('.vintra-greeting-sub');
+    const greetingClose = container.querySelector('.vintra-greeting-close');
+    const offlineOverlay = container.querySelector('.vintra-offline-overlay');
+    const offlineMsg = container.querySelector('.vintra-offline-msg');
+    let greetingDismissed = false;
+    
+  // Show greeting bubble after 2s (only if greeting_enabled is not explicitly false)
+  setTimeout(() => {
+  if (!isOpen && !greetingDismissed && (config && config.greeting_enabled !== false)) {
+  greetingBubble.classList.add('show');
   }
-
-  // Initialize widget when DOM is ready
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', loadConfig);
+  }, 2000);
+    
+    greetingClose.addEventListener('click', (e) => {
+      e.stopPropagation();
+      greetingBubble.classList.remove('show');
+      greetingDismissed = true;
+    });
+    
+    // Event handlers - launcher toggles open/close
+    launcher.addEventListener('click', () => toggleChat(!isOpen));
+    closeBtn.addEventListener('click', () => toggleChat(false));
+    sendBtn.addEventListener('click', sendMessage);
+    input.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') sendMessage();
+    });
+    startBtn.addEventListener('click', startChat);
+    handoffBtn.addEventListener('click', requestHandoff);
+    
+    // Quick action buttons
+    quickActionBtns.forEach(btn => {
+      btn.addEventListener('click', () => {
+        const msg = btn.getAttribute('data-msg');
+        if (msg) {
+          input.value = msg;
+          sendMessage();
+          quickActions.classList.remove('show');
+        }
+      });
+    });
+    
+    function toggleChat(open) {
+      isOpen = open;
+      chatWindow.classList.toggle('open', open);
+      launcher.classList.toggle('is-open', open);
+      
+      if (open) {
+        unreadCount = 0;
+        unreadBadge.classList.remove('show');
+        unreadBadge.textContent = '0';
+        // Hide curved text when chat is open
+        greetingBubble.classList.remove('show');
+        
+        // Show offline overlay if outside business hours
+        if (isOffline && !hasStartedChat) {
+          offlineOverlay.classList.add('show');
+          preChat.classList.add('hidden');
+          messagesContainer.style.display = 'none';
+          inputArea.style.display = 'none';
+        }
+        
+        if (hasStartedChat) {
+          input.focus();
+        }
   } else {
-    loadConfig();
+  // Re-show greeting bubble when chat is closed (if not dismissed and enabled)
+  if (!greetingDismissed && (config && config.greeting_enabled !== false)) {
+  greetingBubble.classList.add('show');
   }
-
+  }
+    }
+    
+    function updateStatus(mode) {
+      if (mode === 'ai') {
+        statusDot.className = 'vintra-status-dot ai';
+        statusText.textContent = 'AI Assistant';
+        handoffBtn.classList.add('show');
+        handoffBanner.classList.remove('show');
+      } else if (mode === 'waiting') {
+        statusDot.className = 'vintra-status-dot waiting';
+        statusText.textContent = 'Waiting for agent...';
+        handoffBtn.classList.remove('show');
+        handoffBanner.classList.add('show');
+      } else if (mode === 'human') {
+        statusDot.className = 'vintra-status-dot';
+        statusText.textContent = 'Human Agent';
+        handoffBtn.classList.remove('show');
+        handoffBanner.classList.remove('show');
+      } else {
+        statusDot.className = 'vintra-status-dot';
+        statusText.textContent = 'Online';
+        handoffBtn.classList.remove('show');
+        handoffBanner.classList.remove('show');
+      }
+    }
+    
+    // Show human typing indicator
+    function showHumanTyping(show) {
+      humanTypingIndicator.classList.toggle('show', show);
+      if (show) {
+        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+      }
+    }
+    
+    async function startChat() {
+      visitorName = nameInput.value.trim() || 'Visitor';
+      visitorEmail = emailInput.value.trim();
+      
+      startBtn.disabled = true;
+      startBtn.textContent = 'Starting...';
+      
+      try {
+        const response = await fetch(API_BASE + '/api/chat/session', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            chatbot_id: chatbotId,
+            visitor_name: visitorName,
+            visitor_email: visitorEmail || null
+          })
+        });
+        
+        const data = await response.json();
+        sessionId = data.session_id;
+        isBotActive = data.ai_enabled || false;
+        hasStartedChat = true;
+        
+        // Persist session for page refreshes
+        saveSession();
+        
+        preChat.classList.add('hidden');
+        offlineOverlay.classList.remove('show');
+        messagesContainer.style.display = 'flex';
+        inputArea.style.display = 'flex';
+        if (config && config.show_branding) {
+          branding.style.display = 'block';
+        }
+        
+        // Update status based on AI mode
+        if (isBotActive) {
+          updateStatus('ai');
+          quickActions.classList.add('show');
+        } else {
+          updateStatus('online');
+        }
+        
+        // Add welcome message
+        if (config && config.welcome_message) {
+          addMessage(config.welcome_message, 'bot');
+        }
+        
+        // Add AI greeting if available (different from welcome)
+        if (data.ai_greeting && data.ai_greeting !== (config && config.welcome_message)) {
+          setTimeout(() => {
+            addMessage(data.ai_greeting, 'bot', true);
+          }, 500);
+        }
+        
+        input.focus();
+        
+        // Start polling for messages and typing
+        pollMessages();
+        pollTyping();
+      } catch (error) {
+        console.error('VintraStudio: Failed to start chat', error);
+        startBtn.disabled = false;
+        startBtn.textContent = 'Start Chat';
+      }
+    }
+    
+    async function requestHandoff() {
+      if (!sessionId || isWaitingForHuman) return;
+      
+      // Send the handoff message through normal flow
+      input.value = 'I would like to speak with a human agent please';
+      await sendMessage();
+    }
+    
+    async function sendMessage() {
+      const content = input.value.trim();
+      if (!content || !sessionId || isSending) return;
+      
+      isSending = true;
+      input.value = '';
+      sendBtn.disabled = true;
+      addMessage(content, 'visitor');
+      
+      // Hide quick actions after first message
+      quickActions.classList.remove('show');
+      
+      try {
+        // Send visitor message to the API
+        await fetch(API_BASE + '/api/chat/message', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            session_id: sessionId,
+            content: content,
+            sender_type: 'visitor'
+          })
+        });
+        
+        // If bot is active, request AI response
+        if (isBotActive && !isWaitingForHuman) {
+          showTyping(true);
+          
+          try {
+            const aiResponse = await fetch(API_BASE + '/api/chat/ai', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                session_id: sessionId,
+                content: content
+              })
+            });
+            
+            const aiData = await aiResponse.json();
+            showTyping(false);
+            
+            if (aiData.reply) {
+              addMessage(aiData.reply, 'bot', true);
+            } else if (!aiResponse.ok) {
+              addMessage('Sorry, I\'m having trouble responding right now. Please try again or ask to speak with a human agent.', 'bot', true);
+            }
+            
+            if (aiData.handoff) {
+              isBotActive = false;
+              isWaitingForHuman = true;
+              updateStatus('waiting');
+              addSystemMessage('You have been transferred to a human agent. Please wait...');
+              saveSession();
+            }
+            
+            if (aiData.bot_active === false && !aiData.handoff) {
+              isBotActive = false;
+            }
+          } catch (err) {
+            showTyping(false);
+            addMessage('Sorry, I could not connect to the AI service. Please try again later.', 'bot', true);
+            console.error('VintraStudio: AI response failed', err);
+          }
+        }
+      } catch (error) {
+        console.error('VintraStudio: Failed to send message', error);
+      }
+      
+      isSending = false;
+      sendBtn.disabled = false;
+    }
+    
+    function showTyping(show) {
+      typingIndicator.classList.toggle('show', show);
+      if (show) {
+        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+      }
+    }
+    
+    function addMessage(content, type, isAi) {
+      const group = document.createElement('div');
+      group.className = 'vintra-msg-group ' + type;
+      
+      // Label
+      if (type !== 'visitor') {
+        const label = document.createElement('div');
+        label.className = 'vintra-msg-label';
+        if (type === 'bot' && isAi) {
+          label.innerHTML = icons.sparkle + ' AI Assistant';
+        } else if (type === 'admin') {
+          label.innerHTML = icons.user + ' Agent';
+        }
+        if (label.innerHTML) {
+          group.appendChild(label);
+        }
+      } else {
+        const label = document.createElement('div');
+        label.className = 'vintra-msg-label right';
+        label.textContent = 'You';
+        group.appendChild(label);
+      }
+      
+      // Message row with avatar
+      const row = document.createElement('div');
+      row.className = 'vintra-msg-row ' + type;
+      
+      // Add avatar for bot/admin messages
+      if (type === 'bot' || type === 'admin') {
+        const avatar = document.createElement('div');
+        avatar.className = 'vintra-msg-avatar';
+        if (type === 'admin') {
+          avatar.style.background = '#4caf50';
+          avatar.innerHTML = icons.user;
+        } else {
+          avatar.style.background = (config && config.primary_color) || '#14b8a6';
+          setAvatarContent(avatar, config, 16);
+        }
+        row.appendChild(avatar);
+      }
+      
+      const message = document.createElement('div');
+      message.className = 'vintra-message ' + type;
+      message.textContent = content;
+      if (type === 'visitor' && config && config.primary_color) {
+        message.style.background = config.primary_color;
+      }
+      row.appendChild(message);
+      group.appendChild(row);
+      messagesContainer.appendChild(group);
+      messagesContainer.scrollTop = messagesContainer.scrollHeight;
+      
+      // Update unread count if window is closed
+      if (!isOpen && type !== 'visitor') {
+        unreadCount++;
+        unreadBadge.textContent = unreadCount > 9 ? '9+' : unreadCount;
+        unreadBadge.classList.add('show');
+      }
+    }
+    
+    function addSystemMessage(content) {
+      const message = document.createElement('div');
+      message.className = 'vintra-message system';
+      message.textContent = content;
+      messagesContainer.appendChild(message);
+      messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    }
+    
+    let lastMessageId = null;
+    let messageCount = 0;
+    let pollInterval = null;
+    let typingPollInterval = null;
+    
+    async function pollMessages() {
+      if (!sessionId || !hasStartedChat) return;
+      
+      try {
+        // Use count-based polling with 'after' parameter (index-based)
+        const url = API_BASE + '/api/chat/messages?session_id=' + sessionId + 
+          '&after=' + messageCount;
+        const response = await fetch(url);
+        const data = await response.json();
+        
+        // API returns { messages: [...], total: n }
+        const messages = data.messages || [];
+        
+        if (Array.isArray(messages) && messages.length > 0) {
+          messages.forEach(msg => {
+            // Handle admin messages
+            if (msg.sender_type === 'admin') {
+              // Human agent replied - update status
+              if (isWaitingForHuman) {
+                isWaitingForHuman = false;
+                updateStatus('human');
+                addSystemMessage('A human agent has joined the conversation.');
+                saveSession();
+              }
+              isBotActive = false;
+              showHumanTyping(false);
+              addMessage(msg.content, 'admin', false);
+            }
+            // Handle bot messages that were added server-side (not from AI endpoint)
+            else if (msg.sender_type === 'bot') {
+              addMessage(msg.content, 'bot', msg.is_ai_generated);
+            }
+            // Note: visitor messages are not shown here since we already display them immediately
+            lastMessageId = msg.id;
+          });
+          // Update message count with the total from server
+          messageCount = data.total || (messageCount + messages.length);
+        }
+      } catch (error) {
+        console.error('VintraStudio: Failed to poll messages', error);
+      }
+      
+      pollInterval = setTimeout(pollMessages, 3000);
+    }
+    
+    // Poll for admin typing status
+    async function pollTyping() {
+      if (!sessionId || !hasStartedChat) return;
+      
+      try {
+        const url = API_BASE + '/api/chat/typing?session_id=' + sessionId;
+        const response = await fetch(url);
+        if (response.ok) {
+          const data = await response.json();
+          if (data.is_typing) {
+            showHumanTyping(true);
+            clearTimeout(humanTypingTimeout);
+            humanTypingTimeout = setTimeout(() => showHumanTyping(false), 4000);
+          }
+        }
+      } catch (e) {
+        // Silently ignore typing poll errors
+      }
+      
+      typingPollInterval = setTimeout(pollTyping, 2000);
+    }
+    
+    // Restore a saved session on page load
+    async function restoreSession() {
+      const saved = loadSavedSession();
+      if (!saved || !saved.sessionId || !saved.hasStartedChat) return false;
+      
+      try {
+        // Verify the session is still valid on the server
+        const verifyUrl = API_BASE + '/api/chat/session?session_id=' + saved.sessionId;
+        const res = await fetch(verifyUrl);
+        const data = await res.json();
+        
+        if (!data.valid) {
+          clearSavedSession();
+          return false;
+        }
+        
+        // Restore state
+        sessionId = saved.sessionId;
+        visitorName = saved.visitorName || 'Visitor';
+        visitorEmail = saved.visitorEmail || '';
+        hasStartedChat = true;
+        isBotActive = data.ai_enabled || false;
+        isWaitingForHuman = saved.isWaitingForHuman || false;
+        
+        // Show chat UI (skip pre-chat form)
+        preChat.classList.add('hidden');
+        offlineOverlay.classList.remove('show');
+        messagesContainer.style.display = 'flex';
+        inputArea.style.display = 'flex';
+        if (config && config.show_branding) {
+          branding.style.display = 'block';
+        }
+        
+        // Update status
+        if (isWaitingForHuman) {
+          updateStatus('waiting');
+        } else if (isBotActive) {
+          updateStatus('ai');
+        } else {
+          updateStatus('online');
+        }
+        
+        // Load all existing messages for this session
+        const msgsUrl = API_BASE + '/api/chat/messages?session_id=' + sessionId;
+        const msgsRes = await fetch(msgsUrl);
+        const msgsData = await msgsRes.json();
+        
+        // API returns { messages: [...], total: n }
+        const messages = msgsData.messages || [];
+        
+        if (Array.isArray(messages) && messages.length > 0) {
+          messages.forEach(msg => {
+            if (msg.sender_type === 'visitor') {
+              addMessage(msg.content, 'visitor');
+            } else if (msg.sender_type === 'admin') {
+              addMessage(msg.content, 'admin', false);
+            } else if (msg.sender_type === 'bot') {
+              addMessage(msg.content, 'bot', true);
+            }
+            lastMessageId = msg.id;
+          });
+          // Set message count for polling
+          messageCount = msgsData.total || messages.length;
+        }
+        
+        // Start polling for new messages and typing
+        pollMessages();
+        pollTyping();
+        return true;
+      } catch (e) {
+        console.error('VintraStudio: Failed to restore session', e);
+        clearSavedSession();
+        return false;
+      }
+    }
+    
+    // Apply config
+    function checkBusinessHours(cfg) {
+      if (!cfg.business_hours_enabled || !cfg.business_hours) {
+        return true;
+      }
+      
+      const tz = cfg.business_hours_timezone || 'UTC';
+      let now;
+      try {
+        now = new Date(new Date().toLocaleString('en-US', { timeZone: tz }));
+      } catch(e) {
+        now = new Date();
+      }
+      
+      const days = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+      const dayKey = days[now.getDay()];
+      const schedule = cfg.business_hours[dayKey];
+      
+      if (!schedule || !schedule.enabled) return false;
+      
+      const currentMinutes = now.getHours() * 60 + now.getMinutes();
+      const [startH, startM] = schedule.start.split(':').map(Number);
+      const [endH, endM] = schedule.end.split(':').map(Number);
+      const startMinutes = startH * 60 + startM;
+      const endMinutes = endH * 60 + endM;
+      
+      return currentMinutes >= startMinutes && currentMinutes < endMinutes;
+    }
+    
+    function applyConfig(cfg) {
+      config = cfg;
+      
+      if (cfg.primary_color) {
+        launcher.style.background = cfg.primary_color;
+        header.style.background = cfg.primary_color;
+        sendBtn.style.background = cfg.primary_color;
+        startBtn.style.background = cfg.primary_color;
+        document.documentElement.style.setProperty('--vintra-primary', cfg.primary_color);
+      }
+      
+      if (cfg.widget_title) {
+        title.textContent = cfg.widget_title;
+      }
+      
+      if (cfg.placeholder_text) {
+        input.placeholder = cfg.placeholder_text;
+      }
+      
+      if (cfg.position === 'bottom-left') {
+        container.classList.add('position-left');
+      }
+      
+      // Apply icon to header avatar
+      const headerAvatar = container.querySelector('.vintra-header-avatar');
+      if (headerAvatar) {
+        setAvatarContent(headerAvatar, cfg, 24);
+        if (cfg.avatar_url && (cfg.avatar_url.startsWith('icon:glass-orb') || cfg.avatar_url.startsWith('code:'))) {
+          headerAvatar.style.background = 'rgba(255,255,255,0.1)';
+        }
+      }
+      
+      // Apply icon to typing indicator avatar
+      const typingAvatar = container.querySelector('.vintra-typing-avatar');
+      if (typingAvatar) {
+        typingAvatar.style.background = cfg.primary_color || '#14b8a6';
+        setAvatarContent(typingAvatar, cfg, 16);
+      }
+      
+      // Apply launcher icon from avatar_url
+      // Supports: "icon:style" (preset), "data:..." (uploaded image), "svg:..." (custom SVG), "code:..." (custom HTML/JS)
+      if (cfg.avatar_url && cfg.avatar_url.startsWith('code:')) {
+        // Custom HTML/CSS/JS code - render in sandboxed iframe
+        const codeContent = cfg.avatar_url.substring(5);
+        launcher.style.overflow = 'hidden';
+        launcher.style.padding = '0';
+        launcherIconOpen.style.cssText = 'width:100%;height:100%;position:absolute;inset:0;display:flex;align-items:center;justify-content:center;';
+        const iframe = document.createElement('iframe');
+        iframe.sandbox = 'allow-scripts';
+        iframe.style.cssText = 'width:100%;height:100%;border:none;border-radius:50%;pointer-events:none;background:transparent;';
+        iframe.title = 'Custom launcher icon';
+        iframe.srcdoc = codeContent;
+        launcherIconOpen.innerHTML = '';
+        launcherIconOpen.appendChild(iframe);
+      } else if (cfg.avatar_url && cfg.avatar_url.startsWith('data:')) {
+        // Uploaded image - render as <img> with white filter
+        launcherIconOpen.innerHTML = '<img src="' + cfg.avatar_url + '" alt="" style="width:28px;height:28px;object-fit:contain;filter:brightness(0) invert(1);" />';
+      } else if (cfg.avatar_url && cfg.avatar_url.startsWith('svg:')) {
+        // Custom SVG code
+        const svgCode = cfg.avatar_url.replace('svg:', '');
+        launcherIconOpen.innerHTML = svgCode;
+        // Ensure the SVG fills white and fits
+        const svgEl = launcherIconOpen.querySelector('svg');
+        if (svgEl) {
+          svgEl.setAttribute('width', '28');
+          svgEl.setAttribute('height', '28');
+          svgEl.style.fill = 'white';
+        }
+      } else {
+        // Preset icon (including animated glass-orb)
+        const iconStyle = (cfg.avatar_url && cfg.avatar_url.startsWith('icon:')) 
+          ? cfg.avatar_url.replace('icon:', '') 
+          : 'chat';
+        
+        if (iconStyle === 'glass-orb') {
+          initGlassOrb(launcher, cfg.primary_color);
+          // Keep close icon visible above the orb
+          const closeIcon = launcher.querySelector('.vintra-icon-close');
+          if (closeIcon) closeIcon.style.zIndex = '2';
+        } else {
+          launcherIconOpen.innerHTML = getLauncherIcon(iconStyle);
+        }
+      }
+      
+      // Greeting bubble text from config
+      if (cfg.greeting_message) {
+        greetingTitle.textContent = cfg.greeting_message;
+      }
+      if (cfg.greeting_subtext) {
+        greetingSub.textContent = cfg.greeting_subtext;
+      }
+      
+      // Business hours check
+      isOffline = !checkBusinessHours(cfg);
+      if (isOffline) {
+        statusDot.className = 'vintra-status-dot waiting';
+        statusText.textContent = 'Offline';
+        if (cfg.outside_hours_message) {
+          offlineMsg.textContent = cfg.outside_hours_message;
+        }
+      }
+      
+      // Try to restore a previous session
+      restoreSession();
+    }
+    
+    return { applyConfig };
+  }
+  
+  // Initialize
+  async function init() {
+    try {
+      const configUrl = API_BASE + '/api/chat/config?chatbot_id=' + chatbotId + '&t=' + Date.now();
+      const response = await fetch(configUrl, { cache: 'no-store' });
+      
+      const defaultConfig = {
+        primary_color: '#14b8a6',
+        widget_title: 'Chat with us',
+        welcome_message: 'Hi! How can we help you today?',
+        placeholder_text: 'Type your message...',
+        show_branding: true,
+        position: 'bottom-right'
+      };
+      
+      if (!response.ok) {
+        const widget = createWidget();
+        widget.applyConfig(defaultConfig);
+        return;
+      }
+      
+      const configData = await response.json();
+      
+      if (configData.error) {
+        const widget = createWidget();
+        widget.applyConfig(defaultConfig);
+        return;
+      }
+      
+      const widget = createWidget();
+      widget.applyConfig(configData);
+    } catch (error) {
+      console.error('[VintraStudio] Failed to initialize:', error);
+      const widget = createWidget();
+      widget.applyConfig({
+        primary_color: '#14b8a6',
+        widget_title: 'Chat with us',
+        welcome_message: 'Hi! How can we help you today?',
+        placeholder_text: 'Type your message...',
+        show_branding: true,
+        position: 'bottom-right'
+      });
+    }
+  }
+  
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
+  }
 })();

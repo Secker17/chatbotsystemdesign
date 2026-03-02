@@ -19,36 +19,16 @@ export async function GET(request: NextRequest) {
   try {
     const supabase = createPublicClient()
 
-    // Query only existing columns - NEVER use SELECT * (greeting_enabled doesn't exist)
-    const { data: rawData, error } = await supabase
+    // Query without greeting_enabled column (doesn't exist in DB)
+    // greeting_enabled is derived from greeting_message being set
+    const { data, error } = await supabase
       .from('chatbot_configs')
-      .select(`
-        id,
-        widget_title,
-        welcome_message,
-        primary_color,
-        position,
-        avatar_url,
-        show_branding,
-        placeholder_text,
-        offline_message,
-        ai_enabled,
-        business_hours_enabled,
-        business_hours,
-        business_hours_timezone,
-        outside_hours_message,
-        greeting_message,
-        greeting_subtext,
-        launcher_text,
-        launcher_text_enabled,
-        quick_replies,
-        admin_id
-      `)
+      .select('admin_id, widget_title, welcome_message, primary_color, position, avatar_url, show_branding, placeholder_text, offline_message, ai_enabled, business_hours_enabled, business_hours, business_hours_timezone, outside_hours_message, greeting_message, greeting_subtext')
       .eq('id', chatbotId)
       .single()
 
-    if (error || !rawData) {
-      console.error('[v0] Config fetch error for chatbot_id:', chatbotId, 'error:', error?.message)
+    if (error || !data) {
+      console.error('Config fetch error for chatbot_id:', chatbotId, 'error:', error?.message)
       return NextResponse.json({ error: 'Chatbot not found' }, { status: 404, headers: corsHeaders })
     }
 
@@ -56,46 +36,43 @@ export async function GET(request: NextRequest) {
     const { data: adminProfile } = await supabase
       .from('admin_profiles')
       .select('plan')
-      .eq('id', rawData.admin_id)
+      .eq('id', data.admin_id)
       .single()
 
     const adminPlan = (adminProfile?.plan as PlanId) || 'starter'
     const planLimits = getPlanLimits(adminPlan)
 
-    // Build response - derive greeting_enabled from greeting_message
+    // Enforce plan limits on the config response
     const configResponse = {
-      id: rawData.id,
-      widget_title: rawData.widget_title || 'Chat Support',
-      welcome_message: rawData.welcome_message || 'How can we help you?',
-      primary_color: rawData.primary_color || '#3b82f6',
-      position: (rawData.position || 'bottom-right') as 'bottom-right' | 'bottom-left',
-      avatar_url: rawData.avatar_url || null,
-      show_branding: planLimits.removeBranding ? rawData.show_branding : true,
-      placeholder_text: rawData.placeholder_text || 'Type your message...',
-      offline_message: rawData.offline_message || 'We are offline. Leave a message.',
-      ai_enabled: planLimits.aiEnabled ? rawData.ai_enabled : false,
-      greeting_message: rawData.greeting_message || null,
-      greeting_subtext: rawData.greeting_subtext || '',
-      greeting_enabled: Boolean(rawData.greeting_message),
-      launcher_text: rawData.launcher_text || null,
-      launcher_text_enabled: rawData.launcher_text_enabled ?? false,
-      quick_replies: rawData.quick_replies || [],
-      business_hours_enabled: rawData.business_hours_enabled ?? false,
-      business_hours: rawData.business_hours || null,
-      business_hours_timezone: rawData.business_hours_timezone || 'UTC',
-      outside_hours_message: rawData.outside_hours_message || null,
+      widget_title: data.widget_title,
+      welcome_message: data.welcome_message,
+      primary_color: data.primary_color,
+      position: data.position,
+      avatar_url: data.avatar_url,
+      // Force branding on if plan doesn't allow removal
+      show_branding: planLimits.removeBranding ? data.show_branding : true,
+      placeholder_text: data.placeholder_text,
+      offline_message: data.offline_message,
+      // Disable AI if plan doesn't support it
+      ai_enabled: planLimits.aiEnabled ? data.ai_enabled : false,
+      greeting_message: data.greeting_message,
+      greeting_subtext: data.greeting_subtext,
+      // Derive greeting_enabled from whether greeting_message is set (null/empty = disabled)
+      greeting_enabled: Boolean(data.greeting_message),
+      business_hours_enabled: data.business_hours_enabled,
+      business_hours: data.business_hours,
+      business_hours_timezone: data.business_hours_timezone,
+      outside_hours_message: data.outside_hours_message,
     }
 
     return NextResponse.json(configResponse, {
       headers: {
         ...corsHeaders,
-        'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0',
-        'Pragma': 'no-cache',
-        'Expires': '0',
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
       },
     })
   } catch (error) {
-    console.error('[v0] Config API error:', error)
+    console.error('Config API error:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500, headers: corsHeaders })
   }
 }

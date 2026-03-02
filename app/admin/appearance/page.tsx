@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useCallback, useMemo } from 'react'
+import { useEffect, useState } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -109,7 +109,6 @@ interface ChatbotConfig {
   primary_color: string
   position: string
   avatar_url: string | null
-  avatar_glyph: string | null
   show_branding: boolean
   offline_message: string
   placeholder_text: string
@@ -136,17 +135,11 @@ export default function AppearancePage() {
   const [saving, setSaving] = useState(false)
   const [planLimits, setPlanLimits] = useState<PlanLimits | null>(null)
 
-  const config = useMemo(() => configs[activeConfigIndex] ?? null, [configs, activeConfigIndex])
+  const config = configs[activeConfigIndex] ?? null
 
-  // Optimized setConfig with useCallback to prevent unnecessary re-renders
-  const setConfig = useCallback((updated: ChatbotConfig | ((prev: ChatbotConfig) => ChatbotConfig)) => {
-    setConfigs(prev => {
-      const newConfigs = [...prev]
-      const updater = typeof updated === 'function' ? updated : () => updated
-      newConfigs[activeConfigIndex] = updater(prev[activeConfigIndex])
-      return newConfigs
-    })
-  }, [activeConfigIndex])
+  const setConfig = (updated: ChatbotConfig) => {
+    setConfigs(prev => prev.map((c, i) => i === activeConfigIndex ? updated : c))
+  }
 
   useEffect(() => {
     loadConfig()
@@ -179,12 +172,69 @@ export default function AppearancePage() {
     }
   }, [loading, configs.length, activeWorkspaceId])
 
-  const loadConfig = useCallback(async () => {
-    // Always try to load from database first
+  const loadConfig = async () => {
+    // Check if Supabase is configured
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+    const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+    
+    if (!supabaseUrl || !supabaseKey) {
+      // Use mock data in development mode
+      const mockConfigs: ChatbotConfig[] = [
+        {
+          id: 'dev-chatbot-landing',
+          widget_title: 'Chat with us',
+          welcome_message: 'Hi! How can we help you today?',
+          primary_color: '#eab308',
+          position: 'bottom-right',
+          avatar_url: 'icon:glass-orb',
+          show_branding: true,
+          offline_message: 'We are currently offline. Leave a message!',
+          placeholder_text: 'Type your message...',
+          launcher_text: 'Talk to us',
+          launcher_text_enabled: true,
+          business_hours_enabled: false,
+          business_hours: DEFAULT_BUSINESS_HOURS,
+          business_hours_timezone: 'Europe/Oslo',
+          outside_hours_message: null,
+          is_landing_widget: true,
+          landing_widget_enabled: true,
+          quick_replies: ['What features do you offer?', 'Tell me about pricing'],
+          greeting_message: 'Hi there!',
+          greeting_subtext: 'How can I help you today?',
+          greeting_enabled: true,
+        },
+        {
+          id: 'dev-chatbot-demo',
+          widget_title: 'Chat Demo Bot',
+          welcome_message: 'Welcome to the demo!',
+          primary_color: '#6366f1',
+          position: 'bottom-right',
+          avatar_url: 'icon:glass-orb',
+          show_branding: true,
+          offline_message: 'We are currently offline.',
+          placeholder_text: 'Type your message...',
+          launcher_text: 'Chat with us',
+          launcher_text_enabled: true,
+          business_hours_enabled: false,
+          business_hours: DEFAULT_BUSINESS_HOURS,
+          business_hours_timezone: 'Europe/Oslo',
+          outside_hours_message: null,
+          is_landing_widget: false,
+          landing_widget_enabled: false,
+          quick_replies: ['Show me a demo', 'What can you do?'],
+          greeting_message: 'Welcome!',
+          greeting_subtext: 'Try out our features here.',
+          greeting_enabled: true,
+          },
+      ]
+      setConfigs(mockConfigs)
+      setLoading(false)
+      return
+    }
+
     try {
       const res = await fetch(`/api/chatbot/appearance?workspaceId=${activeWorkspaceId}`)
       if (!res.ok) {
-        console.error('Failed to fetch configs:', res.statusText)
         setLoading(false)
         return
       }
@@ -198,49 +248,15 @@ export default function AppearancePage() {
           if (!a.is_landing_widget && b.is_landing_widget) return 1
           return 0
         })
-        // Ensure greeting_enabled is derived from greeting_message
-        const withDerivedFields = sorted.map(c => ({
-          ...c,
-          greeting_enabled: Boolean(c.greeting_message),
-        }))
-        // Save to localStorage as backup
-        if (typeof window !== 'undefined') {
-          try {
-            withDerivedFields.forEach(c => {
-              localStorage.setItem(`vintra-config-${c.id}`, JSON.stringify(c))
-            })
-          } catch (e) {
-            // Ignore localStorage errors
-          }
-        }
-        setConfigs(withDerivedFields)
-        setLoading(false)
-        return
+        setConfigs(sorted)
       }
     } catch (err) {
-      console.error('Failed to load config from database:', err)
+      console.error('Failed to load config:', err)
     }
-
-    // Fallback: Try to load from localStorage if database fails
-    if (typeof window !== 'undefined' && activeWorkspaceId) {
-      try {
-        const keys = Object.keys(localStorage).filter(k => k.startsWith('vintra-config-'))
-        if (keys.length > 0) {
-          const savedConfigs = keys.map(k => JSON.parse(localStorage.getItem(k) || '{}'))
-          setConfigs(savedConfigs)
-          toast.info('Loaded config from local storage (offline)')
-          setLoading(false)
-          return
-        }
-      } catch (e) {
-        // Ignore fallback errors
-      }
-    }
-
     setLoading(false)
-  }, [activeWorkspaceId])
+  }
 
-  const handleSave = useCallback(async () => {
+  const handleSave = async () => {
     if (!config) return
     setSaving(true)
 
@@ -258,14 +274,6 @@ export default function AppearancePage() {
         const data = await res.json()
         toast.error(data.error || 'Failed to save appearance settings')
       } else {
-        // Save to localStorage as backup
-        if (typeof window !== 'undefined') {
-          try {
-            localStorage.setItem(`vintra-config-${config.id}`, JSON.stringify(config))
-          } catch (e) {
-            // Ignore localStorage errors
-          }
-        }
         toast.success('Appearance settings saved successfully')
       }
     } catch (err) {
@@ -274,7 +282,7 @@ export default function AppearancePage() {
     }
 
     setSaving(false)
-  }, [config, activeWorkspaceId])
+  }
 
   if (loading) {
     return (
@@ -512,7 +520,6 @@ export default function AppearancePage() {
                             sender="bot"
                             size={40}
                             skin="default"
-                            glyph={config.avatar_glyph || 'A'}
                             style={{}}
                             className=""
                           />
@@ -527,36 +534,6 @@ export default function AppearancePage() {
                   )
                 })}
               </div>
-
-              {/* Glass Orb Glyph Settings */}
-              {getIconStyle(config.avatar_url) === 'glass-orb' && (
-                <div className="space-y-3">
-                  <div className="space-y-2">
-                    <Label htmlFor="avatar-glyph">Glyph Character</Label>
-                    <div className="flex items-center gap-3">
-                      <Input
-                        id="avatar-glyph"
-                        value={config.avatar_glyph || 'A'}
-                        onChange={(e) => setConfig({ ...config, avatar_glyph: e.target.value.toUpperCase().slice(0, 1) })}
-                        maxLength={1}
-                        placeholder="A"
-                        className="w-20"
-                      />
-                      <div className="flex h-12 w-12 items-center justify-center rounded-full border border-border">
-                        <GlassOrbAvatar
-                          sender="bot"
-                          size={48}
-                          skin="default"
-                          glyph={config.avatar_glyph || 'A'}
-                        />
-                      </div>
-                    </div>
-                    <p className="text-xs text-muted-foreground">
-                      Enter a single character to display in the glass orb
-                    </p>
-                  </div>
-                </div>
-              )}
 
               {/* Custom icon - Pro+ only */}
               <div className="relative rounded-lg border-2 border-dashed border-border p-4">
@@ -963,8 +940,8 @@ export default function AppearancePage() {
           </Card>
         </div>
 
-
-        {/* Chat Interface Preview - Removed, using single preview below */}
+        {/* Preview */}
+        <Card>
           <CardHeader>
             <CardTitle>Preview</CardTitle>
             <CardDescription>
@@ -974,7 +951,7 @@ export default function AppearancePage() {
           <CardContent>
             <div className="relative rounded-lg border bg-muted/50 overflow-hidden" style={{ minHeight: '600px', transform: 'translateZ(0)' }}>
               <ChatInterface
-                key={`preview-${config.primary_color}-${config.avatar_url}-${config.position}-${config.avatar_glyph}`}
+                key={`preview-${config.primary_color}-${config.avatar_url}-${config.position}`}
                 chatbotId="preview"
                 primaryColor={config.primary_color}
                 avatarStyle={
@@ -982,7 +959,6 @@ export default function AppearancePage() {
                     ? 'glass-orb'
                     : 'default'
                 }
-                avatarGlyph={config.avatar_glyph || 'A'}
                 position={config.position as 'bottom-right' | 'bottom-left'}
                 widgetTitle={config.widget_title}
                 welcomeMessage={config.welcome_message}
