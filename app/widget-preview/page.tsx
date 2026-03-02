@@ -2,51 +2,17 @@
 
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import ChatInterface from '@/components/chat-interface'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Loader2, Copy, Check, ExternalLink } from 'lucide-react'
 import Link from 'next/link'
 
-interface ChatConfig {
-  id: string
-  widget_title: string
-  welcome_message: string
-  primary_color: string
-  position: 'bottom-right' | 'bottom-left'
-  avatar_url: string | null
-  show_branding: boolean
-  placeholder_text: string
-  offline_message: string
-  ai_enabled: boolean
-  greeting_message: string | null
-  greeting_subtext: string
-  greeting_enabled: boolean
-  launcher_text: string | null
-  launcher_text_enabled: boolean
-  quick_replies: string[]
-  business_hours_enabled: boolean
-  business_hours: string | null
-  business_hours_timezone: string
-  outside_hours_message: string
-}
-
-// Helper to extract avatar style
-function getAvatarStyle(avatarUrl: string | null): 'glass-orb' | 'default' {
-  if (avatarUrl?.startsWith('icon:')) {
-    const style = avatarUrl.replace('icon:', '')
-    if (style === 'glass-orb') return 'glass-orb'
-  }
-  return 'default'
-}
-
 export default function WidgetPreviewPage() {
   const [chatbotId, setChatbotId] = useState<string | null>(null)
-  const [config, setConfig] = useState<ChatConfig | null>(null)
   const [loading, setLoading] = useState(true)
   const [copied, setCopied] = useState(false)
-  const [widgetOpen, setWidgetOpen] = useState(false)
+  const [widgetLoaded, setWidgetLoaded] = useState(false)
 
   useEffect(() => {
     async function loadConfig() {
@@ -54,6 +20,8 @@ export default function WidgetPreviewPage() {
       const { data: { user } } = await supabase.auth.getUser()
 
       if (user) {
+        // Get the active workspace from the cookie, or fall back to user's own ID
+        // This matches the server-side getActiveWorkspaceId() logic
         const workspaceCookie = document.cookie
           .split('; ')
           .find(row => row.startsWith('active_workspace='))
@@ -61,6 +29,7 @@ export default function WidgetPreviewPage() {
         
         const workspaceId = workspaceCookie || user.id
         
+        // Fetch chatbot config using workspace ID (admin_id can be user.id or team workspace)
         let { data } = await supabase
           .from('chatbot_configs')
           .select('id')
@@ -68,6 +37,7 @@ export default function WidgetPreviewPage() {
           .limit(1)
           .single()
         
+        // If no chatbot exists, create one via the setup API
         if (!data) {
           try {
             const setupRes = await fetch('/api/chatbot/setup', {
@@ -84,19 +54,7 @@ export default function WidgetPreviewPage() {
           }
         }
         
-        if (data?.id) {
-          setChatbotId(data.id)
-          // Fetch the full config
-          try {
-            const configRes = await fetch(`/api/chat/config?chatbot_id=${data.id}`)
-            if (configRes.ok) {
-              const configData = await configRes.json()
-              setConfig(configData)
-            }
-          } catch (e) {
-            console.error('Failed to fetch config:', e)
-          }
-        }
+        setChatbotId(data?.id || null)
       }
       setLoading(false)
     }
@@ -104,10 +62,31 @@ export default function WidgetPreviewPage() {
     loadConfig()
   }, [])
 
+  useEffect(() => {
+    if (chatbotId && !widgetLoaded) {
+      // Dynamically load the widget script with cache-busting
+      const script = document.createElement('script')
+      script.src = `/api/widget.js?t=${Date.now()}`
+      script.dataset.chatbotId = chatbotId
+      script.async = true
+      document.body.appendChild(script)
+      setWidgetLoaded(true)
+
+      return () => {
+        // Cleanup widget on unmount
+        const widgetContainer = document.querySelector('.vintra-widget-container')
+        if (widgetContainer) {
+          widgetContainer.remove()
+        }
+        script.remove()
+      }
+    }
+  }, [chatbotId, widgetLoaded])
+
   const handleCopy = () => {
     if (chatbotId) {
       navigator.clipboard.writeText(
-        `<script src="${typeof window !== 'undefined' ? window.location.origin : ''}/api/widget.js" data-chatbot-id="${chatbotId}" async></script>`
+        `<script src="${window.location.origin}/api/widget.js" data-chatbot-id="${chatbotId}" async></script>`
       )
       setCopied(true)
       setTimeout(() => setCopied(false), 2000)
@@ -139,7 +118,8 @@ export default function WidgetPreviewPage() {
         <div className="text-center">
           <h1 className="text-3xl font-bold text-foreground">Widget Preview</h1>
           <p className="mt-3 text-muted-foreground">
-            This is a live preview of your chat widget. All your settings from the appearance panel are applied below.
+            This is a preview of how the chat widget will appear on your website.
+            Look for the chat button in the bottom-right corner.
           </p>
         </div>
 
@@ -177,7 +157,7 @@ export default function WidgetPreviewPage() {
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <pre className="overflow-x-auto rounded-md bg-muted p-4 text-xs text-foreground border border-border font-mono">
+                  <pre className="overflow-x-auto rounded-md bg-zinc-900 p-4 text-xs text-zinc-100">
                     <code>{`<script
   src="${typeof window !== 'undefined' ? window.location.origin : ''}/api/widget.js"
   data-chatbot-id="${chatbotId}"
@@ -207,38 +187,25 @@ export default function WidgetPreviewPage() {
           )}
         </div>
 
-        {/* Live Preview */}
+        {/* Preview Area */}
         <Card className="mt-10">
           <CardHeader>
             <CardTitle>Live Preview</CardTitle>
             <CardDescription>
-              Your chat widget is shown below with all your configured settings. Click the button in the corner to test.
+              The chat widget should appear in the bottom-right corner of this page.
+              Try clicking on it to test the functionality.
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="relative min-h-[400px] rounded-lg border-2 border-dashed border-muted-foreground/20 bg-muted/30 p-4">
-              {config && chatbotId ? (
-                <ChatInterface
-                  chatbotId={chatbotId}
-                  primaryColor={config.primary_color}
-                  avatarStyle={getAvatarStyle(config.avatar_url)}
-                  position={config.position}
-                  isOpen={widgetOpen}
-                  onToggle={() => setWidgetOpen(!widgetOpen)}
-                  widgetTitle={config.widget_title}
-                  welcomeMessage={config.welcome_message}
-                  placeholderText={config.placeholder_text}
-                  showBranding={config.show_branding}
-                  quickReplies={config.quick_replies}
-                  greetingMessage={config.greeting_message || undefined}
-                  greetingSubtext={config.greeting_subtext}
-                  greetingEnabled={config.greeting_enabled}
-                />
-              ) : (
-                <div className="flex items-center justify-center h-full">
-                  <p className="text-muted-foreground">Loading preview...</p>
-                </div>
-              )}
+            <div className="flex min-h-[300px] items-center justify-center rounded-lg border-2 border-dashed border-muted-foreground/20 bg-muted/30">
+              <div className="text-center">
+                <p className="text-muted-foreground">
+                  {chatbotId 
+                    ? 'Chat widget is active - look for the button in the bottom-right corner'
+                    : 'Log in to test the chat widget'
+                  }
+                </p>
+              </div>
             </div>
           </CardContent>
         </Card>

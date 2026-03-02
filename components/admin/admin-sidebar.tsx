@@ -105,13 +105,6 @@ const menuItems: MenuItem[] = [
     requiresEdit: true,
   },
   {
-    title: 'Export Widget',
-    icon: Code2,
-    href: '/export',
-    requiredFeature: null,
-    requiresEdit: true,
-  },
-  {
     title: 'Analytics',
     icon: BarChart3,
     href: '/admin/analytics',

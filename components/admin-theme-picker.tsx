@@ -48,12 +48,12 @@ interface AnimationPreset {
 const ANIMATION_PRESETS: AnimationPreset[] = [
   {
     id: 'professional',
-    name: 'Professional',
+    name: 'Profesjonell',
     emoji: '🎯',
-    description: 'Calm and efficient',
-    detail: 'Subtle transitions – nothing distracts you from work',
+    description: 'Rolig og effektiv',
+    detail: 'Subtile overganger – ingenting distraherer deg fra jobben',
     css: `
-      /* PROFESSIONAL – subtle, fast, business-like */
+      /* PROFESJONELL – subtle, fast, business-like */
       button, a[role="button"], [data-slot="sidebar-menu-button"] {
         transition: opacity 0.15s ease, background-color 0.15s ease, border-color 0.15s ease !important;
       }
@@ -82,8 +82,8 @@ const ANIMATION_PRESETS: AnimationPreset[] = [
     id: 'smooth',
     name: 'Smooth',
     emoji: '🌊',
-    description: 'Flowing and relaxed',
-    detail: 'Soft ease-out curves on everything – like butter',
+    description: 'Flytende og avslappet',
+    detail: 'Myke ease-out kurver på alt – som smør',
     css: `
       /* SMOOTH – slow ease-out everything */
       *, *::before, *::after {
@@ -116,8 +116,8 @@ const ANIMATION_PRESETS: AnimationPreset[] = [
     id: 'snappy',
     name: 'Snappy',
     emoji: '⚡',
-    description: 'Fast and responsive',
-    detail: 'Instant feedback – everything reacts instantly',
+    description: 'Rask og responsiv',
+    detail: 'Øyeblikkelig feedback – alt reagerer lynraskt',
     css: `
       /* SNAPPY – instant, spring-like */
       button, a[role="button"], [data-slot="sidebar-menu-button"] {
@@ -149,10 +149,10 @@ const ANIMATION_PRESETS: AnimationPreset[] = [
   },
   {
     id: 'bouncy',
-    name: 'Playful',
+    name: 'Morsom',
     emoji: '🎉',
-    description: 'Playful and energetic',
-    detail: 'Spring animations with bounce – keeps the mood up',
+    description: 'Leken og energisk',
+    detail: 'Spring-animasjoner med bounce – holder humøret oppe',
     css: `
       /* BOUNCY – spring physics, playful */
       @keyframes admin-bounce-in {
@@ -196,8 +196,8 @@ const ANIMATION_PRESETS: AnimationPreset[] = [
     id: 'glow',
     name: 'Neon Glow',
     emoji: '✨',
-    description: 'Glow and light effects',
-    detail: 'Primary color glow on hover – perfect for dark themes',
+    description: 'Glød og lyseffekter',
+    detail: 'Primærfarge-glød på hover – perfekt for mørke temaer',
     css: `
       /* GLOW – neon glow effects using currentColor */
       :root {
@@ -241,8 +241,8 @@ const ANIMATION_PRESETS: AnimationPreset[] = [
     id: 'corporate',
     name: 'Corporate',
     emoji: '🏢',
-    description: 'No animations',
-    detail: 'Completely static – for those who want full control',
+    description: 'Ingen animasjoner',
+    detail: 'Helt statisk – for den som vil ha full kontroll',
     css: `
       /* CORPORATE – no animations whatsoever */
       *, *::before, *::after {
@@ -556,7 +556,7 @@ export default function AdminThemePicker() {
     applyTheme(newTheme)
     localStorage.setItem('admin-theme', JSON.stringify(newTheme))
     localStorage.setItem('admin-theme-preset', preset.name)
-    toast.success(`Theme "${preset.name}" activated`)
+    toast.success(`Tema "${preset.name}" aktivert`)
   }
 
   const applyAnimationPreset = (preset: AnimationPreset) => {
@@ -564,7 +564,7 @@ export default function AdminThemePicker() {
     setCurrentTheme(newTheme)
     injectAnimationCSS(preset.css)
     localStorage.setItem('admin-theme', JSON.stringify(newTheme))
-    toast.success(`Animation: ${preset.name}`)
+    toast.success(`Animasjon: ${preset.name}`)
   }
 
   const handleColorChange = (property: string, color: string) => {
@@ -572,7 +572,7 @@ export default function AdminThemePicker() {
     setCurrentTheme(newTheme)
     applyTheme(newTheme)
     setCustomColors({ ...customColors, [property]: color })
-    setActivePresetName('Custom')
+    setActivePresetName('Egendefinert')
   }
 
   const saveCustomTheme = () => {
@@ -581,7 +581,7 @@ export default function AdminThemePicker() {
     localStorage.setItem('admin-theme', JSON.stringify(finalTheme))
     localStorage.setItem('admin-theme-preset', activePresetName)
     setCustomColors({})
-    toast.success('Custom theme saved!')
+    toast.success('Egendefinert tema lagret!')
   }
 
   const resetToDefault = () => {
@@ -593,7 +593,7 @@ export default function AdminThemePicker() {
     localStorage.removeItem('admin-theme')
     localStorage.removeItem('admin-theme-preset')
     setCustomColors({})
-    toast.success('Theme reset to default')
+    toast.success('Tema tilbakestilt til standard')
   }
 
   const toggleSection = (section: string) => {
@@ -608,7 +608,7 @@ export default function AdminThemePicker() {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Palette className="h-5 w-5 text-muted-foreground" />
-            <CardTitle>Admin Panel Theme</CardTitle>
+            <CardTitle>Admin Panel Tema</CardTitle>
           </div>
           <Badge
             variant="outline"
@@ -619,7 +619,7 @@ export default function AdminThemePicker() {
           </Badge>
         </div>
         <CardDescription>
-          Customize colors, animations, and appearance of your admin panel
+          Tilpass farger, animasjoner og utseende på admin-panelet ditt
         </CardDescription>
       </CardHeader>
 
@@ -629,7 +629,7 @@ export default function AdminThemePicker() {
         <Collapsible open={expandedSections.presets} onOpenChange={() => toggleSection('presets')}>
           <CollapsibleTrigger asChild>
             <Button variant="ghost" className="w-full justify-between font-medium">
-              Color Themes
+              Fargetemaer
               {expandedSections.presets ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
             </Button>
           </CollapsibleTrigger>
@@ -683,7 +683,7 @@ export default function AdminThemePicker() {
           <CollapsibleTrigger asChild>
             <Button variant="ghost" className="w-full justify-between font-medium">
               <span className="flex items-center gap-2">
-                Animations
+                Animasjoner
                 <Badge variant="secondary" className="text-[10px] font-normal">
                   {activeAnimation.emoji} {activeAnimation.name}
                 </Badge>
@@ -693,7 +693,7 @@ export default function AdminThemePicker() {
           </CollapsibleTrigger>
           <CollapsibleContent className="mt-3 space-y-3">
             <p className="text-xs text-muted-foreground px-1">
-              Affects all buttons, links, cards, and sidebar elements in the admin panel.
+              Påvirker alle knapper, lenker, kort og sidefelt-elementer i admin-panelet.
             </p>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
               {ANIMATION_PRESETS.map((preset) => {
@@ -743,17 +743,17 @@ export default function AdminThemePicker() {
         <Collapsible open={expandedSections.primary} onOpenChange={() => toggleSection('primary')}>
           <CollapsibleTrigger asChild>
             <Button variant="ghost" className="w-full justify-between font-medium">
-              Primary Colors
+              Primærfarger
               {expandedSections.primary ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
             </Button>
           </CollapsibleTrigger>
           <CollapsibleContent className="space-y-4 mt-3">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {[
-                { id: 'primary', label: 'Primary Color', prop: 'primary', placeholder: '#06b6d4' },
-                { id: 'primary-fg', label: 'Text on Primary', prop: 'primaryForeground', placeholder: '#ffffff' },
-                { id: 'accent', label: 'Accent Color', prop: 'accent', placeholder: '#0e7490' },
-                { id: 'foreground', label: 'Global Text', prop: 'foreground', placeholder: '#f1f5f9' },
+                { id: 'primary', label: 'Primærfarge', prop: 'primary', placeholder: '#06b6d4' },
+                { id: 'primary-fg', label: 'Tekst på primær', prop: 'primaryForeground', placeholder: '#ffffff' },
+                { id: 'accent', label: 'Aksentfarge', prop: 'accent', placeholder: '#0e7490' },
+                { id: 'foreground', label: 'Global tekst', prop: 'foreground', placeholder: '#f1f5f9' },
               ].map(({ id, label, prop, placeholder }) => (
                 <div key={id} className="space-y-2">
                   <Label htmlFor={id}>{label}</Label>
@@ -777,17 +777,17 @@ export default function AdminThemePicker() {
         <Collapsible open={expandedSections.sidebar} onOpenChange={() => toggleSection('sidebar')}>
           <CollapsibleTrigger asChild>
             <Button variant="ghost" className="w-full justify-between font-medium">
-              Sidebar Colors
+              Sidefelt-farger
               {expandedSections.sidebar ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
             </Button>
           </CollapsibleTrigger>
           <CollapsibleContent className="space-y-4 mt-3">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {[
-                { id: 'sb-bg', label: 'Background', prop: 'sidebarBackground' },
-                { id: 'sb-primary', label: 'Accent / Active', prop: 'sidebarPrimary' },
-                { id: 'sb-fg', label: 'Text', prop: 'sidebarForeground' },
-                { id: 'sb-border', label: 'Border', prop: 'sidebarBorder' },
+                { id: 'sb-bg', label: 'Bakgrunn', prop: 'sidebarBackground' },
+                { id: 'sb-primary', label: 'Aksent / aktiv', prop: 'sidebarPrimary' },
+                { id: 'sb-fg', label: 'Tekst', prop: 'sidebarForeground' },
+                { id: 'sb-border', label: 'Kantlinje', prop: 'sidebarBorder' },
               ].map(({ id, label, prop }) => (
                 <div key={id} className="space-y-2">
                   <Label htmlFor={id}>{label}</Label>
