@@ -41,7 +41,6 @@ async function createDemoChatbot() {
         primary_color: '#3b82f6',
         position: 'bottom-right',
         avatar_url: 'icon:glass-orb',
-        avatar_glyph: 'A',
         show_branding: true,
         offline_message: 'We are currently offline. Leave a message!',
         placeholder_text: 'Type your message...',
