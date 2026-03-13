@@ -69,6 +69,7 @@ export async function POST(request: NextRequest) {
           })
           .eq('id', userId)
 
+        console.log(`Checkout completed for user ${userId}, plan: ${plan}`)
         break
       }
 
@@ -110,6 +111,8 @@ export async function POST(request: NextRequest) {
               plan_period_end: periodEnd,
             })
             .eq('id', profile.id)
+
+          console.log(`Subscription updated for profile ${profile.id}, plan: ${plan}, status: ${status}`)
         }
         break
       }
@@ -133,6 +136,8 @@ export async function POST(request: NextRequest) {
               stripe_subscription_id: null,
             })
             .eq('id', profile.id)
+
+          console.log(`Subscription deleted for profile ${profile.id}, downgraded to starter`)
         }
         break
       }
@@ -152,8 +157,27 @@ export async function POST(request: NextRequest) {
             .from('admin_profiles')
             .update({ subscription_status: 'past_due' })
             .eq('id', profile.id)
+
+          console.log(`Payment failed for profile ${profile.id}, marked as past_due`)
         }
         break
+      }
+
+      // Handle Stripe Connect / account-related events
+      case 'account.updated': {
+        const account = event.data.object as Stripe.Account
+        console.log(`Account updated: ${account.id}, charges_enabled: ${account.charges_enabled}, payouts_enabled: ${account.payouts_enabled}`)
+        break
+      }
+
+      case 'capability.updated': {
+        const capability = event.data.object as Stripe.Capability
+        console.log(`Capability updated: ${capability.id}, status: ${capability.status}, account: ${capability.account}`)
+        break
+      }
+
+      default: {
+        console.log(`Unhandled event type: ${event.type}`)
       }
     }
   } catch (error) {

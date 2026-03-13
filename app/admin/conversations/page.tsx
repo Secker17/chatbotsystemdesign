@@ -81,6 +81,7 @@ export default function ConversationsPage() {
   const [isConnected, setIsConnected] = useState(false)
   const [userId, setUserId] = useState<string | null>(null)
   const [chatbotIds, setChatbotIds] = useState<string[]>([])
+  const [chatbotMap, setChatbotMap] = useState<Record<string, { title: string; isLanding: boolean }>>({})
   const [filter, setFilter] = useState<'all' | 'handoff' | 'active' | 'ai'>('all')
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const channelRef = useRef<RealtimeChannel | null>(null)
@@ -133,7 +134,7 @@ export default function ConversationsPage() {
       // Fetch all chatbot IDs belonging to this admin
       const { data: chatbots, error: chatbotsError } = await supabase
         .from('chatbot_configs')
-        .select('id')
+        .select('id, widget_title, is_landing_widget')
         .eq('admin_id', user.id)
 
       if (chatbotsError) {
@@ -144,6 +145,16 @@ export default function ConversationsPage() {
 
       const ids = (chatbots || []).map(c => c.id)
       setChatbotIds(ids)
+
+      // Build a map of chatbot ID -> details for labeling
+      const map: Record<string, { title: string; isLanding: boolean }> = {}
+      for (const c of chatbots || []) {
+        map[c.id] = {
+          title: c.widget_title || 'Chatbot',
+          isLanding: !!c.is_landing_widget,
+        }
+      }
+      setChatbotMap(map)
     }
 
     init()
@@ -590,10 +601,22 @@ export default function ConversationsPage() {
                             </div>
                             <div className="min-w-0">
                               <div className="flex items-center gap-2">
-                                <span className="truncate font-medium">
-                                  {session.visitor_name || 'Anonymous'}
-                                </span>
-                                {getSessionStatusBadge(session)}
+                  <span className="truncate font-medium">
+                  {session.visitor_name || 'Anonymous'}
+                  </span>
+                  {chatbotMap[session.chatbot_id] && (
+                    <Badge
+                      variant="outline"
+                      className={`text-[10px] px-1.5 py-0 h-4 font-medium shrink-0 ${
+                        chatbotMap[session.chatbot_id].isLanding
+                          ? 'border-amber-300 bg-amber-50 text-amber-700 dark:bg-amber-900/20 dark:text-amber-400 dark:border-amber-800'
+                          : 'border-indigo-300 bg-indigo-50 text-indigo-700 dark:bg-indigo-900/20 dark:text-indigo-400 dark:border-indigo-800'
+                      }`}
+                    >
+                      {chatbotMap[session.chatbot_id].isLanding ? 'Landing' : 'Demo'}
+                    </Badge>
+                  )}
+                  {getSessionStatusBadge(session)}
                               </div>
                               {lastMessage && (
                                 <p className="mt-0.5 line-clamp-1 text-xs text-muted-foreground">
