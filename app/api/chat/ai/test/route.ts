@@ -5,7 +5,11 @@ import { NextRequest, NextResponse } from 'next/server'
 
 export const maxDuration = 30
 
-const xai = createXai({ apiKey: process.env.XAI_API_KEY })
+function getXai(apiKey: string | undefined) {
+  const key = apiKey || process.env.XAI_API_KEY
+  if (!key) throw new Error('XAI API key not configured. Add your Grok API key in the AI Assistant settings below.')
+  return createXai({ apiKey: key })
+}
 
 const MODEL_MAP: Record<string, string> = {
   'grok-3-mini': 'grok-3-mini',
@@ -43,6 +47,15 @@ export async function POST(request: NextRequest) {
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
+
+    const { data: adminProfile } = await supabase
+      .from('admin_profiles')
+      .select('xai_api_key')
+      .eq('id', user.id)
+      .single()
+
+    const apiKey = adminProfile?.xai_api_key || process.env.XAI_API_KEY
+    const xai = getXai(apiKey)
 
     const { message, system_prompt, knowledge_base, model, temperature, max_tokens } = await request.json()
 

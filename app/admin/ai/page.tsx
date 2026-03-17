@@ -58,6 +58,7 @@ const AI_MODELS = [
 
 export default function AIConfigPage() {
   const [config, setConfig] = useState<AIConfig | null>(null)
+  const [xaiApiKey, setXaiApiKey] = useState('')
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [newKeyword, setNewKeyword] = useState('')
@@ -66,6 +67,7 @@ export default function AIConfigPage() {
   const [testing, setTesting] = useState(false)
   const [planId, setPlanId] = useState<string>('starter')
   const [planLimits, setPlanLimits] = useState<PlanLimits | null>(null)
+  const [userId, setUserId] = useState<string | null>(null)
 
   useEffect(() => {
     loadConfig()
@@ -90,50 +92,77 @@ export default function AIConfigPage() {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
 
-    const { data } = await supabase
-      .from('chatbot_configs')
-      .select('id, ai_enabled, ai_system_prompt, ai_knowledge_base, ai_model, ai_temperature, ai_max_tokens, ai_auto_greet, ai_greeting_message, ai_handoff_keywords')
-      .eq('admin_id', user.id)
-      .single()
+    setUserId(user.id)
 
-    if (data) {
+    const [{ data: configData }, { data: profileData }] = await Promise.all([
+      supabase
+        .from('chatbot_configs')
+        .select('id, ai_enabled, ai_system_prompt, ai_knowledge_base, ai_model, ai_temperature, ai_max_tokens, ai_auto_greet, ai_greeting_message, ai_handoff_keywords')
+        .eq('admin_id', user.id)
+        .order('created_at', { ascending: true })
+        .limit(1)
+        .maybeSingle(),
+      supabase
+        .from('admin_profiles')
+        .select('xai_api_key')
+        .eq('id', user.id)
+        .single(),
+    ])
+
+    if (configData) {
       setConfig({
-        ...data,
-        ai_temperature: data.ai_temperature ?? 0.7,
-        ai_max_tokens: data.ai_max_tokens ?? 500,
-        ai_model: data.ai_model ?? 'grok-3-mini',
-        ai_handoff_keywords: data.ai_handoff_keywords ?? ['human', 'agent', 'person', 'real person', 'speak to someone', 'menneske', 'snakke med noen'],
-        ai_greeting_message: data.ai_greeting_message ?? 'Hi! I\'m an AI assistant. How can I help you today? If you\'d like to speak with a human, just let me know!',
-        ai_system_prompt: data.ai_system_prompt ?? 'You are a helpful customer support assistant. Be friendly, professional, and concise. Help visitors with their questions and guide them to the right resources.',
+        ...configData,
+        ai_temperature: configData.ai_temperature ?? 0.7,
+        ai_max_tokens: configData.ai_max_tokens ?? 500,
+        ai_model: configData.ai_model ?? 'grok-3-mini',
+        ai_handoff_keywords: configData.ai_handoff_keywords ?? ['human', 'agent', 'person', 'real person', 'speak to someone', 'menneske', 'snakke med noen'],
+        ai_greeting_message: configData.ai_greeting_message ?? 'Hi! I\'m an AI assistant. How can I help you today? If you\'d like to speak with a human, just let me know!',
+        ai_system_prompt: configData.ai_system_prompt ?? 'You are a helpful customer support assistant. Be friendly, professional, and concise. Help visitors with their questions and guide them to the right resources.',
       })
+    }
+    if (profileData?.xai_api_key) {
+      setXaiApiKey(profileData.xai_api_key)
     }
     setLoading(false)
   }
 
   const handleSave = async () => {
-    if (!config) return
+    if (!config || !userId) return
     setSaving(true)
 
     const supabase = createClient()
-    const { error } = await supabase
-      .from('chatbot_configs')
-      .update({
-        ai_enabled: config.ai_enabled,
-        ai_system_prompt: config.ai_system_prompt,
-        ai_knowledge_base: config.ai_knowledge_base,
-        ai_model: config.ai_model,
-        ai_temperature: config.ai_temperature,
-        ai_max_tokens: config.ai_max_tokens,
-        ai_auto_greet: config.ai_auto_greet,
-        ai_greeting_message: config.ai_greeting_message,
-        ai_handoff_keywords: config.ai_handoff_keywords,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', config.id)
 
-    if (error) {
-      console.error('Save error:', error)
-      toast.error('Failed to save AI configuration')
+    const [configError, profileError] = await Promise.all([
+      supabase
+        .from('chatbot_configs')
+        .update({
+          ai_enabled: config.ai_enabled,
+          ai_system_prompt: config.ai_system_prompt,
+          ai_knowledge_base: config.ai_knowledge_base,
+          ai_model: config.ai_model,
+          ai_temperature: config.ai_temperature,
+          ai_max_tokens: config.ai_max_tokens,
+          ai_auto_greet: config.ai_auto_greet,
+          ai_greeting_message: config.ai_greeting_message,
+          ai_handoff_keywords: config.ai_handoff_keywords,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', config.id)
+        .eq('admin_id', userId)
+        .then((r) => r.error),
+      supabase
+        .from('admin_profiles')
+        .update({ xai_api_key: xaiApiKey.trim() || null, updated_at: new Date().toISOString() })
+        .eq('id', userId)
+        .then((r) => r.error),
+    ])
+
+    if (configError) {
+      console.error('Save error:', configError)
+      toast.error(configError.message || 'Failed to save AI configuration')
+    } else if (profileError) {
+      console.error('API key save error:', profileError)
+      toast.error(profileError.message || 'Failed to save API key')
     } else {
       toast.success('AI configuration saved successfully')
     }
@@ -259,6 +288,32 @@ export default function AIConfigPage() {
       <div className="grid gap-6 lg:grid-cols-3">
         {/* Main Settings Column */}
         <div className="space-y-6 lg:col-span-2">
+          {/* xAI API Key */}
+          <Card>
+            <CardHeader>
+              <div className="flex items-center gap-2">
+                <Settings2 className="h-5 w-5 text-muted-foreground" />
+                <CardTitle>Grok / xAI API Key</CardTitle>
+              </div>
+              <CardDescription>
+                Enter your xAI API key from{' '}
+                <a href="https://console.x.ai/" target="_blank" rel="noopener noreferrer" className="text-primary underline">
+                  console.x.ai
+                </a>
+                . Required for AI to work. Leave empty to use server default (if configured).
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Input
+                type="password"
+                value={xaiApiKey}
+                onChange={(e) => setXaiApiKey(e.target.value)}
+                placeholder="xai-xxxxxxxxxxxxxxxxxxxxxxxx"
+                className="font-mono"
+              />
+            </CardContent>
+          </Card>
+
           {/* Enable/Disable */}
           <Card>
             <CardHeader>

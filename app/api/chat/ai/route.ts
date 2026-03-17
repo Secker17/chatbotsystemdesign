@@ -12,8 +12,12 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'Content-Type',
 }
 
-// Create xAI provider instance using the XAI_API_KEY env var
-const xai = createXai({ apiKey: process.env.XAI_API_KEY })
+// xAI provider - created per-request to support admin's API key from DB or env fallback
+function getXai(apiKey: string | undefined) {
+  const key = apiKey || process.env.XAI_API_KEY
+  if (!key) throw new Error('XAI API key not configured. Add XAI_API_KEY to your environment or set your Grok API key in Admin > AI Assistant.')
+  return createXai({ apiKey: key })
+}
 
 // Resolve user-facing model IDs to bare xAI model names
 const MODEL_MAP: Record<string, string> = {
@@ -106,14 +110,15 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Check if the admin's plan allows AI usage
+    // Check if the admin's plan allows AI usage and get their xAI API key if set
     const { data: adminProfile } = await supabase
       .from('admin_profiles')
-      .select('plan')
+      .select('plan, xai_api_key')
       .eq('id', session.admin_id)
       .single()
 
     const adminPlan = (adminProfile?.plan as PlanId) || 'starter'
+    const apiKey = adminProfile?.xai_api_key || process.env.XAI_API_KEY
     const planLimits = getPlanLimits(adminPlan)
 
     if (!planLimits.aiEnabled) {
@@ -258,6 +263,8 @@ Important rules:
     let usage: { totalTokens?: number } | undefined
     let usedModel = preferredModel
     let lastError: Error | null = null
+
+    const xai = getXai(apiKey)
 
     for (const modelId of modelsToTry) {
       try {
