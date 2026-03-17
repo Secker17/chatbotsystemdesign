@@ -5,7 +5,7 @@ import { NextRequest, NextResponse } from 'next/server'
 
 export const maxDuration = 30
 
-const xai = createXai({ apiKey: process.env.XAI_API_KEY })
+const xai = createXai({ apiKey: process.env.XAI_API_KEY! })
 
 const MODEL_MAP: Record<string, string> = {
   'grok-3-mini': 'grok-3-mini',
@@ -42,6 +42,10 @@ export async function POST(request: NextRequest) {
 
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    if (!process.env.XAI_API_KEY) {
+      return NextResponse.json({ error: 'XAI API key not configured.' }, { status: 500 })
     }
 
     const { message, system_prompt, knowledge_base, model, temperature, max_tokens } = await request.json()

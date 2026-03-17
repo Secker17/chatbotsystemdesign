@@ -66,6 +66,8 @@ export default function AIConfigPage() {
   const [testing, setTesting] = useState(false)
   const [planId, setPlanId] = useState<string>('starter')
   const [planLimits, setPlanLimits] = useState<PlanLimits | null>(null)
+  const [aiResponsesUsed, setAiResponsesUsed] = useState(0)
+  const [userId, setUserId] = useState<string | null>(null)
 
   useEffect(() => {
     loadConfig()
@@ -79,6 +81,7 @@ export default function AIConfigPage() {
         const data = await res.json()
         setPlanId(data.planId)
         setPlanLimits(data.limits)
+        setAiResponsesUsed(data.aiResponsesUsed ?? 0)
       }
     } catch {
       // Default to starter
@@ -90,31 +93,36 @@ export default function AIConfigPage() {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
 
-    const { data } = await supabase
+    setUserId(user.id)
+
+    const { data: configData } = await supabase
       .from('chatbot_configs')
       .select('id, ai_enabled, ai_system_prompt, ai_knowledge_base, ai_model, ai_temperature, ai_max_tokens, ai_auto_greet, ai_greeting_message, ai_handoff_keywords')
       .eq('admin_id', user.id)
-      .single()
+      .order('created_at', { ascending: true })
+      .limit(1)
+      .maybeSingle()
 
-    if (data) {
+    if (configData) {
       setConfig({
-        ...data,
-        ai_temperature: data.ai_temperature ?? 0.7,
-        ai_max_tokens: data.ai_max_tokens ?? 500,
-        ai_model: data.ai_model ?? 'grok-3-mini',
-        ai_handoff_keywords: data.ai_handoff_keywords ?? ['human', 'agent', 'person', 'real person', 'speak to someone', 'menneske', 'snakke med noen'],
-        ai_greeting_message: data.ai_greeting_message ?? 'Hi! I\'m an AI assistant. How can I help you today? If you\'d like to speak with a human, just let me know!',
-        ai_system_prompt: data.ai_system_prompt ?? 'You are a helpful customer support assistant. Be friendly, professional, and concise. Help visitors with their questions and guide them to the right resources.',
+        ...configData,
+        ai_temperature: configData.ai_temperature ?? 0.7,
+        ai_max_tokens: configData.ai_max_tokens ?? 500,
+        ai_model: configData.ai_model ?? 'grok-3-mini',
+        ai_handoff_keywords: configData.ai_handoff_keywords ?? ['human', 'agent', 'person', 'real person', 'speak to someone', 'menneske', 'snakke med noen'],
+        ai_greeting_message: configData.ai_greeting_message ?? 'Hi! I\'m an AI assistant. How can I help you today? If you\'d like to speak with a human, just let me know!',
+        ai_system_prompt: configData.ai_system_prompt ?? 'You are a helpful customer support assistant. Be friendly, professional, and concise. Help visitors with their questions and guide them to the right resources.',
       })
     }
     setLoading(false)
   }
 
   const handleSave = async () => {
-    if (!config) return
+    if (!config || !userId) return
     setSaving(true)
 
     const supabase = createClient()
+
     const { error } = await supabase
       .from('chatbot_configs')
       .update({
@@ -130,10 +138,11 @@ export default function AIConfigPage() {
         updated_at: new Date().toISOString(),
       })
       .eq('id', config.id)
+      .eq('admin_id', userId)
 
     if (error) {
       console.error('Save error:', error)
-      toast.error('Failed to save AI configuration')
+      toast.error(error.message || 'Failed to save AI configuration')
     } else {
       toast.success('AI configuration saved successfully')
     }
@@ -522,6 +531,21 @@ FAQ:
                   </div>
                 </CardContent>
               </Card>
+
+              {/* Usage (Pro plan) */}
+              {planLimits?.aiMessagesPerMonth >= 0 && planLimits.aiMessagesPerMonth > 0 && (
+                <Card>
+                  <CardHeader>
+                    <div className="flex items-center gap-2">
+                      <Zap className="h-5 w-5 text-muted-foreground" />
+                      <CardTitle>AI Usage</CardTitle>
+                    </div>
+                    <CardDescription>
+                      {aiResponsesUsed} / {planLimits.aiMessagesPerMonth} AI messages used this month
+                    </CardDescription>
+                  </CardHeader>
+                </Card>
+              )}
 
               {/* Security Info */}
               <Card>

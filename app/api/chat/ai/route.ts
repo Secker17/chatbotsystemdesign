@@ -12,8 +12,8 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'Content-Type',
 }
 
-// Create xAI provider instance using the XAI_API_KEY env var
-const xai = createXai({ apiKey: process.env.XAI_API_KEY })
+// Single xAI API key from env - shared by all paid plans
+const xai = createXai({ apiKey: process.env.XAI_API_KEY! })
 
 // Resolve user-facing model IDs to bare xAI model names
 const MODEL_MAP: Record<string, string> = {
@@ -106,10 +106,10 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Check if the admin's plan allows AI usage
+    // Check if the admin's plan allows AI usage and their monthly limit
     const { data: adminProfile } = await supabase
       .from('admin_profiles')
-      .select('plan')
+      .select('plan, ai_responses_used, ai_responses_reset_at')
       .eq('id', session.admin_id)
       .single()
 
@@ -119,7 +119,47 @@ export async function POST(request: NextRequest) {
     if (!planLimits.aiEnabled) {
       return NextResponse.json(
         {
-          reply: 'AI assistant is not available on your current plan. The admin needs to upgrade to Pro or Business to enable AI responses.',
+          reply: 'AI assistant is not available on the free plan. Upgrade to Pro or Business to enable AI responses.',
+          handoff: false,
+          bot_active: false,
+        },
+        { headers: corsHeaders }
+      )
+    }
+
+    if (!process.env.XAI_API_KEY) {
+      return NextResponse.json(
+        {
+          reply: 'AI service is not configured. Please contact support.',
+          handoff: false,
+          bot_active: false,
+        },
+        { status: 500, headers: corsHeaders }
+      )
+    }
+
+    // Check/reduce AI usage limits (monthly)
+    let aiUsed = adminProfile?.ai_responses_used ?? 0
+    const resetAt = adminProfile?.ai_responses_reset_at
+    const now = new Date()
+
+    if (resetAt) {
+      const resetDate = new Date(resetAt)
+      const monthsSinceReset = (now.getFullYear() - resetDate.getFullYear()) * 12 + (now.getMonth() - resetDate.getMonth())
+      if (monthsSinceReset >= 1) {
+        aiUsed = 0
+        await supabase
+          .from('admin_profiles')
+          .update({ ai_responses_used: 0, ai_responses_reset_at: now.toISOString() })
+          .eq('id', session.admin_id)
+      }
+    }
+
+    const aiLimit = planLimits.aiMessagesPerMonth
+    if (aiLimit >= 0 && aiUsed >= aiLimit) {
+      return NextResponse.json(
+        {
+          reply: 'Monthly AI message limit reached. Upgrade to Business for unlimited AI, or wait until next month.',
           handoff: false,
           bot_active: false,
         },
@@ -304,17 +344,27 @@ Important rules:
     }
 
     // Update session with proper bot_messages_count from the column
-    const now = new Date().toISOString()
+    const nowIso = new Date().toISOString()
     supabase
       .from('chat_sessions')
       .update({
-        updated_at: now,
-        last_message_at: now,
+        updated_at: nowIso,
+        last_message_at: nowIso,
         bot_messages_count: (session.bot_messages_count || 0) + 1,
       })
       .eq('id', session_id)
       .then(() => {})
       .catch(() => {})
+
+    // Increment AI usage for plan limits
+    if (planLimits.aiMessagesPerMonth >= 0) {
+      supabase
+        .from('admin_profiles')
+        .update({ ai_responses_used: aiUsed + 1 })
+        .eq('id', session.admin_id)
+        .then(() => {})
+        .catch(() => {})
+    }
 
     // Log analytics (non-blocking)
     supabase
