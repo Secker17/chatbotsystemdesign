@@ -344,12 +344,12 @@ Important rules:
     }
 
     // Update session with proper bot_messages_count from the column
-    const now = new Date().toISOString()
+    const nowIso = new Date().toISOString()
     supabase
       .from('chat_sessions')
       .update({
-        updated_at: now,
-        last_message_at: now,
+        updated_at: nowIso,
+        last_message_at: nowIso,
         bot_messages_count: (session.bot_messages_count || 0) + 1,
       })
       .eq('id', session_id)
