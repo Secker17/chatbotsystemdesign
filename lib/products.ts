@@ -5,6 +5,7 @@ export interface PlanLimits {
   maxConversationsPerMonth: number
   chatHistoryDays: number | null // null = unlimited
   aiEnabled: boolean
+  aiMessagesPerMonth: number // -1 = unlimited
   cannedResponses: boolean
   analyticsEnabled: boolean
   fullCustomization: boolean
@@ -28,7 +29,8 @@ export const PLAN_LIMITS: Record<PlanId, PlanLimits> = {
     maxChatbots: 1,
     maxConversationsPerMonth: 100,
     chatHistoryDays: 7,
-    aiEnabled: true,
+    aiEnabled: false,
+    aiMessagesPerMonth: 0,
     cannedResponses: true,
     analyticsEnabled: false,
     fullCustomization: false,
@@ -40,6 +42,7 @@ export const PLAN_LIMITS: Record<PlanId, PlanLimits> = {
     maxConversationsPerMonth: 2000,
     chatHistoryDays: null,
     aiEnabled: true,
+    aiMessagesPerMonth: 500,
     cannedResponses: true,
     analyticsEnabled: true,
     fullCustomization: true,
@@ -51,6 +54,7 @@ export const PLAN_LIMITS: Record<PlanId, PlanLimits> = {
     maxConversationsPerMonth: 10000,
     chatHistoryDays: null,
     aiEnabled: true,
+    aiMessagesPerMonth: -1, // unlimited
     cannedResponses: true,
     analyticsEnabled: true,
     fullCustomization: true,
@@ -70,7 +74,6 @@ export const PRODUCTS: Product[] = [
     features: [
       '1 Chatbot',
       '100 conversations/month',
-      'AI Assistant',
       'Canned responses',
       'Basic customization',
       'Email support',
@@ -88,6 +91,7 @@ export const PRODUCTS: Product[] = [
     features: [
       '5 Chatbots',
       '2,000 conversations/month',
+      '500 AI messages/month',
       'Full customization',
       'Priority support',
       'Unlimited chat history',
@@ -106,6 +110,7 @@ export const PRODUCTS: Product[] = [
     features: [
       'Unlimited Chatbots',
       '10,000 conversations/month',
+      'Unlimited AI messages',
       'Full customization',
       'Dedicated support',
       'Unlimited chat history',
